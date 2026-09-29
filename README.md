@@ -74,6 +74,10 @@ program\repo.ps1 -Zip       # pakuje wydanie
 
 Skrypty zakładają układ folderów z dysku roboczego (`WORK\` obok `pliki programu\`).
 
+## Co jeszcze zostało
+
+Lista zadań i znanych braków: [TODO.md](TODO.md).
+
 ## Wersje
 
 Licznik dziesiętny: po 1.0.9 jest 1.1.0. Wydanie ma znacznik `v<wersja>` i jeden plik zip dla Windows.
