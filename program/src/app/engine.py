@@ -147,12 +147,16 @@ def analyze(path):
         "film": True,
     }
     default = set(LENGTH_PRESETS[1])
-    sekcje = [{"id": i, "nazwa": n, "opis": o, "dostepna": avail[i], "domyslnie": avail[i] and i in default}
-              for i, n, o in SECTIONS]
+    powody = {}
+    if inv["copy"] and not prose:
+        powody["copy"] = "w pliku są same liczby z badania, trafią do „Wyniki badania”"
+    sekcje = [{"id": i, "nazwa": n, "opis": o, "dostepna": avail[i], "domyslnie": avail[i] and i in default,
+               "powod": powody.get(i, "")} for i, n, o in SECTIONS]
     n_img = len(mapa["packshoty"]) + min(n_el, 10 * max(1, len(skus)) + 8)
     est = 8 + 0.7 * n_img + (18 if powerpoint_available() else 0)
     return {"ok": True, "folder": folder, "produkt": inv["produkt"], "smaki": smaki, "karty": len(cards),
-            "copy_akapity": len(prose), "badania": inv["badania"], "packshoty_pliki": packshoty_pliki,
+            "copy_akapity": len(prose), "copy_pliki": [t["plik"] for t in inv.get("teksty", [])],
+            "copy_wszystkie": len(inv["copy"]), "copy_liczby": len(copy_stats), "badania": inv["badania"], "packshoty_pliki": packshoty_pliki,
             "grafiki": {"packshoty": len(mapa["packshoty"]), "elementy": n_el, "pominiete": len(mapa.get("pominiete", []))},
             "uwagi": uwagi, "sekcje": sekcje, "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1},
             "szacowany_czas_s": int(est), "powerpoint": powerpoint_available()}

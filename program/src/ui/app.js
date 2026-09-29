@@ -396,9 +396,17 @@
       : foundRow('none', h('span', { text: 'Brak kart wprowadzenia' })));
 
     var ak = r.copy_akapity | 0;
-    list.appendChild(ak
-      ? foundRow('ok', h('span', null, 'Copy: ', h('strong', { text: num(ak, 'akapit', 'akapity', 'akapitów') })))
-      : foundRow('none', h('span', { text: 'Brak copy' })));
+    var cp = r.copy_pliki || [], wsz = r.copy_wszystkie | 0, licz = r.copy_liczby | 0;
+    if (cp.length) {
+      var sub = ak
+        ? num(ak, 'akapit', 'akapity', 'akapitów') + ' tekstu' + (licz ? ', ' + num(licz, 'liczba', 'liczby', 'liczb') + ' z badania' : '')
+        : 'same liczby i notatki z badania (' + num(wsz, 'akapit', 'akapity', 'akapitów') + '), trafią na slajd z wynikami';
+      list.appendChild(foundRow('ok', h('span', null, 'Teksty: ', h('strong', { text: cp.join(', ') }),
+        h('span', { class: 'f-sub', text: sub }))));
+    } else {
+      list.appendChild(foundRow('none', h('span', null, 'Brak pliku z tekstem',
+        h('span', { class: 'f-sub', text: 'dodaj plik Word o nazwie zaczynającej się od „Copy”' }))));
+    }
 
     var bad = r.badania || [];
     if (bad.length) {
@@ -487,7 +495,7 @@
     o.row.classList.toggle('is-on', o.checked);
     o.row.classList.toggle('is-off', !o.avail);
     o.row.classList.toggle('is-locked', o.locked);
-    o.desc.textContent = o.avail ? o.opis : (o.id === 'film' ? 'wpisz link do filmu poniżej' : 'brak danych w folderze');
+    o.desc.textContent = o.avail ? o.opis : (o.id === 'film' ? 'wpisz link do filmu poniżej' : (o.powod || 'brak danych w folderze'));
   }
 
   function renderSecs(r) {
@@ -495,7 +503,7 @@
     ul.replaceChildren();
     state.secs = (r.sekcje || []).map(function (s) {
       var locked = !!LOCKED[s.id];
-      var o = { id: s.id, nazwa: s.nazwa, opis: s.opis || '', dostepna: !!s.dostepna, locked: locked, checked: !!s.domyslnie || locked };
+      var o = { id: s.id, nazwa: s.nazwa, opis: s.opis || '', dostepna: !!s.dostepna, powod: s.powod || '', locked: locked, checked: !!s.domyslnie || locked };
       var nameId = 'sec-n-' + s.id, descId = 'sec-d-' + s.id;
       o.input = h('input', { type: 'checkbox', role: 'switch', name: 'sekcja', value: s.id, 'aria-labelledby': nameId, 'aria-describedby': descId });
       o.desc = h('span', { class: 'sec-desc', id: descId });

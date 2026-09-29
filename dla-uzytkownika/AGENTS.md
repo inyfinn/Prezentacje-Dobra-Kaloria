@@ -26,7 +26,9 @@ Folder z materiałami jednego produktu, np. `…\24.09.2026 - KULKI z kreatyną`
 | Plik / podfolder | Co z niego bierze |
 |---|---|
 | `Karta wprowadzenia_*.xlsx` (jedna na smak) | nazwa, smaki, EAN, gramatura, % owoców, oświadczenia, wartości odżywcze |
-| `*.docx` (copy) | akapity tekstu i liczby z badania |
+| pliki Word / txt (`Copy...`, `Tekst...`) | akapity tekstu o produkcie |
+| pliki Word / txt (`Badanie...`, `Dane...`, `Analiza...`) | liczby i notatki z badań |
+| plik Word o innej nazwie | program ocenia po treści: większość akapitów z procentami = badanie, inaczej copy |
 | `Wizualizacje\` | packshoty (PNG) |
 | `Elementy\` | owoce, kulki, listki dorysowywane wokół paczki |
 | inne `*.xlsx` (np. OMNIBUS) | nazwa badania do stopki źródła |

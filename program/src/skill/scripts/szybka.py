@@ -129,16 +129,56 @@ def card_flavors(files):
     return out
 
 
-def read_copy(folder):
-    paras = []
-    for f in glob.glob(os.path.join(folder, "*.docx")):
+RE_BADANIE = re.compile(r"^(badani|dane|analiz|raport|wyniki|omnibus|research)", re.I)
+RE_COPY = re.compile(r"^(copy|tekst|opis|tresc|treść)", re.I)
+
+
+def _doc_paras(f):
+    """Akapity z pliku tekstowego: docx, txt albo md."""
+    if f.lower().endswith(".docx"):
         import zipfile
         x = zipfile.ZipFile(f).read("word/document.xml").decode("utf8")
-        for p in re.findall(r"<w:p[ >].*?</w:p>", x, re.S):
-            t = "".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p)).strip()
-            if t:
-                paras.append(t)
-    return paras
+        out = ["".join(re.findall(r"<w:t[^>]*>([^<]*)</w:t>", p)).strip()
+               for p in re.findall(r"<w:p[ >].*?</w:p>", x, re.S)]
+    else:
+        raw = open(f, "rb").read()
+        try:
+            txt = raw.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            txt = raw.decode("cp1250", "replace")
+        out = [ln.strip().lstrip("#").strip() for ln in txt.splitlines()]
+    return [t for t in out if t]
+
+
+def text_files(folder):
+    """Pliki z tekstem w folderze produktu: [{plik, rodzaj: copy|badanie, skad: nazwa|tresc, akapity}].
+    Rodzaj najpierw z nazwy (Copy..., Tekst..., Badanie..., Dane..., Analiza...), a gdy nazwa nic nie mówi,
+    z treści: plik, w którym większość akapitów to liczby i procenty, jest materiałem z badania."""
+    out = []
+    for f in sorted(glob.glob(os.path.join(folder, "*"))):
+        base = os.path.basename(f)
+        if base.startswith("~$") or not base.lower().endswith((".docx", ".txt", ".md")):
+            continue
+        if base.upper() in ("AGENTS.MD", "CLAUDE.MD", "GEMINI.MD", "README.MD") or base.lower().startswith("czytaj"):
+            continue
+        try:
+            paras = _doc_paras(f)
+        except Exception:
+            continue
+        if RE_BADANIE.search(base):
+            kind, how = "badanie", "nazwa"
+        elif RE_COPY.search(base):
+            kind, how = "copy", "nazwa"
+        else:
+            num = sum(1 for p in paras if re.search(r"\d{1,3}\s*%|N\s*=\s*\d", p))
+            kind, how = ("badanie" if paras and num * 2 >= len(paras) else "copy"), "tresc"
+        out.append({"plik": base, "rodzaj": kind, "skad": how, "akapity": paras})
+    return out
+
+
+def read_copy(folder):
+    """Wszystkie akapity z plików tekstowych (copy i notatki z badań) - liczby z badań rozdziela split_copy."""
+    return [p for t in text_files(folder) for p in t["akapity"]]
 
 
 def match_flavor(name, flavors):
@@ -198,6 +238,7 @@ def inventory(folder, rob):
         else:
             mapa["pominiete"].append("%s (nie pasuje do żadnego smaku)" % base)
     inv = {"folder": folder, "produkt": product[:1].upper() + product[1:], "smaki": skus, "copy": read_copy(folder),
+           "teksty": [{k: v for k, v in t.items() if k != "akapity"} for t in text_files(folder)],
            "badania": [os.path.basename(f) for f in glob.glob(os.path.join(folder, "*.xls*"))
                        if not os.path.basename(f).lower().startswith("karta")]}
     json.dump(inv, open(os.path.join(rob, "inwentarz.json"), "w", encoding="utf8"), ensure_ascii=False, indent=1)

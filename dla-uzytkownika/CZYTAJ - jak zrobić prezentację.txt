@@ -1,5 +1,13 @@
 JAK ZROBIĆ PREZENTACJĘ PRODUKTU (Dobra Kaloria)
 
+JAK NAZYWAĆ PLIKI W FOLDERZE PRODUKTU
+  Karta wprowadzenia ...xlsx     karta produktu, jedna na smak
+  Copy ... albo Tekst ...docx    teksty o produkcie (opisy, hasła)
+  Badanie ..., Dane ..., Analiza ...   wyniki badań, liczby, analizy (Excel albo Word)
+  folder Wizualizacje            zdjęcia opakowań, w nazwie pliku smak (np. arbuz.png)
+  folder Elementy                owoce i zdjęcia produktu
+Plik o innej nazwie też zostanie odczytany: program oceni po treści, czy to tekst, czy badanie.
+
 1. Uruchom "Stwórz prezentację.exe" (nic nie instaluje).
 2. Przeciągnij do okna folder z produktem (karty wprowadzenia, copy, Wizualizacje, Elementy).
 3. Wybierz styl, długość i ilość tekstu, kliknij "Stwórz prezentację".
