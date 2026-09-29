@@ -26,7 +26,8 @@ HOSTS = ("https://github.com/", "https://api.github.com/", "https://objects.gith
 UPD_DIR = os.path.join(paths.USER_DIR, "aktualizacja")
 LAUNCHER = "Stwórz prezentację.exe"
 CREATE_NO_WINDOW = 0x08000000
-DETACHED = 0x00000008 | 0x00000200 | CREATE_NO_WINDOW
+# bez DETACHED_PROCESS: PowerShell bez konsoli kończył się od razu (test 29.09, brak wpisu w logu)
+DETACHED = 0x00000200 | CREATE_NO_WINDOW
 
 
 def vtuple(v):
@@ -172,5 +173,6 @@ def apply(src):
     subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ps,
                       "-Src", src, "-Root", paths.ROOT, "-ProcId", str(os.getpid()),
                       "-Log", os.path.join(paths.LOG_DIR, "aktualizacja.log")],
-                     creationflags=DETACHED, close_fds=True, cwd=UPD_DIR)
+                     creationflags=DETACHED, close_fds=True, cwd=UPD_DIR,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return True
