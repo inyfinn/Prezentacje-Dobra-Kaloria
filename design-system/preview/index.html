@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Dobra Kaloria - biblioteka komponentów</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../tokens/tokens.css">
+<link rel="stylesheet" href="preview.css">
+</head>
+<body>
+
+<!-- Ikony: Lucide-style, kreska z tokenu --dk-control-stroke-icon, kolor przez currentColor.
+     Miniatury zastępcze (ph-*) rysowane wyłącznie zmiennymi --dk-* (inline style w <symbol>). -->
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-sheet" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-present" viewBox="0 0 24 24"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+    <symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+
+    <!-- miniatury slajdów 16:9 -->
+    <symbol id="ph-slide-a" viewBox="0 0 160 90">
+      <rect width="160" height="90" style="fill:var(--dk-color-surface)"/>
+      <rect width="60" height="90" style="fill:var(--dk-color-brand)"/>
+      <circle cx="30" cy="45" r="17" style="fill:var(--dk-color-brand-soft)"/>
+      <rect x="76" y="28" width="68" height="9" rx="2" style="fill:var(--dk-color-text)"/>
+      <rect x="76" y="44" width="52" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="76" y="56" width="34" height="5" rx="2" style="fill:var(--dk-color-label)"/>
+    </symbol>
+    <symbol id="ph-slide-b" viewBox="0 0 160 90">
+      <rect width="160" height="90" style="fill:var(--dk-color-bg)"/>
+      <rect x="14" y="18" width="62" height="9" rx="2" style="fill:var(--dk-color-text)"/>
+      <rect x="14" y="36" width="70" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="14" y="47" width="56" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="14" y="62" width="38" height="12" rx="2" style="fill:var(--dk-color-cta)"/>
+      <circle cx="120" cy="46" r="30" style="fill:var(--dk-color-brand-soft)"/>
+      <rect x="106" y="24" width="28" height="44" rx="5" style="fill:var(--dk-color-brand)"/>
+      <rect x="111" y="40" width="18" height="14" rx="2" style="fill:var(--dk-color-surface)"/>
+    </symbol>
+    <symbol id="ph-slide-c" viewBox="0 0 160 90">
+      <rect width="160" height="90" style="fill:var(--dk-color-surface)"/>
+      <rect x="12" y="12" width="60" height="8" rx="2" style="fill:var(--dk-color-text)"/>
+      <rect x="12" y="34" width="42" height="44" rx="5" style="fill:var(--dk-color-bg)"/>
+      <rect x="59" y="34" width="42" height="44" rx="5" style="fill:var(--dk-color-bg)"/>
+      <rect x="106" y="34" width="42" height="44" rx="5" style="fill:var(--dk-color-bg)"/>
+      <rect x="12" y="34" width="42" height="9" rx="5" style="fill:var(--dk-color-brand)"/>
+      <rect x="59" y="34" width="42" height="9" rx="5" style="fill:var(--dk-color-brand)"/>
+      <rect x="106" y="34" width="42" height="9" rx="5" style="fill:var(--dk-color-brand)"/>
+      <rect x="18" y="54" width="28" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="65" y="54" width="28" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="112" y="54" width="28" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+    </symbol>
+    <symbol id="ph-slide-d" viewBox="0 0 160 90">
+      <rect width="160" height="90" style="fill:var(--dk-color-brand)"/>
+      <rect x="40" y="24" width="80" height="10" rx="2" style="fill:var(--dk-color-on-brand)"/>
+      <rect x="54" y="42" width="52" height="5" rx="2" style="fill:var(--dk-color-brand-soft-strong)"/>
+      <rect x="58" y="58" width="44" height="12" rx="2" style="fill:var(--dk-color-cta)"/>
+    </symbol>
+    <!-- podglądy stylu -->
+    <symbol id="ph-style-new" viewBox="0 0 160 90">
+      <rect width="160" height="90" style="fill:var(--dk-color-surface)"/>
+      <rect x="12" y="14" width="56" height="10" rx="2" style="fill:var(--dk-color-brand)"/>
+      <rect x="12" y="32" width="72" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="12" y="43" width="60" height="5" rx="2" style="fill:var(--dk-color-text-muted)"/>
+      <rect x="12" y="62" width="40" height="14" rx="2" style="fill:var(--dk-color-cta)"/>
+      <rect x="96" y="14" width="52" height="62" rx="8" style="fill:var(--dk-color-bg)"/>
+      <rect x="106" y="30" width="32" height="32" rx="6" style="fill:var(--dk-color-brand-soft)"/>
+    </symbol>
+    <symbol id="ph-style-old" viewBox="0 0 160 90">
+      <rect width="160" height="90" style="fill:var(--dk-color-bg)"/>
+      <rect width="160" height="16" style="fill:var(--dk-color-text)"/>
+      <rect x="12" y="30" width="60" height="7" style="fill:var(--dk-color-text)"/>
+      <rect x="12" y="44" width="76" height="4" style="fill:var(--dk-color-border-strong)"/>
+      <rect x="12" y="53" width="68" height="4" style="fill:var(--dk-color-border-strong)"/>
+      <rect x="12" y="62" width="72" height="4" style="fill:var(--dk-color-border-strong)"/>
+      <rect x="100" y="30" width="48" height="44" style="fill:var(--dk-color-border)"/>
+    </symbol>
+    <!-- opakowania (packshot) -->
+    <symbol id="ph-pack" viewBox="0 0 48 64">
+      <path d="M8 6h32l3 6v46a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V12z" style="fill:var(--dk-color-brand)"/>
+      <rect x="5" y="4" width="38" height="6" rx="1" style="fill:var(--dk-color-brand-hover)"/>
+      <rect x="11" y="24" width="26" height="24" rx="3" style="fill:var(--dk-color-surface)"/>
+      <rect x="15" y="30" width="18" height="4" rx="1" style="fill:var(--dk-color-text)"/>
+      <rect x="15" y="38" width="12" height="3" rx="1" style="fill:var(--dk-color-label)"/>
+    </symbol>
+    <symbol id="ph-pack-2" viewBox="0 0 48 64">
+      <path d="M8 6h32l3 6v46a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3V12z" style="fill:var(--dk-color-cta)"/>
+      <rect x="5" y="4" width="38" height="6" rx="1" style="fill:var(--dk-color-cta-hover)"/>
+      <rect x="11" y="24" width="26" height="24" rx="3" style="fill:var(--dk-color-surface)"/>
+      <rect x="15" y="30" width="18" height="4" rx="1" style="fill:var(--dk-color-text)"/>
+      <rect x="15" y="38" width="12" height="3" rx="1" style="fill:var(--dk-color-label)"/>
+    </symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Przejdź do treści</a>
+
+<header class="g-header">
+  <div class="g-header-in">
+    <img class="g-logo" src="../assets/logo_green_box.png" alt="Dobra Kaloria" width="112" height="83">
+    <div>
+      <h1 class="display">Biblioteka komponentów</h1>
+      <p>Żywa galeria systemu projektowego Dobra Kaloria. Wszystkie style pochodzą ze zmiennych <code>--dk-*</code>
+        (<span id="tok-count">...</span>) z pliku <code>tokens/tokens.css</code>.</p>
+    </div>
+  </div>
+</header>
+
+<div class="g-shell">
+  <nav class="g-nav" aria-label="Spis treści galerii">
+    <h2>Fundamenty</h2>
+    <a href="#kolory">Kolory</a>
+    <a href="#typografia">Typografia</a>
+    <a href="#odstepy">Odstępy</a>
+    <a href="#promienie">Promienie</a>
+    <a href="#cienie">Cienie</a>
+    <h2>Komponenty</h2>
+    <a href="#c-przyciski">Przyciski</a>
+    <a href="#c-etykieta">Etykieta i nagłówek</a>
+    <a href="#c-kroki">Kroki</a>
+    <a href="#c-strefa">Strefa upuszczania</a>
+    <a href="#c-znalazlem">Karta „znalazłem”</a>
+    <a href="#c-smak">Kafelek smaku</a>
+    <a href="#c-uwagi">Uwagi</a>
+    <a href="#c-styl">Karta stylu</a>
+    <a href="#c-suwak">Suwak 3-stopniowy</a>
+    <a href="#c-przelacznik">Przełącznik</a>
+    <a href="#c-sekcja">Wiersz sekcji</a>
+    <a href="#c-pola">Pole tekstowe</a>
+    <a href="#c-pasek">Pasek akcji</a>
+    <a href="#c-liczba">Liczba-bohater</a>
+    <a href="#c-lista">Lista kontrolna</a>
+    <a href="#c-znaczek">Znaczek kontroli</a>
+    <a href="#c-todo">Do dopracowania</a>
+    <a href="#c-toast">Toast</a>
+    <a href="#c-miniatury">Pasek miniatur</a>
+    <a href="#ikony">Ikony</a>
+  </nav>
+
+  <main class="g-main" id="main">
+
+    <!-- ==================== FUNDAMENTY ==================== -->
+    <section class="g-section" id="kolory" data-nav aria-labelledby="h-kolory">
+      <h2 class="display" id="h-kolory">Kolory</h2>
+      <p class="g-lead">W komponentach używaj wyłącznie ról <code>--dk-color-*</code>, nigdy prymitywów. Wartość HEX i kontrast są liczone w przeglądarce
+        z żywych zmiennych. Wymagane minimum: 4,5:1 dla tekstu, 3:1 dla elementów interfejsu i dużego tekstu.</p>
+      <div class="g-body" id="swatch-groups"></div>
+      <h3 class="g-sub">Prymitywy (tylko podgląd, nie używać w komponentach)</h3>
+      <div class="g-prims" id="prims"></div>
+    </section>
+
+    <section class="g-section" id="typografia" data-nav aria-labelledby="h-typo">
+      <h2 class="display" id="h-typo">Typografia</h2>
+      <p class="g-lead">Mindset (<code>--dk-font-display</code>) tylko w nagłówkach i liczbach, zawsze wielkimi literami - font nie ma małych liter. Lato (<code>--dk-font-text</code>) do całej reszty.</p>
+
+      <h3 class="g-sub">Rodziny czcionek</h3>
+      <div class="g-stage">
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>Mindset</b><span data-tok="--dk-font-display"></span></p>
+          <p class="display" style="font-size: var(--dk-fs-display-lg)">Dobra Kaloria</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>Lato 400 / 700</b><span data-tok="--dk-font-text"></span></p>
+          <p style="font-size: var(--dk-fs-xl)">Pełnowartościowe białko, <strong>bez dodatku cukru</strong>.</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>Mono</b><span data-tok="--dk-font-mono"></span></p>
+          <p style="font-family: var(--dk-font-mono); font-size: var(--dk-fs-base)">--dk-color-brand: #0F763E;</p>
+        </div>
+      </div>
+
+      <h3 class="g-sub">Rozmiary nagłówków (Mindset, wielkie litery)</h3>
+      <div class="g-stage">
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>display-sm</b><span data-tok="--dk-fs-display-sm"></span> / lh <span data-tok="--dk-lh-display"></span></p>
+          <p class="display" style="font-size: var(--dk-fs-display-sm)">Czytam folder…</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>display-md</b><span data-tok="--dk-fs-display-md"></span> / lh <span data-tok="--dk-lh-display"></span></p>
+          <p class="display" style="font-size: var(--dk-fs-display-md)">Upuść tu folder z produktem</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>display-lg</b><span data-tok="--dk-fs-display-lg"></span> / lh <span data-tok="--dk-lh-display"></span></p>
+          <p class="display" style="font-size: var(--dk-fs-display-lg)">Gotowe!</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>display-hero</b><span data-tok="--dk-fs-display-hero"></span> / lh <span data-tok="--dk-lh-display"></span></p>
+          <p class="display" style="font-size: var(--dk-fs-display-hero); color: var(--dk-color-brand)">68%</p>
+        </div>
+      </div>
+
+      <h3 class="g-sub">Rozmiary tekstu (Lato)</h3>
+      <div class="g-stage">
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>fs-sm</b><span data-tok="--dk-fs-sm"></span></p>
+          <p style="font-size: var(--dk-fs-sm)">Opisy pomocnicze, podpisy pól, podpowiedzi. Najmniejszy dozwolony rozmiar.</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>fs-base</b><span data-tok="--dk-fs-base"></span></p>
+          <p style="font-size: var(--dk-fs-base)">Tekst podstawowy: listy, pola formularzy, nazwy pozycji.</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>fs-md</b><span data-tok="--dk-fs-md"></span></p>
+          <p style="font-size: var(--dk-fs-md)">Przyciski, wiersze listy kontrolnej, znaczki kontroli.</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>fs-lg</b><span data-tok="--dk-fs-lg"></span></p>
+          <p style="font-size: var(--dk-fs-lg)">Duży przycisk główny, podtytuł strefy upuszczania.</p>
+        </div>
+        <div class="g-type-row">
+          <p class="g-type-meta"><b>fs-xl</b><span data-tok="--dk-fs-xl"></span></p>
+          <p style="font-size: var(--dk-fs-xl); font-weight: 700">Bieżący etap pracy, wartość suwaka.</p>
+        </div>
+      </div>
+
+      <h3 class="g-sub">Interlinie</h3>
+      <div class="g-stage">
+        <div class="g-states g-states--4">
+          <figure class="g-state">
+            <p class="g-lh" style="line-height: var(--dk-lh-display); font-family: var(--dk-font-display); text-transform: uppercase; font-size: var(--dk-fs-lg)">Baton białkowy kokos i migdały</p>
+            <figcaption><b>lh-display</b> <span data-tok="--dk-lh-display"></span> - nagłówki Mindset</figcaption>
+          </figure>
+          <figure class="g-state">
+            <p class="g-lh" style="line-height: var(--dk-lh-tight)">Krótkie etykiety i przyciski, które nie łamią się do trzeciego wiersza.</p>
+            <figcaption><b>lh-tight</b> <span data-tok="--dk-lh-tight"></span> - etykiety, przyciski</figcaption>
+          </figure>
+          <figure class="g-state">
+            <p class="g-lh" style="line-height: var(--dk-lh-snug)">Opisy pod nazwą pozycji i krótkie akapity w kartach, gdzie liczy się zwartość.</p>
+            <figcaption><b>lh-snug</b> <span data-tok="--dk-lh-snug"></span> - opisy w kartach</figcaption>
+          </figure>
+          <figure class="g-state">
+            <p class="g-lh" style="line-height: var(--dk-lh-base)">Tekst ciągły i elementy list. Domyślna interlinia dokumentu, wygodna do czytania.</p>
+            <figcaption><b>lh-base</b> <span data-tok="--dk-lh-base"></span> - tekst ciągły</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="g-section" id="odstepy" data-nav aria-labelledby="h-odstepy">
+      <h2 class="display" id="h-odstepy">Odstępy</h2>
+      <p class="g-lead">Siatka 4 px. Karty mają wewnętrzny margines <code>--dk-layout-card-pad</code> (32 px) lub <code>-lg</code> (40 px), wiersze list
+        oddzielone co najmniej <code>--dk-space-5</code> (20 px), bloki i sekcje <code>--dk-layout-section-gap</code> (40 px), podpis od treści co najmniej <code>--dk-space-3</code> (12 px).</p>
+      <div class="g-body">
+        <div class="g-stage" id="space-list" aria-label="Skala odstępów"></div>
+        <p class="g-cap">Słupki w skali 4:1 (słupek 320 px = 80 px w rzeczywistości).</p>
+      </div>
+      <h3 class="g-sub">Układ, kontrolki, ruch i czcionki (pozostałe zmienne)</h3>
+      <div class="g-stage"><table class="g-table" id="other-tokens"><thead><tr><th scope="col">Zmienna</th><th scope="col">Wartość</th></tr></thead><tbody></tbody></table></div>
+    </section>
+
+    <section class="g-section" id="promienie" data-nav aria-labelledby="h-promienie">
+      <h2 class="display" id="h-promienie">Promienie</h2>
+      <p class="g-lead">Przyciski mają ostre 4 px, karty 12 px, duże strefy 16 px, okrągłe elementy <code>--dk-radius-pill</code>.</p>
+      <div class="g-body"><div class="g-radii" id="radius-list"></div></div>
+    </section>
+
+    <section class="g-section" id="cienie" data-nav aria-labelledby="h-cienie">
+      <h2 class="display" id="h-cienie">Cienie</h2>
+      <p class="g-lead">Karty nie mają cieni (obramowanie 1 px). Cień pojawia się tylko na elementach unoszonych: uchwyt suwaka, toast, przyklejony pasek. Wszystkie cienie są podbarwione brązem.</p>
+      <div class="g-body"><div class="g-shadows" id="shadow-list"></div></div>
+    </section>
+
+    <!-- ==================== KOMPONENTY ==================== -->
+    <div class="g-part" aria-labelledby="h-komp"><h2 class="display" id="h-komp">Komponenty</h2>
+      <p class="g-lead">Każdy komponent w każdym stanie. Stany „wymuszone” (hover, focus-visible, aktywny) pokazują klasy <code>.is-hover</code>, <code>.is-focus</code>, <code>.is-active</code> - służą tylko do dokumentacji.</p></div>
+
+    <!-- Przyciski -->
+    <section class="g-comp" id="c-przyciski" data-nav aria-labelledby="h-przyciski">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 01</p>
+        <h3 class="display" id="h-przyciski">Przyciski</h3>
+        <p class="g-lead">Jeden główny przycisk (żółty, brązowy tekst, róg 4 px) na ekran. Obok niego drugorzędny (zielona ramka) i link.</p>
+        <p class="g-classes"><code>.btn</code> <code>.btn-primary</code> <code>.btn-secondary</code> <code>.link-btn</code></p>
+      </header>
+      <div class="g-scroll" role="region" aria-label="Tabela stanów przycisków" tabindex="0">
+      <table class="g-matrix">
+        <caption class="sr-only">Przyciski w pięciu stanach</caption>
+        <thead><tr><th scope="col">Stan</th><th scope="col">Główny (CTA)</th><th scope="col">Drugorzędny</th><th scope="col">Link</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Domyślny</th>
+            <td><button type="button" class="btn btn-primary"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz</button></td>
+            <td><button type="button" class="btn btn-secondary"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz</button></td>
+            <td><button type="button" class="link-btn"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną</button></td></tr>
+          <tr><th scope="row">Hover</th>
+            <td><button type="button" class="btn btn-primary is-hover"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz</button></td>
+            <td><button type="button" class="btn btn-secondary is-hover"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz</button></td>
+            <td><button type="button" class="link-btn is-hover"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną</button></td></tr>
+          <tr><th scope="row">Focus-visible</th>
+            <td><button type="button" class="btn btn-primary is-focus"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz</button></td>
+            <td><button type="button" class="btn btn-secondary is-focus"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz</button></td>
+            <td><button type="button" class="link-btn is-focus"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną</button></td></tr>
+          <tr><th scope="row">Aktywny</th>
+            <td><button type="button" class="btn btn-primary is-active"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz</button></td>
+            <td><button type="button" class="btn btn-secondary is-active"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz</button></td>
+            <td><button type="button" class="link-btn is-active"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną</button></td></tr>
+          <tr><th scope="row">Wyłączony</th>
+            <td><button type="button" class="btn btn-primary" disabled><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz</button></td>
+            <td><button type="button" class="btn btn-secondary" disabled><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz</button></td>
+            <td><button type="button" class="link-btn" disabled><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną</button></td></tr>
+        </tbody>
+      </table>
+      </div>
+      <div class="g-stage g-stage--surface">
+        <div class="g-inline" style="flex-wrap: wrap">
+          <button type="button" class="btn btn-primary"><svg class="ic" aria-hidden="true"><use href="#i-present"/></svg>Otwórz prezentację</button>
+          <button type="button" class="btn btn-secondary"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Pokaż folder</button>
+          <button type="button" class="link-btn"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Kopiuj polecenie dla AI</button>
+        </div>
+        <p class="g-cap">Zestaw w kontekście: wysokości 56 / 48 / 44 px (<code>--dk-control-h-lg</code>, <code>--dk-control-h</code>, <code>--dk-control-h-min</code>).</p>
+      </div>
+    </section>
+
+    <!-- Etykieta + nagłówek -->
+    <section class="g-comp" id="c-etykieta" data-nav aria-labelledby="h-etykieta">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 02</p>
+        <h3 class="display" id="h-etykieta">Etykieta nad tytułem i nagłówek</h3>
+        <p class="g-lead">Mała etykieta w kolorze <code>--dk-color-label</code> (tylko pogrubiona, wielkie litery) i nagłówek Mindset wielkimi literami.</p>
+        <p class="g-classes"><code>.eyebrow</code> <code>.eyebrow-opt</code> <code>.display</code> <code>.h-md</code> <code>.h-product</code> <code>.h-done</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state"><div class="g-stage"><p class="eyebrow">Znalazłem w folderze</p><p class="display h-product">Baton białkowy kokos</p></div>
+          <figcaption><b>Etykieta + tytuł produktu</b> - <code>.eyebrow</code> + <code>.display.h-product</code></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><p class="eyebrow">Link do filmu <span class="eyebrow-opt">- opcjonalnie</span></p><p class="display h-md">Czytam folder…</p></div>
+          <figcaption><b>Etykieta z dopiskiem + nagłówek strony</b> - <code>.eyebrow-opt</code>, <code>.h-md</code></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><p class="display h-done">Gotowe!</p></div>
+          <figcaption><b>Nagłówek sukcesu</b> - <code>.h-done</code>, kolor <code>--dk-color-brand</code></figcaption></figure>
+        <figure class="g-state"><div class="g-stage g-stage--surface"><p class="eyebrow">Sekcje prezentacji</p><p class="muted">Etykieta wiąże grupę pól; nie zastępuje etykiety <code>&lt;label&gt;</code> pojedynczego pola.</p></div>
+          <figcaption><b>Etykieta grupy</b> - odstęp do treści min. <code>--dk-space-3</code></figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Kroki -->
+    <section class="g-comp" id="c-kroki" data-nav aria-labelledby="h-kroki">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 03</p>
+        <h3 class="display" id="h-kroki">Kroki (stepper)</h3>
+        <p class="g-lead">Czterokrokowy pasek postępu w nagłówku: zrobiony (zielony obrys, znacznik), bieżący (zielone wypełnienie), oczekujący (szary).</p>
+        <p class="g-classes"><code>.steps</code> <code>li.done</code> <code>li[aria-current="step"]</code> <code>.n</code> <code>.lbl</code> <code>.is-compact</code></p>
+      </header>
+      <div class="g-states">
+        <figure class="g-state" style="grid-column: 1 / -1"><div class="g-stage">
+          <ol class="steps" aria-label="Postęp: krok 1 z 4">
+            <li aria-current="step"><span class="n" aria-hidden="true">1</span><span class="lbl">Folder</span></li>
+            <li><span class="n" aria-hidden="true">2</span><span class="lbl">Ustawienia</span></li>
+            <li><span class="n" aria-hidden="true">3</span><span class="lbl">Tworzenie</span></li>
+            <li><span class="n" aria-hidden="true">4</span><span class="lbl">Gotowe</span></li>
+          </ol></div><figcaption><b>Krok 1</b> - bieżący pierwszy, reszta oczekuje</figcaption></figure>
+        <figure class="g-state" style="grid-column: 1 / -1"><div class="g-stage">
+          <ol class="steps" aria-label="Postęp: krok 3 z 4">
+            <li class="done"><span class="n" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span class="lbl">Folder</span></li>
+            <li class="done"><span class="n" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span class="lbl">Ustawienia</span></li>
+            <li aria-current="step"><span class="n" aria-hidden="true">3</span><span class="lbl">Tworzenie</span></li>
+            <li><span class="n" aria-hidden="true">4</span><span class="lbl">Gotowe</span></li>
+          </ol></div><figcaption><b>Krok 3</b> - dwa zrobione, bieżący, oczekujący</figcaption></figure>
+        <figure class="g-state" style="grid-column: 1 / -1"><div class="g-stage">
+          <ol class="steps" aria-label="Postęp: krok 4 z 4">
+            <li class="done"><span class="n" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span class="lbl">Folder</span></li>
+            <li class="done"><span class="n" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span class="lbl">Ustawienia</span></li>
+            <li class="done"><span class="n" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span class="lbl">Tworzenie</span></li>
+            <li aria-current="step"><span class="n" aria-hidden="true">4</span><span class="lbl">Gotowe</span></li>
+          </ol></div><figcaption><b>Krok 4</b> - koniec procesu</figcaption></figure>
+        <figure class="g-state" style="grid-column: 1 / -1"><div class="g-stage">
+          <ol class="steps is-compact" aria-label="Postęp: krok 2 z 4 (wersja zwarta)">
+            <li class="done"><span class="n" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span class="lbl">Folder</span></li>
+            <li aria-current="step"><span class="n" aria-hidden="true">2</span><span class="lbl">Ustawienia</span></li>
+            <li><span class="n" aria-hidden="true">3</span><span class="lbl">Tworzenie</span></li>
+            <li><span class="n" aria-hidden="true">4</span><span class="lbl">Gotowe</span></li>
+          </ol></div><figcaption><b>Wersja zwarta</b> (<code>.is-compact</code>, wąskie okno) - podpis tylko przy kroku bieżącym</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Strefa upuszczania -->
+    <section class="g-comp" id="c-strefa" data-nav aria-labelledby="h-strefa">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 04</p>
+        <h3 class="display" id="h-strefa">Strefa upuszczania</h3>
+        <p class="g-lead">Duży cel dla folderu lub plików. Zawsze z przyciskiem alternatywnym dla klawiatury. Przeciągnij plik nad lewą strefę, żeby zobaczyć stan „nad strefą”.</p>
+        <p class="g-classes"><code>.drop</code> <code>.drop-ic</code> <code>.drop-title</code> <code>.drop-sub</code> <code>.is-over</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state">
+          <div class="drop" id="demo-drop">
+            <span class="drop-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span>
+            <p class="drop-title">Upuść tu folder z produktem</p>
+            <p class="drop-sub"><span class="when-idle">…albo dowolny plik z tego folderu</span><span class="when-over">Puść teraz - wczytam ten folder</span></p>
+            <button type="button" class="btn btn-secondary"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz folder</button>
+          </div>
+          <figcaption><b>Bezczynna</b> - przerywana ramka, tło <code>--dk-color-surface</code></figcaption>
+        </figure>
+        <figure class="g-state">
+          <div class="drop is-over">
+            <span class="drop-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span>
+            <p class="drop-title">Upuść tu folder z produktem</p>
+            <p class="drop-sub"><span class="when-idle">…albo dowolny plik z tego folderu</span><span class="when-over">Puść teraz - wczytam ten folder</span></p>
+            <button type="button" class="btn btn-secondary"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz folder</button>
+          </div>
+          <figcaption><b>Nad strefą</b> (<code>.is-over</code>) - ciągła zielona ramka, zielona ikona</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Karta znalazłem -->
+    <section class="g-comp" id="c-znalazlem" data-nav aria-labelledby="h-znalazlem">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 05</p>
+        <h3 class="display" id="h-znalazlem">Karta „znalazłem” i lista</h3>
+        <p class="g-lead">Podsumowanie tego, co program znalazł w folderze: wiersze z ikoną stanu, opcjonalnie z drugą linią i podpowiedzią.</p>
+        <p class="g-classes"><code>.found</code> <code>.found-list</code> <code>.f-ic</code> <code>.f-txt</code> <code>.f-sub</code> <code>.f-hint</code> <code>.f-none</code> <code>.f-warn</code></p>
+      </header>
+      <div class="g-split">
+        <div class="found">
+          <p class="eyebrow">Znalazłem w folderze</p>
+          <p class="display h-product">Baton białkowy kokos</p>
+          <ul class="found-list">
+            <li><span class="f-ic" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+              <div class="f-txt"><strong>Karty wprowadzenia</strong><span class="f-sub">3 pliki xlsx</span></div></li>
+            <li><span class="f-ic" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+              <div class="f-txt"><strong>Copy</strong><span class="f-sub">kokos_copy_v3.docx</span></div></li>
+            <li class="f-warn"><span class="f-ic" aria-hidden="true"><svg class="ic"><use href="#i-alert"/></svg></span>
+              <div class="f-txt"><strong>Wizualizacje</strong><span class="f-sub">brakuje jednej z trzech</span>
+                <div class="f-hint"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span class="f-sub">Dodaj plik do folderu, a wczytam go od razu.</span></div></div></li>
+            <li class="f-none"><span class="f-ic" aria-hidden="true"><svg class="ic"><use href="#i-minus"/></svg></span>
+              <div class="f-txt">Badania<span class="f-sub">nie znaleziono</span></div></li>
+          </ul>
+        </div>
+        <dl class="g-legend">
+          <div><dt>Znaleziono</dt><dd>Zielony znacznik na jasnozielonym kole (<code>--dk-color-brand-soft</code>).</dd></div>
+          <div><dt>Ostrzeżenie (propozycja)</dt><dd><code>.f-warn</code> - bursztynowe koło. W aplikacji ikona ostrzeżenia dostaje zielone koło, co myli.</dd></div>
+          <div><dt>Brak</dt><dd><code>.f-none</code> - szare koło ze znakiem minus, tekst przygaszony.</dd></div>
+          <div><dt>Wskazówka</dt><dd><code>.f-hint</code> - ikona informacji i zdanie pod wierszem.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Kafelek smaku -->
+    <section class="g-comp" id="c-smak" data-nav aria-labelledby="h-smak">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 06</p>
+        <h3 class="display" id="h-smak">Kafelek smaku z miniaturą</h3>
+        <p class="g-lead">Nazwa smaku, gramatura i miniatura opakowania. Gdy jest kilka zdjęć, miniatura jest przyciskiem zamieniającym plik.</p>
+        <p class="g-classes"><code>.flav</code> <code>.flav-media</code> <code>.flav-swap</code> <code>.flav-txt</code> <code>.is-none</code> <code>.is-ok</code></p>
+      </header>
+      <div class="g-states g-states--3">
+        <figure class="g-state"><div class="flav"><button type="button" class="flav-media" aria-label="Zamień zdjęcie opakowania dla smaku Kokos"><svg class="thumb" viewBox="0 0 48 64" aria-hidden="true"><use href="#ph-pack"/></svg><span class="flav-swap" aria-hidden="true"><svg class="ic"><use href="#i-refresh"/></svg></span></button><div class="flav-txt"><span class="flav-name">Kokos</span><span class="flav-mass">45 g</span></div></div>
+          <figcaption><b>Do zamiany</b> - miniatura jest przyciskiem</figcaption></figure>
+        <figure class="g-state"><div class="flav"><span class="flav-media"><svg class="thumb" viewBox="0 0 48 64" aria-hidden="true"><use href="#ph-pack-2"/></svg></span><div class="flav-txt"><span class="flav-name">Masło orzechowe</span><span class="flav-mass">45 g</span></div></div>
+          <figcaption><b>Tylko podgląd</b> - jedno zdjęcie</figcaption></figure>
+        <figure class="g-state"><div class="flav"><button type="button" class="flav-media is-hover" aria-label="Zamień zdjęcie opakowania dla smaku Kokos"><svg class="thumb" viewBox="0 0 48 64" aria-hidden="true"><use href="#ph-pack"/></svg><span class="flav-swap" aria-hidden="true"><svg class="ic"><use href="#i-refresh"/></svg></span></button><div class="flav-txt"><span class="flav-name">Kokos</span><span class="flav-mass">45 g</span></div></div>
+          <figcaption><b>Hover</b> - zielona ramka i obwódka</figcaption></figure>
+        <figure class="g-state"><div class="flav"><button type="button" class="flav-media is-focus" aria-label="Zamień zdjęcie opakowania dla smaku Kokos"><svg class="thumb" viewBox="0 0 48 64" aria-hidden="true"><use href="#ph-pack"/></svg><span class="flav-swap" aria-hidden="true"><svg class="ic"><use href="#i-refresh"/></svg></span></button><div class="flav-txt"><span class="flav-name">Kokos</span><span class="flav-mass">45 g</span></div></div>
+          <figcaption><b>Focus-visible</b> - pierścień 3 px</figcaption></figure>
+        <figure class="g-state"><div class="flav"><span class="flav-media is-none">brak packshotu</span><div class="flav-txt"><span class="flav-name">Wanilia</span><span class="flav-mass">45 g</span></div></div>
+          <figcaption><b>Brak zdjęcia</b> - przerywana ramka (<code>.is-none</code>)</figcaption></figure>
+        <figure class="g-state"><div class="flav"><span class="flav-media is-ok"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div class="flav-txt"><span class="flav-name">Truskawka</span><span class="flav-mass">45 g</span></div></div>
+          <figcaption><b>Jest, bez obrazka</b> (<code>.is-ok</code>)</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Uwagi -->
+    <section class="g-comp" id="c-uwagi" data-nav aria-labelledby="h-uwagi">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 07</p>
+        <h3 class="display" id="h-uwagi">Uwagi (ostrzeżenia)</h3>
+        <p class="g-lead">Bursztynowe pudełko z listą uwag. Pozycje informacyjne (<code>li.info</code>) mają zwykły kolor tekstu i szarą ikonę.</p>
+        <p class="g-classes"><code>.notes</code> <code>li.info</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state"><div class="notes"><p class="eyebrow">Uwagi</p><ul>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><span>W karcie wprowadzenia brakuje składu smaku Wanilia.</span></li>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><span>Dwa pliki copy mają różne daty - użyję nowszego.</span></li>
+        </ul></div><figcaption><b>Ostrzeżenia</b></figcaption></figure>
+        <figure class="g-state"><div class="notes"><p class="eyebrow">Uwagi</p><ul>
+          <li><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><span>Nie znalazłem badań, więc slajd zostanie pominięty.</span></li>
+          <li class="info"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>Zdjęcie opakowania wybrałem automatycznie.</span></li>
+        </ul></div><figcaption><b>Ostrzeżenie + informacja</b></figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Karta stylu -->
+    <section class="g-comp" id="c-styl" data-nav aria-labelledby="h-styl">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 08</p>
+        <h3 class="display" id="h-styl">Karta stylu do wyboru</h3>
+        <p class="g-lead">Duże kafle jednokrotnego wyboru (radio) z podglądem. Zaznaczona ma zieloną ramkę, jasnozielone tło i znacznik. Pierwsze dwie są żywe - kliknij.</p>
+        <p class="g-classes"><code>.styles</code> <code>.style-card</code> <code>.style-img</code> <code>.style-tick</code> <code>input[type=radio]</code></p>
+      </header>
+      <div class="g-states g-states--4" role="radiogroup" aria-label="Styl prezentacji (żywy przykład)">
+        <figure class="g-state"><label class="style-card"><input type="radio" name="styl" value="nowy" checked><span class="style-img"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#ph-style-new"/></svg></span><span class="style-name">Nowy styl <span class="style-sub">(sklep)</span></span><span class="style-tick" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span></label>
+          <figcaption><b>Zaznaczona</b></figcaption></figure>
+        <figure class="g-state"><label class="style-card"><input type="radio" name="styl" value="stary"><span class="style-img"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#ph-style-old"/></svg></span><span class="style-name">Stary styl <span class="style-sub">(klasyczny)</span></span><span class="style-tick" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span></label>
+          <figcaption><b>Niezaznaczona</b></figcaption></figure>
+        <figure class="g-state"><label class="style-card is-hover"><input type="radio" name="demo-styl-hover" value="x" tabindex="-1"><span class="style-img"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#ph-style-old"/></svg></span><span class="style-name">Stary styl <span class="style-sub">(klasyczny)</span></span><span class="style-tick" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span></label>
+          <figcaption><b>Hover</b> - ramka w kolorze etykiety</figcaption></figure>
+        <figure class="g-state"><label class="style-card is-focus"><input type="radio" name="demo-styl-focus" value="x" tabindex="-1"><span class="style-img"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#ph-style-new"/></svg></span><span class="style-name">Nowy styl <span class="style-sub">(sklep)</span></span><span class="style-tick" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span></label>
+          <figcaption><b>Focus-visible</b> - pierścień 3 px</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Suwak -->
+    <section class="g-comp" id="c-suwak" data-nav aria-labelledby="h-suwak">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 09</p>
+        <h3 class="display" id="h-suwak">Suwak 3-stopniowy</h3>
+        <p class="g-lead">Jak „reasoning effort” w ChatGPT: kropkowana szyna, duży biały uchwyt i aktualna wartość nad szyną. Natywny <code>input[type=range]</code> (strzałki, Home/End) z własnym wyglądem. Pierwszy suwak jest żywy.</p>
+        <p class="g-classes"><code>.slider</code> <code>.slider-head</code> <code>.rail</code> <code>.stops</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state"><div class="g-stage"><div class="slider" data-labels="Krótka|Standardowa|Pełna" data-notes="ok. 8 slajdów|ok. 14 slajdów|ok. 22 slajdy">
+          <div class="slider-head"><label class="slider-name" for="in-dlugosc">Długość prezentacji</label><p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p></div>
+          <div class="slider-body"><div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div><input type="range" id="in-dlugosc" min="0" max="2" step="1" value="1"></div>
+          <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Krótka</button><button type="button" tabindex="-1" data-v="1">Standardowa</button><button type="button" tabindex="-1" data-v="2">Pełna</button></div>
+        </div></div><figcaption><b>Wartość środkowa</b> (żywy)</figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><div class="slider" data-labels="Mniej|Standardowo|Więcej" data-notes="krótkie hasła|zwykłe opisy|pełne zdania">
+          <div class="slider-head"><label class="slider-name" for="in-tekst-0">Ilość tekstu</label><p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p></div>
+          <div class="slider-body"><div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div><input type="range" id="in-tekst-0" min="0" max="2" step="1" value="0"></div>
+          <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Mniej</button><button type="button" tabindex="-1" data-v="1">Standardowo</button><button type="button" tabindex="-1" data-v="2">Więcej</button></div>
+        </div></div><figcaption><b>Wartość minimalna</b></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><div class="slider" data-labels="Krótka|Standardowa|Pełna" data-notes="ok. 8 slajdów|ok. 14 slajdów|ok. 22 slajdy">
+          <div class="slider-head"><label class="slider-name" for="in-dlugosc-2">Długość prezentacji</label><p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p></div>
+          <div class="slider-body"><div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div><input type="range" id="in-dlugosc-2" min="0" max="2" step="1" value="2"></div>
+          <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Krótka</button><button type="button" tabindex="-1" data-v="1">Standardowa</button><button type="button" tabindex="-1" data-v="2">Pełna</button></div>
+        </div></div><figcaption><b>Wartość maksymalna</b></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><div class="slider is-focus" data-labels="Mniej|Standardowo|Więcej" data-notes="krótkie hasła|zwykłe opisy|pełne zdania">
+          <div class="slider-head"><label class="slider-name" for="in-tekst-f">Ilość tekstu</label><p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p></div>
+          <div class="slider-body"><div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div><input type="range" id="in-tekst-f" min="0" max="2" step="1" value="1"></div>
+          <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Mniej</button><button type="button" tabindex="-1" data-v="1">Standardowo</button><button type="button" tabindex="-1" data-v="2">Więcej</button></div>
+        </div></div><figcaption><b>Focus-visible</b> (<code>.is-focus</code>) - podwójny pierścień na uchwycie</figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><div class="slider is-hover" data-labels="Krótka|Standardowa|Pełna" data-notes="ok. 8 slajdów|ok. 14 slajdów|ok. 22 slajdy">
+          <div class="slider-head"><label class="slider-name" for="in-dlugosc-h">Długość prezentacji</label><p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p></div>
+          <div class="slider-body"><div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div><input type="range" id="in-dlugosc-h" min="0" max="2" step="1" value="1"></div>
+          <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Krótka</button><button type="button" tabindex="-1" data-v="1">Standardowa</button><button type="button" tabindex="-1" data-v="2">Pełna</button></div>
+        </div></div><figcaption><b>Hover</b> (<code>.is-hover</code>) - uchwyt powiększony o 5%</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Przełącznik -->
+    <section class="g-comp" id="c-przelacznik" data-nav aria-labelledby="h-przelacznik">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 10</p>
+        <h3 class="display" id="h-przelacznik">Przełącznik</h3>
+        <p class="g-lead">Natywny checkbox z <code>role="switch"</code> pod własną grafiką. Włączony: zielony tor i znacznik na uchwycie. Pierwsze dwa są żywe.</p>
+        <p class="g-classes"><code>.switch</code> <code>.track</code> <code>.knob</code></p>
+      </header>
+      <div class="g-states g-states--3">
+        <figure class="g-state"><div class="g-stage"><span class="switch"><input type="checkbox" role="switch" aria-label="Przełącznik wyłączony"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></div><figcaption><b>Wyłączony</b></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><span class="switch"><input type="checkbox" role="switch" aria-label="Przełącznik włączony" checked><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></div><figcaption><b>Włączony</b></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><span class="switch is-hover"><input type="checkbox" role="switch" aria-label="Przełącznik, hover" tabindex="-1"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></div><figcaption><b>Hover</b> - tor ciemniejszy o 8%</figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><span class="switch is-focus"><input type="checkbox" role="switch" aria-label="Przełącznik, focus" checked tabindex="-1"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></div><figcaption><b>Focus-visible</b> - pierścień 3 px</figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><span class="switch"><input type="checkbox" role="switch" aria-label="Przełącznik niedostępny" disabled><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></div><figcaption><b>Niedostępny</b> (wyłączony, nieaktywny)</figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><span class="switch"><input type="checkbox" role="switch" aria-label="Przełącznik zablokowany" checked disabled><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></div><figcaption><b>Zablokowany</b> (włączony, nieaktywny)</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Wiersz sekcji -->
+    <section class="g-comp" id="c-sekcja" data-nav aria-labelledby="h-sekcja">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 11</p>
+        <h3 class="display" id="h-sekcja">Wiersz sekcji</h3>
+        <p class="g-lead">Miniatura slajdu, nazwa, opis i przełącznik. Cały wiersz jest etykietą przełącznika. Dwa pierwsze wiersze są żywe.</p>
+        <p class="g-classes"><code>.secs</code> <code>.sec</code> <code>.sec-img</code> <code>.sec-tag</code> <code>.is-on</code> <code>.is-off</code> <code>.is-locked</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state"><ul class="secs"><li><label class="sec is-on"><span class="sec-img" aria-hidden="true"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice"><use href="#ph-slide-b"/></svg></span><span class="sec-txt"><span class="sec-name" id="sn-1"><span>Smaki</span></span><span class="sec-desc" id="sd-1">Kafelki z opakowaniami</span></span><span class="switch"><input type="checkbox" role="switch" checked aria-labelledby="sn-1" aria-describedby="sd-1"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></label></li></ul>
+          <figcaption><b>Włączona</b> (<code>.is-on</code>)</figcaption></figure>
+        <figure class="g-state"><ul class="secs"><li><label class="sec"><span class="sec-img" aria-hidden="true"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice"><use href="#ph-slide-c"/></svg></span><span class="sec-txt"><span class="sec-name" id="sn-2"><span>Wartości odżywcze</span></span><span class="sec-desc" id="sd-2">Tabela na 100 g</span></span><span class="switch"><input type="checkbox" role="switch" aria-labelledby="sn-2" aria-describedby="sd-2"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></label></li></ul>
+          <figcaption><b>Wyłączona</b> - miniatura przygaszona</figcaption></figure>
+        <figure class="g-state"><ul class="secs"><li><label class="sec is-on is-hover"><span class="sec-img" aria-hidden="true"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice"><use href="#ph-slide-a"/></svg></span><span class="sec-txt"><span class="sec-name" id="sn-3"><span>Okładka</span></span><span class="sec-desc" id="sd-3">Nazwa produktu i logo</span></span><span class="switch is-hover"><input type="checkbox" role="switch" checked tabindex="-1" aria-labelledby="sn-3" aria-describedby="sd-3"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></label></li></ul>
+          <figcaption><b>Hover</b> (<code>.is-hover</code>) - nazwa w zielonym</figcaption></figure>
+        <figure class="g-state"><ul class="secs"><li><label class="sec is-on"><span class="sec-img" aria-hidden="true"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice"><use href="#ph-slide-d"/></svg></span><span class="sec-txt"><span class="sec-name" id="sn-4"><span>Zakończenie</span></span><span class="sec-desc" id="sd-4">Kontakt i podziękowanie</span></span><span class="switch is-focus"><input type="checkbox" role="switch" checked tabindex="-1" aria-labelledby="sn-4" aria-describedby="sd-4"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></label></li></ul>
+          <figcaption><b>Focus-visible</b> - pierścień na torze przełącznika</figcaption></figure>
+        <figure class="g-state"><ul class="secs"><li><label class="sec is-off"><span class="sec-img" aria-hidden="true"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice"><use href="#ph-slide-c"/></svg></span><span class="sec-txt"><span class="sec-name" id="sn-5"><span>Badanie</span></span><span class="sec-desc" id="sd-5">brak danych w folderze</span></span><span class="switch"><input type="checkbox" role="switch" disabled aria-labelledby="sn-5" aria-describedby="sd-5"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></label></li></ul>
+          <figcaption><b>Niedostępna</b> (<code>.is-off</code>) - opis kursywą wyjaśnia powód</figcaption></figure>
+        <figure class="g-state"><ul class="secs"><li><label class="sec is-on is-locked"><span class="sec-img" aria-hidden="true"><svg class="thumb" viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice"><use href="#ph-slide-a"/></svg></span><span class="sec-txt"><span class="sec-name" id="sn-6"><span>Okładka</span><span class="sec-tag"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>zawsze</span></span><span class="sec-desc" id="sd-6">Nazwa produktu i logo</span></span><span class="switch"><input type="checkbox" role="switch" checked disabled aria-labelledby="sn-6" aria-describedby="sd-6"><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span></label></li></ul>
+          <figcaption><b>Zablokowana</b> (<code>.is-locked</code>) - znacznik „zawsze”</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Pola -->
+    <section class="g-comp" id="c-pola" data-nav aria-labelledby="h-pola">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 12</p>
+        <h3 class="display" id="h-pola">Pole tekstowe i textarea</h3>
+        <p class="g-lead">Podpis zawsze nad polem (nie tylko placeholder), obramowanie 2 px w kolorze <code>--dk-color-field-border</code> (kontrast 3:1), po fokusie zielone z miękką poświatą.</p>
+        <p class="g-classes"><code>.field</code> <code>.field-hint</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state"><div class="field"><label for="f-1">Link do filmu (YouTube) - opcjonalnie</label><input type="text" id="f-1" placeholder="np. https://www.youtube.com/watch?v=…" spellcheck="false"></div><figcaption><b>Domyślne</b> (żywe - wpisz tekst)</figcaption></figure>
+        <figure class="g-state"><div class="field"><label for="f-2">Link do filmu (YouTube) - opcjonalnie</label><input type="text" id="f-2" class="is-hover" placeholder="np. https://www.youtube.com/watch?v=…" spellcheck="false"></div><figcaption><b>Hover</b> - ramka w kolorze tekstu pomocniczego</figcaption></figure>
+        <figure class="g-state"><div class="field"><label for="f-3">Link do filmu (YouTube) - opcjonalnie</label><input type="text" id="f-3" class="is-focus" value="https://www.youtube.com/watch?v=dobra" spellcheck="false"></div><figcaption><b>Focus</b> - zielona ramka + <code>--dk-shadow-focus-field</code></figcaption></figure>
+        <figure class="g-state"><div class="field"><label for="f-4">Link do filmu (YouTube) - opcjonalnie</label><input type="text" id="f-4" placeholder="np. https://www.youtube.com/watch?v=…" aria-describedby="f-4-hint" spellcheck="false"><p class="field-hint" id="f-4-hint">Wklej link, a dodam slajd z filmem.</p></div><figcaption><b>Z podpowiedzią</b> (<code>.field-hint</code>)</figcaption></figure>
+        <figure class="g-state"><div class="field"><label for="f-5">Claimy produktowe (po jednym w linii) - opcjonalnie</label><textarea id="f-5" rows="3" placeholder="np. Bez dodatku cukru&#10;Źródło białka"></textarea></div><figcaption><b>Textarea</b> - domyślna</figcaption></figure>
+        <figure class="g-state"><div class="field"><label for="f-6">Claimy produktowe (po jednym w linii) - opcjonalnie</label><textarea id="f-6" rows="3" class="is-focus">Bez dodatku cukru
+Źródło białka</textarea></div><figcaption><b>Textarea</b> - focus</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Pasek akcji -->
+    <section class="g-comp" id="c-pasek" data-nav aria-labelledby="h-pasek">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 13</p>
+        <h3 class="display" id="h-pasek">Pasek akcji</h3>
+        <p class="g-lead">Przyklejony do dołu ekranu z głównym przyciskiem i krótką notatką. W galerii pokazany statycznie (<code>.is-static</code>); w aplikacji <code>position: sticky</code>.</p>
+        <p class="g-classes"><code>.bar</code> <code>.bar-in</code> <code>.bar-note</code> <code>.is-static</code></p>
+      </header>
+      <div class="g-frame">
+        <div class="g-frame-fill" style="padding: var(--dk-space-8)"><p class="muted">Treść ekranu przewija się pod paskiem…</p></div>
+        <div class="bar is-static"><div class="bar-in">
+          <button type="button" class="btn btn-primary"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz prezentację</button>
+          <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span>zwykle ok. 30 sekund</span></p>
+        </div></div>
+      </div>
+    </section>
+
+    <!-- Liczba-bohater -->
+    <section class="g-comp" id="c-liczba" data-nav aria-labelledby="h-liczba">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 14</p>
+        <h3 class="display" id="h-liczba">Liczba-bohater i pasek postępu</h3>
+        <p class="g-lead">Ogromna liczba procentów (Mindset 168 px) z paskiem <code>role="progressbar"</code>, bieżącym etapem i szacowanym czasem. Liczba jest ozdobna (<code>aria-hidden</code>) - wartość czyta pasek.</p>
+        <p class="g-classes"><code>.hero-num</code> <code>.pct-sign</code> <code>.progress</code> <code>.work-step</code> <code>.work-eta</code></p>
+      </header>
+      <div class="g-split">
+        <div class="g-stage work-main">
+          <p class="eyebrow">Tworzę prezentację</p>
+          <p class="hero-num" aria-hidden="true"><span>68</span><span class="pct-sign">%</span></p>
+          <div class="progress" role="progressbar" aria-label="Postęp tworzenia prezentacji" aria-valuemin="0" aria-valuemax="100" aria-valuenow="68" style="--pct:68%"><i></i></div>
+          <p class="work-step" aria-live="polite">Buduję slajdy z kartami smaków</p>
+          <p class="work-eta">jeszcze ok. 12 sekund</p>
+          <button type="button" class="link-btn">Anuluj</button>
+        </div>
+        <div>
+          <figure class="g-state"><div class="progress" role="progressbar" aria-label="Postęp: 0%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="--pct:0%"><i></i></div><figcaption><b>0%</b> - pusty tor</figcaption></figure>
+          <figure class="g-state" style="margin-top: var(--dk-space-8)"><div class="progress" role="progressbar" aria-label="Postęp: 45%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="45" style="--pct:45%"><i></i></div><figcaption><b>45%</b> - w trakcie</figcaption></figure>
+          <figure class="g-state" style="margin-top: var(--dk-space-8)"><div class="progress" role="progressbar" aria-label="Postęp: 100%" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" style="--pct:100%"><i></i></div><figcaption><b>100%</b> - gotowe</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista kontrolna -->
+    <section class="g-comp" id="c-lista" data-nav aria-labelledby="h-lista">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 15</p>
+        <h3 class="display" id="h-lista">Lista kontrolna</h3>
+        <p class="g-lead">Etapy pracy w porządku: zrobione (zielone koło ze znacznikiem), teraz (kręcący się wskaźnik, pogrubienie), oczekujące (szare).</p>
+        <p class="g-classes"><code>.checklist</code> <code>li.done</code> <code>li.now</code> <code>.st</code> <code>.spinner</code></p>
+      </header>
+      <div class="g-split">
+        <ol class="checklist" aria-label="Etapy">
+          <li class="done"><span class="st" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span>Czytam folder</span></li>
+          <li class="done"><span class="st" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span><span>Wczytuję kartę wprowadzenia</span></li>
+          <li class="now" aria-current="step"><span class="st" aria-hidden="true"><span class="spinner"></span></span><span>Buduję slajdy</span></li>
+          <li><span class="st" aria-hidden="true"></span><span>Sprawdzam jakość</span></li>
+          <li><span class="st" aria-hidden="true"></span><span>Zapisuję plik</span></li>
+        </ol>
+        <dl class="g-legend">
+          <div><dt>Zrobione</dt><dd><code>li.done</code> - pełne zielone koło, tekst w kolorze podstawowym.</dd></div>
+          <div><dt>Teraz</dt><dd><code>li.now</code> + <code>aria-current="step"</code> - wskaźnik <code>.spinner</code>; przy ograniczeniu ruchu zatrzymany.</dd></div>
+          <div><dt>Oczekujące</dt><dd>Puste koło z obrysem, tekst <code>--dk-color-text-muted</code>.</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- Znaczek kontroli -->
+    <section class="g-comp" id="c-znaczek" data-nav aria-labelledby="h-znaczek">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 16</p>
+        <h3 class="display" id="h-znaczek">Znaczek kontroli</h3>
+        <p class="g-lead">Wynik automatycznej kontroli jakości: zielony (wszystko dobrze) lub bursztynowy (są rzeczy do sprawdzenia) z listą szczegółów.</p>
+        <p class="g-classes"><code>.qa</code> <code>.qa.warn</code> <code>.qa-details</code></p>
+      </header>
+      <div class="g-states g-states--2">
+        <figure class="g-state"><div class="g-stage"><p class="qa"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg>Kontrola: wszystko na miejscu</p></div><figcaption><b>OK</b></figcaption></figure>
+        <figure class="g-state"><div class="g-stage"><p class="qa warn"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>Kontrola: 3 rzeczy do sprawdzenia</p>
+          <ul class="qa-details"><li>Slajd 4: tekst może być za długi.</li><li>Slajd 7: brak zdjęcia opakowania.</li><li>Slajd 11: nie znaleziono wartości energetycznej.</li></ul></div><figcaption><b>Ostrzeżenie</b> z listą szczegółów</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Do dopracowania -->
+    <section class="g-comp" id="c-todo" data-nav aria-labelledby="h-todo">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 17</p>
+        <h3 class="display" id="h-todo">Lista „do dopracowania”</h3>
+        <p class="g-lead">Kremowa karta z punktami w kolorze etykiety - rzeczy, które użytkownik może poprawić ręcznie po wygenerowaniu.</p>
+        <p class="g-classes"><code>.todo</code></p>
+      </header>
+      <div class="g-split">
+        <div class="todo"><p class="eyebrow">Do dopracowania</p><ul>
+          <li>Slajd 6: dopisz krótki opis smaku Wanilia.</li>
+          <li>Slajd 9: podmień zdjęcie na wersję w wyższej rozdzielczości.</li>
+          <li>Slajd 12: sprawdź zapis liczby porcji.</li>
+        </ul></div>
+        <p class="g-cap">Punkty to ozdoba (<code>::before</code>), lista jest zwykłym <code>&lt;ul&gt;</code>. Odstęp między punktami min. <code>--dk-space-5</code>.</p>
+      </div>
+    </section>
+
+    <!-- Toast -->
+    <section class="g-comp" id="c-toast" data-nav aria-labelledby="h-toast">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 18</p>
+        <h3 class="display" id="h-toast">Toast</h3>
+        <p class="g-lead">Krótkie, znikające powiadomienie: informacja (brąz), sukces (brąz z zieloną ikoną), błąd (czerwony). Przycisk zamknięcia ma 44 px. Zamknij i przywróć poniżej.</p>
+        <p class="g-classes"><code>.toast</code> <code>.toast.ok</code> <code>.toast.error</code> <code>.x</code></p>
+      </header>
+      <div class="g-toast-stack" id="toast-stack">
+        <div class="toast" role="status"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><span>Wczytuję folder, to potrwa chwilę.</span><button type="button" class="x" aria-label="Zamknij powiadomienie"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="toast ok" role="status"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span>Polecenie skopiowane do schowka.</span><button type="button" class="x" aria-label="Zamknij powiadomienie"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="toast error" role="alert"><svg class="ic" aria-hidden="true"><use href="#i-circle-alert"/></svg><span>Nie udało się zapisać pliku. Sprawdź, czy nie jest otwarty.</span><button type="button" class="x" aria-label="Zamknij powiadomienie"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+      </div>
+      <div class="g-actions"><button type="button" class="btn btn-secondary" id="toast-reset"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Pokaż toasty ponownie</button></div>
+    </section>
+
+    <!-- Pasek miniatur -->
+    <section class="g-comp" id="c-miniatury" data-nav aria-labelledby="h-miniatury">
+      <header class="g-comp-head">
+        <p class="eyebrow">Komponent 19</p>
+        <h3 class="display" id="h-miniatury">Pasek miniatur</h3>
+        <p class="g-lead">Poziomo przewijany podgląd slajdów 16:9 z numerem. Dostępny z klawiatury (<code>tabindex="0"</code>, strzałki). Prawy brzeg zanika, dopóki jest co przewijać.</p>
+        <p class="g-classes"><code>.strip</code> <code>.slide</code> <code>.num</code> <code>.at-end</code></p>
+      </header>
+      <div class="g-states">
+        <figure class="g-state" style="grid-column: 1 / -1"><ul class="strip" tabindex="0" aria-label="Podgląd slajdów (przewiń w bok)">
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-a"/></svg></span><span class="num">1</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-b"/></svg></span><span class="num">2</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-c"/></svg></span><span class="num">3</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-b"/></svg></span><span class="num">4</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-c"/></svg></span><span class="num">5</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-a"/></svg></span><span class="num">6</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-b"/></svg></span><span class="num">7</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-d"/></svg></span><span class="num">8</span></li>
+        </ul><figcaption><b>Z przewijaniem</b> - zanikanie po prawej</figcaption></figure>
+        <figure class="g-state" style="grid-column: 1 / -1"><ul class="strip at-end" tabindex="0" aria-label="Podgląd slajdów (koniec)">
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-a"/></svg></span><span class="num">1</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-b"/></svg></span><span class="num">2</span></li>
+          <li><span class="slide"><svg class="thumb" viewBox="0 0 160 90" aria-hidden="true"><use href="#ph-slide-d"/></svg></span><span class="num">3</span></li>
+        </ul><figcaption><b>Koniec listy</b> (<code>.at-end</code>) - bez zanikania</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- Ikony -->
+    <section class="g-comp" id="ikony" data-nav aria-labelledby="h-ikony">
+      <header class="g-comp-head">
+        <p class="eyebrow">Dodatek</p>
+        <h3 class="display" id="h-ikony">Ikony</h3>
+        <p class="g-lead">Styl Lucide, kreska <code>--dk-control-stroke-icon</code> (1,6), kolor przez <code>currentColor</code>. Rozmiar domyślny 20 px (<code>--dk-space-5</code>). Ikony dekoracyjne mają <code>aria-hidden="true"</code>.</p>
+      </header>
+      <div class="g-icons" id="icon-grid"></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="preview.js"></script>
+</body>
+</html>

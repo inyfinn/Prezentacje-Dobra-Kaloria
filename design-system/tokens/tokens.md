@@ -1,0 +1,185 @@
+# Tokeny Dobra Kaloria 1.0.0
+
+PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`.
+
+## Kolory - role (tych używaj)
+
+| Rola | Zmienna CSS | Wartość | Prymityw |
+|---|---|---|---|
+| text | `--dk-color-text` | `#3B2A20` | brown-900 |
+| text-muted | `--dk-color-text-muted` | `#7D5E44` | brown-600 |
+| label | `--dk-color-label` | `#AD8767` | tan-400 |
+| bg | `--dk-color-bg` | `#FFFFFF` | white |
+| surface | `--dk-color-surface` | `#FDF8EC` | cream-50 |
+| surface-hover | `--dk-color-surface-hover` | `#FBF3E0` | cream-100 |
+| border | `--dk-color-border` | `#EDE7DA` | sand-200 |
+| border-strong | `--dk-color-border-strong` | `#D9CFBB` | sand-300 |
+| field-border | `--dk-color-field-border` | `#9C8B72` | sand-700 |
+| brand | `--dk-color-brand` | `#0F763E` | green-700 |
+| brand-hover | `--dk-color-brand-hover` | `#0B5F31` | green-800 |
+| brand-soft | `--dk-color-brand-soft` | `#E9F2EC` | green-100 |
+| brand-soft-strong | `--dk-color-brand-soft-strong` | `#CFE0D4` | green-200 |
+| on-brand | `--dk-color-on-brand` | `#FFFFFF` | white |
+| cta | `--dk-color-cta` | `#FFD42A` | yellow-400 |
+| cta-hover | `--dk-color-cta-hover` | `#F6C700` | yellow-500 |
+| on-cta | `--dk-color-on-cta` | `#3B2A20` | brown-900 |
+| disabled-bg | `--dk-color-disabled-bg` | `#F0EBDD` | sand-150 |
+| switch-off | `--dk-color-switch-off` | `#9C8B72` | sand-700 |
+| danger | `--dk-color-danger` | `#DA272D` | red-600 |
+| danger-soft | `--dk-color-danger-soft` | `#FCE8E9` | red-50 |
+| warning-text | `--dk-color-warning-text` | `#7A4E00` | amber-900 |
+| warning-border | `--dk-color-warning-border` | `#EBCB6B` | amber-300 |
+| warning-bg | `--dk-color-warning-bg` | `#FFF4D6` | amber-50 |
+| inverse-bg | `--dk-color-inverse-bg` | `#3B2A20` | brown-900 |
+| on-inverse | `--dk-color-on-inverse` | `#FFFFFF` | white |
+| focus | `--dk-color-focus` | `#0F763E` | green-700 |
+
+## Kolory - prymitywy
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| green-700 | `--dk-green-700` | `#0F763E` |
+| green-800 | `--dk-green-800` | `#0B5F31` |
+| green-200 | `--dk-green-200` | `#CFE0D4` |
+| green-100 | `--dk-green-100` | `#E9F2EC` |
+| brown-900 | `--dk-brown-900` | `#3B2A20` |
+| brown-600 | `--dk-brown-600` | `#7D5E44` |
+| tan-400 | `--dk-tan-400` | `#AD8767` |
+| sand-700 | `--dk-sand-700` | `#9C8B72` |
+| sand-300 | `--dk-sand-300` | `#D9CFBB` |
+| sand-200 | `--dk-sand-200` | `#EDE7DA` |
+| sand-150 | `--dk-sand-150` | `#F0EBDD` |
+| cream-100 | `--dk-cream-100` | `#FBF3E0` |
+| cream-50 | `--dk-cream-50` | `#FDF8EC` |
+| white | `--dk-white` | `#FFFFFF` |
+| yellow-400 | `--dk-yellow-400` | `#FFD42A` |
+| yellow-500 | `--dk-yellow-500` | `#F6C700` |
+| red-600 | `--dk-red-600` | `#DA272D` |
+| red-200 | `--dk-red-200` | `#F3B9BB` |
+| red-100 | `--dk-red-100` | `#F8D4D5` |
+| red-50 | `--dk-red-50` | `#FCE8E9` |
+| amber-900 | `--dk-amber-900` | `#7A4E00` |
+| amber-300 | `--dk-amber-300` | `#EBCB6B` |
+| amber-50 | `--dk-amber-50` | `#FFF4D6` |
+
+## Kontrast (WCAG)
+
+| Tekst | Tło | Kontrast | Minimum | Zastosowanie |
+|---|---|---|---|---|
+| text | bg | 13.65:1 | 4.5:1 | tekst na tle |
+| text | surface | 12.88:1 | 4.5:1 | tekst na karcie |
+| text-muted | bg | 5.90:1 | 4.5:1 | tekst pomocniczy na tle |
+| text-muted | surface | 5.57:1 | 4.5:1 | tekst pomocniczy na karcie |
+| label | bg | 3.26:1 | 3.0:1 | etykieta (tylko >=14 px bold) |
+| label | surface | 3.08:1 | 3.0:1 | etykieta na karcie |
+| brand | bg | 5.70:1 | 4.5:1 | zielony tekst/link na tle |
+| brand | brand-soft | 4.99:1 | 4.5:1 | zielony na jasnej zieleni |
+| on-brand | brand | 5.70:1 | 4.5:1 | biały na zieleni |
+| on-cta | cta | 9.56:1 | 4.5:1 | tekst na żółtym przycisku |
+| on-inverse | inverse-bg | 13.65:1 | 4.5:1 | biały na brązie (toast) |
+| on-inverse | danger | 4.87:1 | 4.5:1 | biały na czerwieni |
+| warning-text | warning-bg | 6.57:1 | 4.5:1 | ostrzeżenie |
+| field-border | bg | 3.31:1 | 3.0:1 | ramka pola |
+| switch-off | bg | 3.31:1 | 3.0:1 | wyłączony przełącznik |
+
+## Czcionki
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| display | `--dk-font-display` | `"Mindset", "Arial Narrow", Impact, sans-serif` |
+| text | `--dk-font-text` | `"Lato", "Segoe UI", Arial, sans-serif` |
+| mono | `--dk-font-mono` | `Consolas, "Cascadia Mono", "Courier New", monospace` |
+
+## Rozmiary tekstu
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| sm | `--dk-fs-sm` | `15px` |
+| base | `--dk-fs-base` | `16px` |
+| md | `--dk-fs-md` | `17px` |
+| lg | `--dk-fs-lg` | `20px` |
+| xl | `--dk-fs-xl` | `22px` |
+| display-sm | `--dk-fs-display-sm` | `40px` |
+| display-md | `--dk-fs-display-md` | `46px` |
+| display-lg | `--dk-fs-display-lg` | `76px` |
+| display-hero | `--dk-fs-display-hero` | `168px` |
+
+## Interlinie
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| display | `--dk-lh-display` | `1.02` |
+| tight | `--dk-lh-tight` | `1.25` |
+| snug | `--dk-lh-snug` | `1.35` |
+| base | `--dk-lh-base` | `1.5` |
+
+## Odstępy (siatka 4 px)
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| 1 | `--dk-space-1` | `4px` |
+| 2 | `--dk-space-2` | `8px` |
+| 3 | `--dk-space-3` | `12px` |
+| 4 | `--dk-space-4` | `16px` |
+| 5 | `--dk-space-5` | `20px` |
+| 6 | `--dk-space-6` | `24px` |
+| 8 | `--dk-space-8` | `32px` |
+| 10 | `--dk-space-10` | `40px` |
+| 12 | `--dk-space-12` | `48px` |
+| 14 | `--dk-space-14` | `56px` |
+| 16 | `--dk-space-16` | `64px` |
+| 20 | `--dk-space-20` | `80px` |
+
+## Promienie
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| btn | `--dk-radius-btn` | `4px` |
+| sm | `--dk-radius-sm` | `8px` |
+| md | `--dk-radius-md` | `12px` |
+| lg | `--dk-radius-lg` | `16px` |
+| pill | `--dk-radius-pill` | `999px` |
+
+## Cienie (podbarwione brązem)
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| thumb | `--dk-shadow-thumb` | `0 1px 2px rgba(59,42,32,.18), 0 5px 12px rgba(59,42,32,.16)` |
+| raised | `--dk-shadow-raised` | `0 1px 4px rgba(59,42,32,.25)` |
+| bar | `--dk-shadow-bar` | `0 -8px 24px rgba(59,42,32,.05)` |
+| toast | `--dk-shadow-toast` | `0 10px 30px rgba(59,42,32,.28)` |
+| focus-field | `--dk-shadow-focus-field` | `0 0 0 3px rgba(15,118,62,.22)` |
+
+## Ruch
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| fast | `--dk-motion-fast` | `.15s` |
+| base | `--dk-motion-base` | `.18s` |
+| slow | `--dk-motion-slow` | `.28s` |
+| ease | `--dk-motion-ease` | `ease-out` |
+
+## Kontrolki
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| h-min | `--dk-control-h-min` | `44px` |
+| h | `--dk-control-h` | `48px` |
+| h-lg | `--dk-control-h-lg` | `56px` |
+| focus-width | `--dk-control-focus-width` | `3px` |
+| focus-offset | `--dk-control-focus-offset` | `3px` |
+| stroke-icon | `--dk-control-stroke-icon` | `1.6` |
+
+## Układ
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| wrap | `--dk-layout-wrap` | `920px` |
+| gutter | `--dk-layout-gutter` | `24px` |
+| card-pad | `--dk-layout-card-pad` | `32px` (= space.8) |
+| card-pad-lg | `--dk-layout-card-pad-lg` | `40px` (= space.10) |
+| section-gap | `--dk-layout-section-gap` | `40px` (= space.10) |
+| stack | `--dk-layout-stack` | `20px` (= space.5) |
+| card-pad-sm | `--dk-layout-card-pad-sm` | `20px` (= space.5) |
+| section-gap-sm | `--dk-layout-section-gap-sm` | `24px` (= space.6) |
+| stack-sm | `--dk-layout-stack-sm` | `12px` (= space.3) |

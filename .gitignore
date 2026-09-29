@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.cache/
+.playwright-cli/
+build/
+dist/
+poprzednie/
+logs/
+*_Conflict.*
+~$*
+Thumbs.db

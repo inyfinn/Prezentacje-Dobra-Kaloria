@@ -1,0 +1,121 @@
+/* Design system Dobra Kaloria 1.0.0 (2026-09-29) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+:root, [data-theme="dobra-kaloria"] {
+  /* kolory - prymitywy */
+  --dk-green-700: #0F763E;
+  --dk-green-800: #0B5F31;
+  --dk-green-200: #CFE0D4;
+  --dk-green-100: #E9F2EC;
+  --dk-brown-900: #3B2A20;
+  --dk-brown-600: #7D5E44;
+  --dk-tan-400: #AD8767;
+  --dk-sand-700: #9C8B72;
+  --dk-sand-300: #D9CFBB;
+  --dk-sand-200: #EDE7DA;
+  --dk-sand-150: #F0EBDD;
+  --dk-cream-100: #FBF3E0;
+  --dk-cream-50: #FDF8EC;
+  --dk-white: #FFFFFF;
+  --dk-yellow-400: #FFD42A;
+  --dk-yellow-500: #F6C700;
+  --dk-red-600: #DA272D;
+  --dk-red-200: #F3B9BB;
+  --dk-red-100: #F8D4D5;
+  --dk-red-50: #FCE8E9;
+  --dk-amber-900: #7A4E00;
+  --dk-amber-300: #EBCB6B;
+  --dk-amber-50: #FFF4D6;
+  /* kolory - role (tych używaj w komponentach) */
+  --dk-color-text: var(--dk-brown-900);
+  --dk-color-text-muted: var(--dk-brown-600);
+  --dk-color-label: var(--dk-tan-400);
+  --dk-color-bg: var(--dk-white);
+  --dk-color-surface: var(--dk-cream-50);
+  --dk-color-surface-hover: var(--dk-cream-100);
+  --dk-color-border: var(--dk-sand-200);
+  --dk-color-border-strong: var(--dk-sand-300);
+  --dk-color-field-border: var(--dk-sand-700);
+  --dk-color-brand: var(--dk-green-700);
+  --dk-color-brand-hover: var(--dk-green-800);
+  --dk-color-brand-soft: var(--dk-green-100);
+  --dk-color-brand-soft-strong: var(--dk-green-200);
+  --dk-color-on-brand: var(--dk-white);
+  --dk-color-cta: var(--dk-yellow-400);
+  --dk-color-cta-hover: var(--dk-yellow-500);
+  --dk-color-on-cta: var(--dk-brown-900);
+  --dk-color-disabled-bg: var(--dk-sand-150);
+  --dk-color-switch-off: var(--dk-sand-700);
+  --dk-color-danger: var(--dk-red-600);
+  --dk-color-danger-soft: var(--dk-red-50);
+  --dk-color-warning-text: var(--dk-amber-900);
+  --dk-color-warning-border: var(--dk-amber-300);
+  --dk-color-warning-bg: var(--dk-amber-50);
+  --dk-color-inverse-bg: var(--dk-brown-900);
+  --dk-color-on-inverse: var(--dk-white);
+  --dk-color-focus: var(--dk-green-700);
+  /* czcionki */
+  --dk-font-display: "Mindset", "Arial Narrow", Impact, sans-serif;
+  --dk-font-text: "Lato", "Segoe UI", Arial, sans-serif;
+  --dk-font-mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+  /* rozmiary tekstu */
+  --dk-fs-sm: 15px;
+  --dk-fs-base: 16px;
+  --dk-fs-md: 17px;
+  --dk-fs-lg: 20px;
+  --dk-fs-xl: 22px;
+  --dk-fs-display-sm: 40px;
+  --dk-fs-display-md: 46px;
+  --dk-fs-display-lg: 76px;
+  --dk-fs-display-hero: 168px;
+  /* interlinie */
+  --dk-lh-display: 1.02;
+  --dk-lh-tight: 1.25;
+  --dk-lh-snug: 1.35;
+  --dk-lh-base: 1.5;
+  /* odstępy (siatka 4 px) */
+  --dk-space-1: 4px;
+  --dk-space-2: 8px;
+  --dk-space-3: 12px;
+  --dk-space-4: 16px;
+  --dk-space-5: 20px;
+  --dk-space-6: 24px;
+  --dk-space-8: 32px;
+  --dk-space-10: 40px;
+  --dk-space-12: 48px;
+  --dk-space-14: 56px;
+  --dk-space-16: 64px;
+  --dk-space-20: 80px;
+  /* promienie */
+  --dk-radius-btn: 4px;
+  --dk-radius-sm: 8px;
+  --dk-radius-md: 12px;
+  --dk-radius-lg: 16px;
+  --dk-radius-pill: 999px;
+  /* cienie (podbarwione brązem) */
+  --dk-shadow-thumb: 0 1px 2px rgba(59,42,32,.18), 0 5px 12px rgba(59,42,32,.16);
+  --dk-shadow-raised: 0 1px 4px rgba(59,42,32,.25);
+  --dk-shadow-bar: 0 -8px 24px rgba(59,42,32,.05);
+  --dk-shadow-toast: 0 10px 30px rgba(59,42,32,.28);
+  --dk-shadow-focus-field: 0 0 0 3px rgba(15,118,62,.22);
+  /* ruch */
+  --dk-motion-fast: .15s;
+  --dk-motion-base: .18s;
+  --dk-motion-slow: .28s;
+  --dk-motion-ease: ease-out;
+  /* kontrolki */
+  --dk-control-h-min: 44px;
+  --dk-control-h: 48px;
+  --dk-control-h-lg: 56px;
+  --dk-control-focus-width: 3px;
+  --dk-control-focus-offset: 3px;
+  --dk-control-stroke-icon: 1.6;
+  /* układ */
+  --dk-layout-wrap: 920px;
+  --dk-layout-gutter: 24px;
+  --dk-layout-card-pad: var(--dk-space-8);
+  --dk-layout-card-pad-lg: var(--dk-space-10);
+  --dk-layout-section-gap: var(--dk-space-10);
+  --dk-layout-stack: var(--dk-space-5);
+  --dk-layout-card-pad-sm: var(--dk-space-5);
+  --dk-layout-section-gap-sm: var(--dk-space-6);
+  --dk-layout-stack-sm: var(--dk-space-3);
+}

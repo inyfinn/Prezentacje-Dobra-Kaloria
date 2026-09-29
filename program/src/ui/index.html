@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Stwórz prezentację — Dobra Kaloria</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="start">
+
+<!-- Ikony: Lucide-style, kreska 1,6, kolor przez currentColor -->
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+    <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
+    <symbol id="i-sheet" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-present" viewBox="0 0 24 24"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+    <symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  </defs>
+</svg>
+
+<a class="skip" href="#main">Przejdź do treści</a>
+
+<header class="top">
+  <div class="wrap top-in">
+    <img class="logo" src="assets/logo_green_box.png" alt="Dobra Kaloria" width="112" height="83">
+    <ol class="steps" id="steps" aria-label="Postęp: cztery kroki">
+      <li data-step="1"><span class="n" aria-hidden="true">1</span><span class="lbl">Folder</span></li>
+      <li data-step="2"><span class="n" aria-hidden="true">2</span><span class="lbl">Ustawienia</span></li>
+      <li data-step="3"><span class="n" aria-hidden="true">3</span><span class="lbl">Tworzenie</span></li>
+      <li data-step="4"><span class="n" aria-hidden="true">4</span><span class="lbl">Gotowe</span></li>
+    </ol>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- 1. START ------------------------------------------------------------ -->
+  <section class="screen" id="screen-start" aria-labelledby="h-start">
+    <div class="wrap">
+      <h1 class="display h-done" id="h-start" tabindex="-1" data-focus>Nowa prezentacja</h1>
+      <p class="start-lead">Wskaż folder produktu. Program sam przeczyta karty, copy i grafiki, a potem ułoży slajdy.</p>
+
+      <div class="start-cols">
+        <div id="dropzone" class="drop">
+          <span class="drop-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span>
+          <h2 class="drop-title">Upuść tu folder z&nbsp;produktem</h2>
+          <p class="drop-sub"><span class="when-idle">…albo dowolny plik z tego folderu</span><span class="when-over">Puść teraz — wczytam ten folder</span></p>
+          <button type="button" class="btn btn-primary" id="btn-pick">
+            <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz folder
+          </button>
+        </div>
+
+        <div class="hints">
+          <p class="eyebrow">W folderze powinny być</p>
+          <ul class="hint-list">
+            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-sheet"/></svg></span><span><strong>Karty wprowadzenia</strong><span class="hint-sub">pliki xlsx, jeden na smak</span></span></li>
+            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-doc"/></svg></span><span><strong>Copy</strong><span class="hint-sub">plik docx z opisem produktu</span></span></li>
+            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-image"/></svg></span><span><strong>Wizualizacje i Elementy</strong><span class="hint-sub">zdjęcia opakowań i owoców, png</span></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="update" id="update" role="status" hidden>
+        <span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-refresh"/></svg></span>
+        <p><strong id="update-text"></strong><span id="update-note"></span></p>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-update" hidden><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Zaktualizuj</button>
+      </div>
+
+      <p class="foot" id="foot-info"></p>
+    </div>
+  </section>
+
+  <!-- 2. ANALIZA ---------------------------------------------------------- -->
+  <section class="screen" id="screen-analiza" aria-labelledby="h-analiza">
+    <div class="wrap center-box">
+      <div class="spinner spinner-lg" aria-hidden="true"></div>
+      <h1 class="display h-md" id="h-analiza" tabindex="-1" data-focus>Czytam folder…</h1>
+      <p class="muted" id="analiza-folder"></p>
+    </div>
+  </section>
+
+  <!-- 3. OPCJE ------------------------------------------------------------ -->
+  <form id="opcje-form" novalidate autocomplete="off">
+    <section class="screen" id="screen-opcje" aria-labelledby="h-opcje">
+      <div class="wrap cols">
+
+        <!-- lewa: co znalazłem -->
+        <div class="col-left">
+          <div class="found">
+            <p class="eyebrow">Znalazłem w folderze</p>
+            <h1 class="display h-product" id="h-opcje" tabindex="-1" data-focus></h1>
+            <ul class="found-list" id="found-list"></ul>
+            <div class="notes" id="notes" hidden>
+              <p class="eyebrow">Uwagi</p>
+              <ul id="notes-list"></ul>
+            </div>
+          </div>
+          <button type="button" class="link-btn" id="btn-other-folder">
+            <svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Wybierz inny folder
+          </button>
+        </div>
+
+        <!-- prawa: ustawienia -->
+        <div class="col-right">
+
+          <div class="block" id="fs-styl" role="radiogroup" aria-labelledby="l-styl">
+            <p class="eyebrow" id="l-styl">Styl</p>
+            <div class="styles">
+              <label class="style-card">
+                <input type="radio" name="styl" value="nowy" checked>
+                <span class="style-img"><img src="img/styl-nowy.png" alt="" decoding="async"></span>
+                <span class="style-name">Nowy styl <span class="style-sub">(sklep)</span></span>
+                <span class="style-tick" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+              </label>
+              <label class="style-card">
+                <input type="radio" name="styl" value="stary">
+                <span class="style-img"><img src="img/styl-stary.png" alt="" decoding="async"></span>
+                <span class="style-name">Stary styl <span class="style-sub">(klasyczny)</span></span>
+                <span class="style-tick" aria-hidden="true"><svg class="ic"><use href="#i-check"/></svg></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="block">
+            <p class="eyebrow">Ustawienia</p>
+
+            <div class="slider" id="sl-dlugosc">
+              <div class="slider-head">
+                <label class="slider-name" for="in-dlugosc">Długość prezentacji</label>
+                <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
+              </div>
+              <div class="slider-body">
+                <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div>
+                <input type="range" id="in-dlugosc" name="dlugosc" min="0" max="2" step="1" value="1">
+              </div>
+              <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Krótka</button><button type="button" tabindex="-1" data-v="1">Standardowa</button><button type="button" tabindex="-1" data-v="2">Pełna</button></div>
+            </div>
+
+            <div class="slider" id="sl-tekst">
+              <div class="slider-head">
+                <label class="slider-name" for="in-tekst">Ilość tekstu</label>
+                <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
+              </div>
+              <div class="slider-body">
+                <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div>
+                <input type="range" id="in-tekst" name="tekst" min="0" max="2" step="1" value="1">
+              </div>
+              <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Mniej</button><button type="button" tabindex="-1" data-v="1">Standardowo</button><button type="button" tabindex="-1" data-v="2">Więcej</button></div>
+            </div>
+          </div>
+
+          <div class="block" id="fs-sekcje" role="group" aria-labelledby="l-sekcje">
+            <p class="eyebrow" id="l-sekcje">Sekcje prezentacji</p>
+            <ul class="secs" id="secs"></ul>
+          </div>
+
+          <div class="block">
+            <p class="eyebrow">Dodatki</p>
+            <div class="field">
+              <label for="in-film">Link do filmu (YouTube) — opcjonalnie</label>
+              <input type="text" id="in-film" name="film" inputmode="url" placeholder="np. https://www.youtube.com/watch?v=…" spellcheck="false">
+              <p class="field-hint" id="film-hint">Wklej link, a dodam slajd z filmem.</p>
+            </div>
+            <div class="field">
+              <label for="in-claimy">Claimy produktowe (po jednym w linii) — opcjonalnie</label>
+              <textarea id="in-claimy" name="claimy" rows="3" placeholder="np. Bez dodatku cukru&#10;Źródło białka"></textarea>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <div class="bar" id="bar">
+      <div class="wrap bar-in">
+        <button type="submit" class="btn btn-primary" id="btn-build">
+          <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz prezentację
+        </button>
+        <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="bar-eta">zwykle ok. 30 sekund</span></p>
+      </div>
+    </div>
+  </form>
+
+  <!-- 4. PRACA ------------------------------------------------------------ -->
+  <section class="screen" id="screen-praca" data-state="run" aria-labelledby="h-praca">
+    <div class="wrap">
+      <div class="work" data-when="run">
+        <div class="work-main">
+          <h1 class="eyebrow" id="h-praca" tabindex="-1" data-focus>Tworzę prezentację</h1>
+          <p class="hero-num" aria-hidden="true"><span id="pct">0</span><span class="pct-sign">%</span></p>
+          <div class="progress" id="progress" role="progressbar" aria-label="Postęp tworzenia prezentacji" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="progress-fill"></i></div>
+          <p class="work-step" id="work-step" aria-live="polite">Zaczynam…</p>
+          <p class="work-eta" id="work-eta">liczę czas…</p>
+          <button type="button" class="link-btn" id="btn-cancel">Anuluj</button>
+        </div>
+        <ol class="checklist" id="checklist" aria-label="Etapy"></ol>
+      </div>
+
+      <div class="work-error" data-when="error">
+        <span class="err-ic" aria-hidden="true"><svg class="ic"><use href="#i-circle-alert"/></svg></span>
+        <h2 class="display h-md">Nie udało się stworzyć prezentacji</h2>
+        <p class="err-text" id="praca-error-text"></p>
+        <button type="button" class="btn btn-secondary" id="btn-back-opts">
+          <svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Wróć do ustawień
+        </button>
+      </div>
+
+      <details class="log" id="log-box">
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg><span id="log-label">Pokaż szczegóły</span></summary>
+        <pre id="log" tabindex="0" aria-label="Szczegóły działania programu"></pre>
+      </details>
+    </div>
+  </section>
+
+  <!-- 5. WYNIK ------------------------------------------------------------ -->
+  <section class="screen" id="screen-wynik" aria-labelledby="h-wynik">
+    <div class="wrap">
+      <h1 class="display h-done" id="h-wynik" tabindex="-1" data-focus>Gotowe!</h1>
+      <p class="file"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="res-name"></strong></p>
+      <p class="meta" id="res-meta"></p>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="btn-open">
+          <svg class="ic" aria-hidden="true"><use href="#i-present"/></svg>Otwórz prezentację
+        </button>
+        <button type="button" class="btn btn-secondary" id="btn-folder">
+          <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Pokaż folder
+        </button>
+      </div>
+
+      <ul class="strip" id="strip" tabindex="0" aria-label="Podgląd slajdów (przewiń w bok)"></ul>
+
+      <p class="qa" id="res-qa"></p>
+      <ul class="qa-details" id="res-qa-list" hidden></ul>
+
+      <div class="todo" id="res-todo" hidden>
+        <p class="eyebrow">Do dopracowania</p>
+        <ul id="res-todo-list"></ul>
+      </div>
+
+      <div class="actions-2">
+        <div class="ai" role="group" aria-labelledby="l-ai">
+          <span class="ai-lead" id="l-ai"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Dokończ teksty z AI:</span>
+          <button type="button" class="btn btn-secondary btn-sm" data-ai="claude" title="Otwiera Claude w przeglądarce. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić.">Claude</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-ai="chatgpt" title="Otwiera ChatGPT w przeglądarce. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić.">ChatGPT</button>
+          <button type="button" class="btn btn-secondary btn-sm" data-ai="gemini" title="Otwiera Gemini w przeglądarce. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić.">Gemini</button>
+          <button type="button" class="link-btn" id="btn-copy-ai" title="Tylko kopiuje polecenie - do wklejenia w dowolnym innym czacie.">
+            <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Kopiuj
+          </button>
+        </div>
+        <button type="button" class="link-btn" id="btn-again">
+          <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną
+        </button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="guide" id="guide" role="dialog" aria-modal="true" aria-labelledby="guide-title" hidden>
+  <div class="guide-box">
+    <p class="eyebrow">Co teraz</p>
+    <h2 class="display h-md" id="guide-title">Polecenie skopiowane</h2>
+    <ol class="guide-steps">
+      <li><span class="guide-n"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><strong>Polecenie jest już skopiowane</strong><span>Zawiera treść slajdów i ścieżki do plików. Niczego nie musisz pisać.</span></div></li>
+      <li><span class="guide-n">2</span><div><strong id="guide-s2-t"></strong><span id="guide-s2-d"></span></div></li>
+      <li><span class="guide-n">3</span><div><strong>Kliknij w pole wiadomości i wklej</strong><span class="keys" aria-label="Control plus V, potem Enter"><kbd>Ctrl</kbd><i>+</i><kbd>V</kbd><i>potem</i><kbd>Enter</kbd></span></div></li>
+    </ol>
+    <div class="guide-actions">
+      <button type="button" class="btn btn-primary" id="guide-ok">Rozumiem</button>
+      <button type="button" class="btn btn-secondary" id="guide-folder"><svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Pokaż plik prezentacji</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

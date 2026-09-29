@@ -1,0 +1,13 @@
+JAK ZROBIĆ PREZENTACJĘ PRODUKTU (Dobra Kaloria)
+
+1. Uruchom "Stwórz prezentację.exe" (nic nie instaluje).
+2. Przeciągnij do okna folder z produktem (karty wprowadzenia, copy, Wizualizacje, Elementy).
+3. Wybierz styl, długość i ilość tekstu, kliknij "Stwórz prezentację".
+4. Po ok. 30-60 sekundach gotowy plik .pptx leży w folderze produktu.
+
+Chcesz, żeby AI dopracowało treść? Na ekranie "Gotowe" kliknij Claude, ChatGPT albo Gemini.
+Program skopiuje polecenie i otworzy czat. Wklej je tam (Ctrl+V) i naciśnij Enter.
+Najlepiej działa aplikacja Claude na komputerze w trybie Cowork albo Code, bo widzi pliki.
+
+Program sam sprawdza, czy jest nowsza wersja, i pokazuje przycisk "Zaktualizuj".
+Instrukcja dla AI: AGENTS.md w tym folderze.
