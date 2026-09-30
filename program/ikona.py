@@ -1,10 +1,19 @@
 # -*- coding: utf-8 -*-
 """Ikona programu z logo marki (zielony kafel z białym napisem) -> WORK\\src\\ikona.ico (kilka rozmiarów)."""
 import os
+import shutil
 
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+DS_ICO = os.path.join(os.path.expanduser("~"), ".claude", "skills", "ds-dobra-kaloria", "assets", "icons", "prezentacje.ico")
+OUT_ICO = os.path.join(HERE, "src", "ikona.ico")
+if os.path.isfile(DS_ICO):
+    # ikona zatwierdzona w design systemie (liść + Mindset) - kopiujemy gotowy plik
+    shutil.copyfile(DS_ICO, OUT_ICO)
+    print("OK (design system)", OUT_ICO, os.path.getsize(OUT_ICO), "B")
+    raise SystemExit(0)
+# awaryjnie: stara ikona z logo
 src = os.path.join(HERE, "src", "skill", "assets", "logo_green_box.png")
 im = Image.open(src).convert("RGBA")
 bbox = im.getbbox()

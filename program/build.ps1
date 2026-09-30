@@ -45,6 +45,17 @@ if (Test-Path -LiteralPath $DS) {
 # 2. ikona i plansza startowa
 python (Join-Path $W "ikona.py") | Out-Null
 python (Join-Path $W "powitanie.py") | Out-Null
+# 2b. PyInstaller nie przebudowuje exe po samej zmianie ikony/zasobów - odkładamy jego pliki pośrednie (nigdy nie kasujemy)
+$aside = Join-Path (Join-Path $W "poprzednie") ("_build-cache-" + (Get-Date -Format "yyyy-MM-dd_HHmmss"))
+foreach ($n in "stworz_gui", "stworz_cli") {
+    $bd = Join-Path (Join-Path $W "build") $n
+    if (Test-Path -LiteralPath $bd) {
+        foreach ($f in @(Get-ChildItem -LiteralPath $bd -Filter "EXE-*.toc" -File)) {
+            New-Item -ItemType Directory -Force (Join-Path $aside $n) | Out-Null
+            Move-Item -LiteralPath $f.FullName -Destination (Join-Path $aside $n)
+        }
+    }
+}
 # 3. PyInstaller: okno (program.exe) + konsola (stworz-cli.exe), oba z zawartością obok siebie
 $dist = Join-Path $W "dist"; $work = Join-Path $W "build"
 foreach ($spec in "stworz_gui", "stworz_cli") {

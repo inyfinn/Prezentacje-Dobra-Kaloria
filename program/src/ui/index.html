@@ -240,9 +240,16 @@
   <!-- 5. WYNIK ------------------------------------------------------------ -->
   <section class="screen" id="screen-wynik" aria-labelledby="h-wynik">
     <div class="wrap">
-      <h1 class="display h-done" id="h-wynik" tabindex="-1" data-focus>Gotowe!</h1>
-      <p class="file"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="res-name"></strong></p>
-      <p class="meta" id="res-meta"></p>
+      <div class="done-head">
+        <div class="done-title">
+          <h1 class="display h-done" id="h-wynik" tabindex="-1" data-focus>Gotowe!</h1>
+          <p class="file"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="res-name"></strong></p>
+          <p class="meta" id="res-meta"></p>
+        </div>
+        <button type="button" class="link-btn" id="btn-again">
+          <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną
+        </button>
+      </div>
 
       <div class="actions">
         <button type="button" class="btn btn-primary" id="btn-open">
@@ -253,29 +260,35 @@
         </button>
       </div>
 
-      <ul class="strip" id="strip" tabindex="0" aria-label="Podgląd slajdów (przewiń w bok)"></ul>
-
-      <p class="qa" id="res-qa"></p>
-      <ul class="qa-details" id="res-qa-list" hidden></ul>
-
-      <div class="todo" id="res-todo" hidden>
-        <p class="eyebrow">Do dopracowania</p>
-        <ul id="res-todo-list"></ul>
-      </div>
-
-      <div class="actions-2">
-        <div class="ai" role="group" aria-labelledby="l-ai">
-          <span class="ai-lead" id="l-ai"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Dokończ teksty z AI:</span>
-          <button type="button" class="btn btn-secondary btn-sm" data-ai="claude" title="Otwiera Claude w przeglądarce. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić.">Claude</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-ai="chatgpt" title="Otwiera ChatGPT w przeglądarce. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić.">ChatGPT</button>
-          <button type="button" class="btn btn-secondary btn-sm" data-ai="gemini" title="Otwiera Gemini w przeglądarce. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić.">Gemini</button>
-          <button type="button" class="link-btn" id="btn-copy-ai" title="Tylko kopiuje polecenie - do wklejenia w dowolnym innym czacie.">
-            <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Kopiuj
-          </button>
+      <div class="done-grid">
+        <div class="done-main">
+          <section class="done-sec" aria-labelledby="l-podglad">
+            <p class="eyebrow" id="l-podglad">Podgląd slajdów</p>
+            <ul class="strip" id="strip" tabindex="0" aria-label="Podgląd slajdów (przewiń w bok)"></ul>
+          </section>
+          <section class="done-sec" aria-labelledby="l-spr">
+            <p class="eyebrow" id="l-spr">Sprawdzenie</p>
+            <p class="qa" id="res-qa"></p>
+            <ul class="qa-details" id="res-qa-list" hidden></ul>
+            <div class="todo" id="res-todo" hidden>
+              <p class="todo-title">Do dopracowania</p>
+              <ul id="res-todo-list"></ul>
+            </div>
+          </section>
         </div>
-        <button type="button" class="link-btn" id="btn-again">
-          <svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Zrób kolejną
-        </button>
+
+        <aside class="ai-card" role="group" aria-labelledby="l-ai">
+          <p class="eyebrow" id="l-ai">Dokończ teksty z AI</p>
+          <p class="ai-text">Program skopiuje polecenie z treścią slajdów i otworzy czat. Tam wystarczy wkleić.</p>
+          <div class="ai-btns">
+            <button type="button" class="btn btn-secondary" data-ai="claude" title="Otwiera Claude. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić."><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Claude</button>
+            <button type="button" class="btn btn-secondary" data-ai="chatgpt" title="Otwiera ChatGPT. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić."><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>ChatGPT</button>
+            <button type="button" class="btn btn-secondary" data-ai="gemini" title="Otwiera Gemini. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić."><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Gemini</button>
+          </div>
+          <button type="button" class="link-btn" id="btn-copy-ai" title="Tylko kopiuje polecenie - do wklejenia w dowolnym innym czacie.">
+            <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Tylko skopiuj polecenie
+          </button>
+        </aside>
       </div>
     </div>
   </section>
