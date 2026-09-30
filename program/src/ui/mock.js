@@ -77,8 +77,12 @@
         { id: 'badanie', nazwa: 'Wyniki badania', opis: 'Liczby z pliku badania', dostepna: true, domyslnie: true },
         { id: 'film', nazwa: 'Film / podcast', opis: 'Slajd z linkiem do filmu', dostepna: false, domyslnie: false },
         { id: 'koniec', nazwa: 'Zakończenie', opis: 'Kontakt i podziękowanie', dostepna: true, domyslnie: true }
-      ],
+      ].map(function (s) {  /* grupy i liczby slajdów z prawdziwego katalogu */
+        var k = ((window.MOCK_KATALOG || {}).sekcje || []).filter(function (x) { return x.id === s.id; })[0];
+        return k ? Object.assign({}, k, s) : s;
+      }).concat(((window.MOCK_KATALOG || {}).sekcje || []).filter(function (x) { return x.rodzaj === 'szablon'; })),
       domyslne: { styl: 'nowy', dlugosc: 1, tekst: 1 },
+      grupy: (window.MOCK_KATALOG || {}).grupy, presety: (window.MOCK_KATALOG || {}).presety,
       szacowany_czas_s: 35
     };
   }

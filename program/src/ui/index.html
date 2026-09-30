@@ -156,6 +156,7 @@
                 <input type="range" id="in-dlugosc" name="dlugosc" min="0" max="2" step="1" value="1">
               </div>
               <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Krótka</button><button type="button" tabindex="-1" data-v="1">Standardowa</button><button type="button" tabindex="-1" data-v="2">Pełna</button></div>
+              <p class="slider-effect" id="dlugosc-effect" aria-live="polite">Zmienia, które slajdy z danymi z folderu wejdą do prezentacji.</p>
             </div>
 
             <div class="slider" id="sl-tekst">
@@ -168,12 +169,14 @@
                 <input type="range" id="in-tekst" name="tekst" min="0" max="2" step="1" value="1">
               </div>
               <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Mniej</button><button type="button" tabindex="-1" data-v="1">Standardowo</button><button type="button" tabindex="-1" data-v="2">Więcej</button></div>
+              <p class="slider-effect" id="tekst-effect" aria-live="polite"></p>
             </div>
           </div>
 
           <div class="block" id="fs-sekcje" role="group" aria-labelledby="l-sekcje">
-            <p class="eyebrow" id="l-sekcje">Sekcje prezentacji</p>
-            <ul class="secs" id="secs"></ul>
+            <p class="eyebrow" id="l-sekcje">Slajdy</p>
+            <p class="block-lead">Slajdy <span class="chip chip-auto">z folderu</span> program wypełni danymi. Pozostałe to slajdy z szablonu z podpowiedziami w [nawiasach] do uzupełnienia.</p>
+            <div class="grps" id="secs"></div>
           </div>
 
           <div class="block">
@@ -198,7 +201,7 @@
         <button type="submit" class="btn btn-primary" id="btn-build">
           <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz prezentację
         </button>
-        <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="bar-eta">zwykle ok. 30 sekund</span></p>
+        <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="bar-count">—</strong><span class="bar-sep" aria-hidden="true">·</span><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="bar-eta">zwykle ok. 30 sekund</span></p>
       </div>
     </div>
   </form>

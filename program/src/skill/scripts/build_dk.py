@@ -548,6 +548,10 @@ def text_block(s, x, y, w, sp, on_dark=False, max_pt=64, min_pt=36, sub_size=19,
     t = sp["title"]
     size = fit(t, max_pt, min_pt, w) if one_line else title_size(t, max_pt, min_pt, w)
     ls = [t] if one_line and bd.text_w_emu(t, size, "Mindset") <= w else display_lines(t, size, w)
+    # 30.09: wiersz na granicy szerokości PowerPoint łamał jeszcze raz ("KULKI / Z / KREATYNĄ", +62 pt) -> 5% zapasu
+    while size > min_pt and any(bd.text_w_emu(ln, size, "Mindset") > w * 0.95 for ln in ls):
+        size -= 2
+        ls = display_lines(t, size, w)
     txt(s, x, y, w, len(ls) * size * 12700, ls, size, color=ink, font="display", line=size * 0.98, name="!!title")
     y += len(ls) * size * 0.98 * 12700 + cm(0.45)
     if sp.get("subtitle"):

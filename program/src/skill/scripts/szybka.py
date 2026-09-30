@@ -192,6 +192,35 @@ def match_flavor(name, flavors):
     return best
 
 
+OCR_PS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ocr_win.ps1")  # program ustawia własną ścieżkę
+
+
+def ocr_texts(files):
+    """Tekst z obrazów przez rozpoznawanie wbudowane w Windows 10/11; {plik: tekst}. Błąd = pusty słownik."""
+    if os.name != "nt" or not os.path.isfile(OCR_PS) or not files:
+        return {}
+    import subprocess
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", OCR_PS]
+                           + list(files), capture_output=True, timeout=120, creationflags=0x08000000)
+        data = json.loads(r.stdout.decode("utf-8", "replace").strip() or "[]")
+        return {d["plik"]: d.get("tekst") or "" for d in (data if isinstance(data, list) else [data])}
+    except Exception:
+        return {}
+
+
+def match_by_ocr(files, flavors):
+    """Paczki bez smaku w nazwie pliku: smak z napisu na opakowaniu. Każdy plik i smak użyty najwyżej raz,
+    tylko jednoznaczne dopasowania (dokładnie jeden smak pasuje do napisu)."""
+    texts = ocr_texts(files)
+    out = {}
+    for f in files:
+        hits = [fl for fl in flavors if fl not in out and match_flavor(texts.get(f, ""), [fl])]
+        if len(hits) == 1:
+            out[hits[0]] = f
+    return out
+
+
 def inventory(folder, rob):
     cards = sorted(glob.glob(os.path.join(folder, "Karta wprowadzenia*.xls*")))
     fl_of = card_flavors(cards)
@@ -216,7 +245,14 @@ def inventory(folder, rob):
             mapa["packshoty"][fl] = f
             used.add(f)
     rest = [f for f in packs if f not in used]
-    for fl in flavors:  # brak nazwy smaku w pliku -> kolorem: przypisz po kolejności i oznacz do sprawdzenia
+    missing = [fl for fl in flavors if fl not in mapa["packshoty"]]
+    if missing and rest:  # brak smaku w nazwie pliku -> odczytaj napis z opakowania (OCR Windows, 30.09)
+        mapa["ocr"] = []
+        for fl, f in match_by_ocr(rest, missing).items():
+            mapa["packshoty"][fl] = f
+            rest.remove(f)
+            mapa["ocr"].append("packshot %s -> %s (rozpoznany po napisie na opakowaniu)" % (fl, os.path.basename(f)))
+    for fl in flavors:  # nadal brak -> przypisz po kolejności i oznacz do sprawdzenia
         if fl not in mapa["packshoty"] and rest:
             mapa["packshoty"][fl] = rest.pop(0)
             mapa["niepewne"].append("packshot %s -> %s (dopasowanie po kolejności, sprawdź na podglądzie)"

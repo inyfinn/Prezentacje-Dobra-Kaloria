@@ -26,6 +26,8 @@ import szybka  # noqa: E402
 import build_dk  # noqa: E402
 import build_deck  # noqa: E402
 import guard  # noqa: E402
+import make_template  # noqa: E402  - katalog typów slajdów szablonu
+szybka.OCR_PS = os.path.join(paths.SKILL_SCRIPTS, "ocr_win.ps1")  # paczki bez smaku w nazwie: napis z opakowania
 from PIL import Image  # noqa: E402
 
 CREATE_NO_WINDOW = 0x08000000
@@ -62,6 +64,109 @@ LENGTH_PRESETS = {  # suwak "Długość": które sekcje domyślnie włączone
     1: ["okladka", "smaki", "wyroznia", "sklad", "copy", "badanie", "koniec"],
     2: ["okladka", "smaki", "wyroznia", "sklad", "wartosci", "karty_smakow", "copy", "badanie", "film", "koniec"],
 }
+# Grupy slajdów (kolejność = kolejność w oknie i w prezentacji). Nazwy od usera 30.09.
+GROUPS = [("naglowki", "Nagłówki", "okładki, agenda, przerywniki, zakończenie"),
+          ("opis", "Opis", "tekst, punkty, akapity, zdjęcie z opisem"),
+          ("cechy", "Cechy", "zalety, claimy, argumenty dla handlu"),
+          ("szczegoly", "Szczegóły", "smaki, wartości, logistyka, ceny, tabele"),
+          ("dane", "Dane", "liczby, wyniki badań, wykresy"),
+          ("multimedia", "Multimedia", "filmy, zdjęcia, galerie, social media"),
+          ("cytaty", "Cytaty", "opinie i jedno zdanie-teza")]
+AUTO_GROUP = {"okladka": "naglowki", "koniec": "naglowki", "copy": "opis", "wyroznia": "cechy", "sklad": "cechy",
+              "smaki": "szczegoly", "karty_smakow": "szczegoly", "wartosci": "szczegoly", "badanie": "dane",
+              "film": "multimedia"}
+# Slajdy z szablonu (numer slajdu w szablonie, grupa, nazwa). Pominięte: instrukcje (1-2) i typy, które program
+# buduje z danych folderu (okładka 3, zalety 31, karta smaku 33, linia 34, wartości 35, kafle 36, film 49, koniec 59).
+EXTRA = [(4, "naglowki", "Okładka: paczka na granicy zieleni"), (5, "naglowki", "Okładka: biały tytuł na zieleni"),
+         (6, "naglowki", "Okładka klasyczna 50/50"), (7, "naglowki", "Okładka bez produktu 50/50"),
+         (8, "naglowki", "Okładka bez produktu na zieleni"), (9, "naglowki", "Okładka bez produktu, jasna"),
+         (10, "naglowki", "Agenda"), (11, "naglowki", "Przerywnik rozdziału, ciemny"),
+         (12, "naglowki", "Przerywnik rozdziału z numerem"), (60, "naglowki", "Zakończenie z podziękowaniem"),
+         (13, "opis", "Wstęp z akapitem"), (15, "opis", "Tekst długi w dwóch kolumnach"),
+         (16, "opis", "Akapit w karcie"), (17, "opis", "Punkty"), (18, "opis", "Punkty ze zdjęciem"),
+         (19, "opis", "Kroki / proces"), (21, "opis", "Porównanie: dziś i propozycja"),
+         (22, "opis", "Tekst i zdjęcie"), (23, "opis", "Zdjęcie i tekst"),
+         (24, "cechy", "Tekst i produkt"), (25, "cechy", "Zalety z ikonami i zdjęciem"),
+         (30, "cechy", "Anatomia produktu"), (32, "cechy", "Siatka cech z ikonami"),
+         (44, "cechy", "Argumenty dla handlu"), (56, "cechy", "Okazje spożycia"),
+         (42, "szczegoly", "Tabela"), (43, "szczegoly", "Oś czasu"), (45, "szczegoly", "Logistyka"),
+         (54, "szczegoly", "Cena i marża"), (55, "szczegoly", "Porównanie z konkurencją"),
+         (47, "szczegoly", "Osoba kontaktowa"), (58, "szczegoly", "Następne kroki"),
+         (37, "dane", "Liczba-bohater"), (38, "dane", "Wskaźniki (KPI)"), (39, "dane", "Wykres słupkowy"),
+         (40, "dane", "Dwie grupy wyników"), (41, "dane", "A kontra B"), (52, "dane", "Wykres pierścieniowy"),
+         (53, "dane", "Wykres kolumnowy"),
+         (48, "multimedia", "Film na cały slajd"), (50, "multimedia", "Film z tekstem"),
+         (26, "multimedia", "Zdjęcie na cały slajd z podpisem"), (27, "multimedia", "Zdjęcie na cały slajd"),
+         (28, "multimedia", "Galeria 3 zdjęć"), (29, "multimedia", "Galeria 6 zdjęć"),
+         (51, "multimedia", "Przed i po"), (46, "multimedia", "Karty ze zdjęciem"), (57, "multimedia", "Social media"),
+         (20, "cytaty", "Cytat / opinia"), (14, "cytaty", "Jedno zdanie – teza")]
+_TPL = None
+
+
+def _template():
+    """Slajdy szablonu {numer: slajd} (z make_template - to samo źródło co plik szablonu)."""
+    global _TPL
+    if _TPL is None:
+        _TPL = {i + 1: s for i, s in enumerate(make_template.spec("shop")["slides"])}
+    return _TPL
+
+
+def _short(label, n=110):
+    t = label.split(":", 1)[1] if ":" in label[:60] else label
+    t = re.sub(r"\s*\(wzór z [^)]*\)", "", t).strip()
+    t = t.split(". ")[0].rstrip(".")
+    t = t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
+    return t[:1].upper() + t[1:]
+
+
+def catalog_extra():
+    tpl = _template()
+    return [{"id": "t%02d" % i, "grupa": g, "nazwa": n, "opis": _short(tpl[i]["label_slide"]), "rodzaj": "szablon",
+             "miniatura": "img/typy/t%02d.png" % i, "slajdy": 1, "dostepna": True, "domyslnie": False, "powod": ""}
+            for i, g, n in EXTRA]
+
+
+def template_slides(ids, produkt, flavors, packs, props, claim=""):
+    """Wybrane slajdy szablonu z podpowiedziami w [nawiasach]; obrazy przykładowe zamienione na grafiki produktu,
+    [Nazwa produktu] i [Smak N] - na dane z folderu. Reszta nawiasów zostaje do uzupełnienia."""
+    import copy as _copy
+    demo = os.path.join(paths.SKILL_DIR, "assets", "demo")
+    cnt = {"pack": 0, "p": 0}
+
+    def img(path):
+        base = os.path.basename(path)
+        kind = "pack" if base.startswith("pack_") else "p"
+        pool = packs if kind == "pack" else props
+        if pool:
+            cnt[kind] += 1
+            return pool[(cnt[kind] - 1) % len(pool)]
+        return os.path.join(demo, base)
+
+    def walk(x):
+        if isinstance(x, dict):
+            return {k: walk(v) for k, v in x.items()}
+        if isinstance(x, list):
+            return [walk(v) for v in x]
+        if isinstance(x, str):
+            if x.lower().endswith(".png") and os.sep + "demo" + os.sep in x:
+                return img(x)
+            x = x.replace("[Nazwa produktu]", produkt).replace("[Nowość]", "Nowość")
+            if claim:
+                x = x.replace("[Jedno zdanie: główny claim z karty wprowadzenia]", claim)
+            for n, f in enumerate(flavors[:3], 1):
+                x = x.replace("[Smak %d]" % n, f)
+        return x
+
+    tpl = _template()
+    out = []
+    for sid in ids:
+        s = _copy.deepcopy(tpl[int(sid[1:])])
+        for k in ("section", "label_slide", "hidden"):
+            s.pop(k, None)
+        out.append(walk(s))
+    return out
+
+
 STEPS = [("folder", "Czytam folder", 5), ("grafiki", "Przygotowuję grafiki", 40), ("slajdy", "Układam slajdy", 5),
          ("budowa", "Buduję prezentację", 20), ("qa", "Sprawdzam w PowerPoint", 25), ("zapis", "Zapisuję", 5)]
 _cache = {}  # folder -> (inv, mapa)
@@ -123,6 +228,8 @@ def analyze(path):
                           % s["nazwa"]})
     for t in mapa.get("niepewne", []):
         uwagi.append({"typ": "info", "tekst": t})
+    if mapa.get("ocr"):
+        uwagi.append({"typ": "info", "tekst": "Paczki dopasowane po napisie na opakowaniu (nazwy plików nie mają smaku)."})
     for t in mapa.get("pominiete", [])[:3]:
         uwagi.append({"typ": "info", "tekst": "Pominięto: " + t})
     common = _common_claims(skus)
@@ -150,15 +257,19 @@ def analyze(path):
     powody = {}
     if inv["copy"] and not prose:
         powody["copy"] = "w pliku są same liczby z badania, trafią do „Wyniki badania”"
+    n_copy = len(chunk_copy(split_copy(inv["copy"])[0]))
+    slajdy = {"karty_smakow": len(skus), "copy": n_copy, "badanie": 2}
     sekcje = [{"id": i, "nazwa": n, "opis": o, "dostepna": avail[i], "domyslnie": avail[i] and i in default,
-               "powod": powody.get(i, "")} for i, n, o in SECTIONS]
+               "powod": powody.get(i, ""), "grupa": AUTO_GROUP[i], "rodzaj": "auto", "slajdy": slajdy.get(i, 1)}
+              for i, n, o in SECTIONS] + catalog_extra()
     n_img = len(mapa["packshoty"]) + min(n_el, 10 * max(1, len(skus)) + 8)
     est = 8 + 0.7 * n_img + (18 if powerpoint_available() else 0)
     return {"ok": True, "folder": folder, "produkt": inv["produkt"], "smaki": smaki, "karty": len(cards),
             "copy_akapity": len(prose), "copy_pliki": [t["plik"] for t in inv.get("teksty", [])],
             "copy_wszystkie": len(inv["copy"]), "copy_liczby": len(copy_stats), "badania": inv["badania"], "packshoty_pliki": packshoty_pliki,
             "grafiki": {"packshoty": len(mapa["packshoty"]), "elementy": n_el, "pominiete": len(mapa.get("pominiete", []))},
-            "uwagi": uwagi, "sekcje": sekcje, "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1},
+            "uwagi": uwagi, "sekcje": sekcje, "grupy": [{"id": g, "nazwa": n, "opis": d} for g, n, d in GROUPS],
+            "presety": {str(k): v for k, v in LENGTH_PRESETS.items()}, "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1},
             "szacowany_czas_s": int(est), "powerpoint": powerpoint_available()}
 
 
@@ -271,7 +382,9 @@ def compose(inv, g, o):
     produkt = inv["produkt"]
     styl = o.get("styl", "nowy")
     tekst = int(o.get("tekst", 1))
-    sek = set(o.get("sekcje") or LENGTH_PRESETS[int(o.get("dlugosc", 1))]) | {"okladka", "koniec"}
+    sek = set(o.get("sekcje") or LENGTH_PRESETS[int(o.get("dlugosc", 1))]) | {"koniec"}  # okładka do wyłączenia (30.09)
+    extra = [x for x in (o.get("sekcje") or []) if re.fullmatch(r"t\d\d", str(x))]
+    extra.sort(key=lambda x: [i for i, (n, _g, _t) in enumerate(EXTRA) if "t%02d" % n == x][0])
     uwagi = []
     have = [g["pack"].get(f) for f in fl if g["pack"].get(f)]
     trio = have[:3] if len(have) >= 3 else (have[0] if have else None)
@@ -314,7 +427,12 @@ def compose(inv, g, o):
         cover = {"type": "cover", "variant": 4, "kicker": "Nowość", "title": produkt, "image": trio, "props": mix[:4]}
         if tekst == 2 and claims:
             cover["subtitle"] = ". ".join(t for t, _ in claims[:2]) + "."
-        sl.append(cover)
+        if "okladka" in sek:
+            sl.append(cover)
+        tpl = dict(zip(extra, template_slides(extra, produkt, fl, have, mix, claim=(claims[0][0] + ".") if claims else "")))
+        front = [x for x in extra if x in ("t04", "t05", "t06", "t07", "t08", "t09", "t10")]  # okładki i agenda na początek
+        back = [x for x in extra if x == "t60"]
+        sl += [tpl[x] for x in front]
         if "smaki" in sek and len(skus) > 1:
             items = []
             for s in skus:
@@ -327,7 +445,8 @@ def compose(inv, g, o):
             sl.append({"type": "line", "title": n_smaki + " na start", "items": items})
         if "wyroznia" in sek and claims:
             sl.append({"type": "icon_list", "title": "Co wyróżnia " + produkt.lower(), "pack": trio, "props": mix[:3],
-                       "items": [{"icon": szybka.icon_for(t), "title": t, "text": d if tekst >= 1 else ""}
+                       "items": [{"icon": szybka.icon_for(t), "title": t,
+                                  "text": (d or ("[Jedno zdanie: co to daje klientowi]" if tekst == 2 else "")) if tekst >= 1 else ""}
                                  for t, d in claims[:4]]})
         if "sklad" in sek and grid:
             g4 = [x for x in grid if x[0].lower() not in {t.lower() for t, _ in claims}][:4]
@@ -337,7 +456,8 @@ def compose(inv, g, o):
                     uwagi.append("'Dobry skład' powtarza oświadczenia z kart - wpisz własne claimy (pole 'Claimy'), "
                                  "żeby slajd 'Co wyróżnia' mówił o czymś innym.")
             sl.append({"type": "tiles", "title": "Dobry skład", "items": [
-                {"title": t, "text": d if tekst == 2 else "", "image": fruit_mix[i % len(fruit_mix)] if fruit_mix else None,
+                {"title": t, "text": (d or "[krótkie rozwinięcie]") if tekst == 2 else "",
+                 "image": fruit_mix[i % len(fruit_mix)] if fruit_mix else None,
                  "rot": [-10, 0, 12, -6][i % 4]} for i, (t, d) in enumerate(g4)]})
         if "wartosci" in sek and any(s["wartosci"] for s in skus):
             s0 = next(s for s in skus if s["wartosci"])
@@ -365,7 +485,8 @@ def compose(inv, g, o):
                        "props": mix[:4]})
             if len(stats) >= 2:
                 sl.append({"type": "kpis", "kicker": "Badanie konsumenckie", "title": "Wyniki badania",
-                           "items": [{"value": s["value"], "label": s["label"], "note": s.get("note", "")} for s in stats],
+                           "items": [{"value": s["value"], "label": s["label"],
+                                      "note": s.get("note", "") if tekst >= 1 else ""} for s in stats],
                            "highlight": 0, "source": src_badanie})
                 uwagi.append("Liczby z badania wzięte automatycznie z copy - sprawdź opisy przy procentach.")
             else:
@@ -379,13 +500,21 @@ def compose(inv, g, o):
             sl.append({"type": "media", "title": "Zobacz film o produkcie", "claim_image": (prod + fruit_mix)[0] if (prod + fruit_mix) else None,
                        "claim_title": t, "text": d or "[1-2 zdania: dlaczego ten produkt jest ważny dla odbiorcy]",
                        "media_title": "Zapraszamy do obejrzenia filmu", "link": o["film"].strip()})
+        sl += [tpl[x] for x in extra if x not in front and x not in back]
         sl.append({"type": "end", "contact": "halo@dobrakaloria.pl  ·  dobrakaloria.pl"})
+        sl += [tpl[x] for x in back]
+        if extra:
+            uwagi.append("Slajdy z szablonu (%d) mają podpowiedzi w [nawiasach] - uzupełnij je albo użyj przycisku "
+                         "Claude / ChatGPT / Gemini." % len(extra))
         theme, label = "shop", "nowy styl"
     else:  # stary styl (klasyczny DK_WZÓR, build_deck)
         cover = {"type": "cover", "kicker": "Nowość", "title": produkt, "images": trio_dicts or packs_any or []}
         if len(fl) > 1:
             cover["subtitle"] = [", ".join(fl[:2]), ", ".join(fl[2:])] if len(fl) > 2 else [", ".join(fl)]
-        sl.append(cover)
+        if "okladka" in sek:
+            sl.append(cover)
+        if extra:
+            uwagi.append("Slajdy z szablonu są tylko w nowym stylu - pominięto %d." % len(extra))
         if "smaki" in sek and len(skus) > 1:
             sl.append({"type": "skus", "title": n_smaki + " na start", "items": [
                 {"name": s["smak"], "meta": s["masa"], "ean": s["ean"] if tekst == 2 else None,

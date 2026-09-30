@@ -440,12 +440,43 @@
   }
 
   /* ---------- opcje: suwaki ---------- */
+  /* Długość: przełącza slajdy budowane z danych folderu (slajdy z szablonu zostają, jak je ustawił użytkownik).
+     Ilość tekstu: zmienia treść slajdów (silnik: compose, parametr "tekst"). Skutek obu widać od razu pod suwakiem. */
   var SLIDERS = {
-    dlugosc: { root: '#sl-dlugosc', input: '#in-dlugosc', vals: [
-      { n: 'Krótka', d: '≈ 6 slajdów' }, { n: 'Standardowa', d: '≈ 9 slajdów' }, { n: 'Pełna', d: '≈ 13 slajdów' }] },
+    dlugosc: { root: '#sl-dlugosc', input: '#in-dlugosc', vals: [{ n: 'Krótka' }, { n: 'Standardowa' }, { n: 'Pełna' }] },
     tekst: { root: '#sl-tekst', input: '#in-tekst', vals: [
-      { n: 'Mniej', d: 'krótkie hasła' }, { n: 'Standardowo', d: 'hasło i zdanie opisu' }, { n: 'Więcej', d: 'pełniejsze opisy' }] }
+      { n: 'Mniej', d: 'same tytuły i liczby' }, { n: 'Standardowo', d: 'hasło i zdanie opisu' }, { n: 'Więcej', d: 'pełniejsze opisy' }] }
   };
+  var TEXT_EFFECT = [
+    'Bez opisów pod zaletami i liczbami. Tekst z copy tylko na jednym slajdzie.',
+    'Pod liczbami z badania zdanie opisu. Cały tekst z copy.',
+    'Podpis na okładce, % owoców i EAN przy smakach, pod każdą zaletą miejsce na zdanie [w nawiasach].'
+  ];
+  var effectTimer = null;
+
+  function slideCount() {
+    var t = +$('#in-tekst').value;
+    return state.secs.reduce(function (n, o) {
+      if (!o.checked || !o.avail) return n;
+      var k = o.slajdy == null ? 1 : +o.slajdy;
+      if (o.id === 'copy' && t === 0) k = Math.min(1, k);
+      return n + k;
+    }, 0);
+  }
+  function presetLevel() {  /* który preset odpowiada obecnemu wyborowi slajdów z folderu (-1 = własny) */
+    for (var lv = 0; lv < 3; lv++) {
+      var set = presetSet(lv), same = state.secs.every(function (o) {
+        return o.rodzaj !== 'auto' || !o.avail || o.id === 'koniec' || !!set[o.id] === o.checked;
+      });
+      if (same) return lv;
+    }
+    return -1;
+  }
+  function presetSet(level) {
+    var p = state.presety || {}, set = {};
+    (p[String(level)] || []).forEach(function (id) { set[id] = 1; });
+    return set;
+  }
 
   function syncSlider(key) {
     var c = SLIDERS[key], root = $(c.root), input = $(c.input);
@@ -453,91 +484,144 @@
     root.style.setProperty('--pct', (v * 50) + '%');
     $$('.dot', root).forEach(function (d, i) { d.classList.toggle('on', i <= v); });
     $$('.stops button', root).forEach(function (b, i) { b.classList.toggle('on', i === v); });
-    $('.slider-value strong', root).textContent = c.vals[v].n;
-    $('.slider-value span', root).textContent = c.vals[v].d;
-    input.setAttribute('aria-valuetext', c.vals[v].n + ', ' + c.vals[v].d);
+    var n = c.vals[v].n, d = c.vals[v].d;
+    if (key === 'dlugosc' && state.secs) {
+      var cnt = slideCount();
+      d = '≈ ' + num(cnt, 'slajd', 'slajdy', 'slajdów');
+      if (presetLevel() === -1) n = 'Własny wybór';
+    }
+    $('.slider-value strong', root).textContent = n;
+    $('.slider-value span', root).textContent = d || '';
+    input.setAttribute('aria-valuetext', n + (d ? ', ' + d : ''));
+    if (key === 'tekst') $('#tekst-effect').textContent = TEXT_EFFECT[v];
   }
   function setSlider(key, v) { $(SLIDERS[key].input).value = String(v); syncSlider(key); }
+
+  function refreshCounts() {
+    if (!state.secs) return;
+    syncSlider('dlugosc');
+    var cnt = slideCount();
+    $('#bar-count').textContent = num(cnt, 'slajd', 'slajdy', 'slajdów');
+    (state.groups || []).forEach(function (g) {
+      var items = state.secs.filter(function (o) { return o.grupa === g.id; });
+      var on = items.filter(function (o) { return o.checked && o.avail; }).length;
+      g.count.textContent = on ? on + ' z ' + items.length : items.length + '';
+      g.el.classList.toggle('has-on', on > 0);
+    });
+  }
 
   function initSliders() {
     Object.keys(SLIDERS).forEach(function (key) {
       var c = SLIDERS[key], input = $(c.input);
-      input.addEventListener('input', function () {
-        syncSlider(key);
-        if (key === 'dlugosc') applyPreset(+input.value);
-      });
+      function changed(v) {
+        if (key === 'dlugosc') applyPreset(v, true);
+        else { syncSlider(key); refreshCounts(); pulse($('#tekst-effect')); }
+      }
+      input.addEventListener('input', function () { syncSlider(key); changed(+input.value); });
       $$('.stops button', $(c.root)).forEach(function (b) {
-        b.addEventListener('click', function () {
-          setSlider(key, +b.getAttribute('data-v'));
-          if (key === 'dlugosc') applyPreset(+b.getAttribute('data-v'));
-        });
+        b.addEventListener('click', function () { setSlider(key, +b.getAttribute('data-v')); changed(+b.getAttribute('data-v')); });
       });
       syncSlider(key);
     });
   }
+  function pulse(el) { if (!el) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
 
-  /* ---------- opcje: sekcje ---------- */
-  var LOCKED = { okladka: 1, koniec: 1 };
-  var PRESET = [
-    ['okladka', 'smaki', 'wyroznia', 'sklad', 'koniec'],
-    ['copy', 'badanie'],
-    ['karty_smakow', 'wartosci', 'film']
-  ];
+  /* ---------- opcje: slajdy (grupy) ---------- */
+  var LOCKED = { koniec: 1 };   /* 30.09: okładkę można wyłączyć */
 
   function filmLink() { return ($('#in-film').value || '').trim(); }
+  function styl() { return ($('input[name="styl"]:checked') || {}).value || 'nowy'; }
 
   function refreshSec(o) {
-    o.avail = !!(o.locked || o.dostepna || (o.id === 'film' && filmLink()));
+    var stary = o.rodzaj === 'szablon' && styl() === 'stary';
+    o.avail = !stary && !!(o.locked || o.dostepna || (o.id === 'film' && filmLink()));
     if (o.locked) o.checked = true;
-    if (!o.avail) o.checked = false;
-    o.input.checked = o.checked;
+    if (!o.avail) o.input.checked = false;
+    o.input.checked = o.checked && o.avail;
     o.input.disabled = !o.avail || o.locked;
-    o.row.classList.toggle('is-on', o.checked);
+    o.row.classList.toggle('is-on', o.checked && o.avail);
     o.row.classList.toggle('is-off', !o.avail);
     o.row.classList.toggle('is-locked', o.locked);
-    o.desc.textContent = o.avail ? o.opis : (o.id === 'film' ? 'wpisz link do filmu poniżej' : (o.powod || 'brak danych w folderze'));
+    o.desc.textContent = o.avail ? o.opis : (stary ? 'tylko w nowym stylu'
+      : (o.id === 'film' ? 'wpisz link do filmu poniżej' : (o.powod || 'brak danych w folderze')));
+  }
+
+  function secRow(s) {
+    var locked = !!LOCKED[s.id], auto = s.rodzaj !== 'szablon';
+    var o = { id: s.id, nazwa: s.nazwa, opis: s.opis || '', dostepna: !!s.dostepna, powod: s.powod || '', grupa: s.grupa,
+      rodzaj: auto ? 'auto' : 'szablon', slajdy: s.slajdy, locked: locked, checked: !!s.domyslnie || locked };
+    var nameId = 'sec-n-' + s.id, descId = 'sec-d-' + s.id;
+    o.input = h('input', { type: 'checkbox', role: 'switch', name: 'sekcja', value: s.id, 'aria-labelledby': nameId, 'aria-describedby': descId });
+    o.desc = h('span', { class: 'sec-desc', id: descId });
+    var img = h('img', { class: 'sec-img', src: s.miniatura || ('img/sekcja-' + s.id + '.png'), alt: '', decoding: 'async', loading: 'lazy' });
+    img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
+    var multi = auto && s.slajdy > 1 ? h('span', { class: 'sec-tag' }, num(s.slajdy, 'slajd', 'slajdy', 'slajdów')) : null;
+    o.row = h('label', { class: 'sec', 'data-id': s.id },
+      img,
+      h('span', { class: 'sec-txt' },
+        h('span', { class: 'sec-name', id: nameId },
+          h('span', { text: s.nazwa }),
+          auto ? h('span', { class: 'chip chip-auto', text: 'z folderu' }) : null,
+          multi,
+          locked ? h('span', { class: 'sec-tag' }, icon('lock'), 'zawsze') : null),
+        o.desc),
+      h('span', { class: 'switch' }, o.input, h('i', { class: 'track' }), h('i', { class: 'knob' }, icon('check'))));
+    o.li = h('li', null, o.row);
+    o.input.addEventListener('change', function () { o.checked = o.input.checked; refreshSec(o); refreshCounts(); });
+    return o;
   }
 
   function renderSecs(r) {
-    var ul = $('#secs');
-    ul.replaceChildren();
-    state.secs = (r.sekcje || []).map(function (s) {
-      var locked = !!LOCKED[s.id];
-      var o = { id: s.id, nazwa: s.nazwa, opis: s.opis || '', dostepna: !!s.dostepna, powod: s.powod || '', locked: locked, checked: !!s.domyslnie || locked };
-      var nameId = 'sec-n-' + s.id, descId = 'sec-d-' + s.id;
-      o.input = h('input', { type: 'checkbox', role: 'switch', name: 'sekcja', value: s.id, 'aria-labelledby': nameId, 'aria-describedby': descId });
-      o.desc = h('span', { class: 'sec-desc', id: descId });
-      var img = h('img', { class: 'sec-img', src: 'img/sekcja-' + s.id + '.png', alt: '', decoding: 'async' });
-      img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
-      o.row = h('label', { class: 'sec', 'data-id': s.id },
-          img,
-          h('span', { class: 'sec-txt' },
-            h('span', { class: 'sec-name', id: nameId },
-              h('span', { text: s.nazwa }),
-              locked ? h('span', { class: 'sec-tag' }, icon('lock'), 'zawsze') : null),
-            o.desc),
-          h('span', { class: 'switch' },
-            o.input,
-            h('i', { class: 'track' }),
-            h('i', { class: 'knob' }, icon('check'))));
-      o.li = h('li', null, o.row);
-      o.input.addEventListener('change', function () { o.checked = o.input.checked; refreshSec(o); });
-      ul.appendChild(o.li);
-      return o;
+    var host = $('#secs');
+    host.replaceChildren();
+    state.presety = r.presety || { 0: [], 1: [], 2: [] };
+    var groups = r.grupy && r.grupy.length ? r.grupy : [{ id: '', nazwa: 'Slajdy', opis: '' }];
+    state.secs = (r.sekcje || []).map(secRow);
+    state.groups = groups.map(function (g) {
+      var items = state.secs.filter(function (o) { return (o.grupa || '') === g.id; });
+      items.sort(function (a, b) { return (a.rodzaj === 'auto' ? 0 : 1) - (b.rodzaj === 'auto' ? 0 : 1); });
+      var count = h('span', { class: 'grp-count' });
+      var el = h('details', { class: 'grp', 'data-id': g.id },
+        h('summary', null,
+          h('span', { class: 'grp-name' }, h('strong', { text: g.nazwa }), h('span', { class: 'grp-desc', text: g.opis || '' })),
+          count, icon('chevron')),
+        h('ul', { class: 'secs-list' }, items.map(function (o) { return o.li; })));
+      if (items.some(function (o) { return o.checked && o.dostepna; })) el.open = true;
+      host.appendChild(el);
+      return { id: g.id, el: el, count: count };
     });
-    /* jeśli Python nie zaznaczył nic poza obowiązkowymi, użyj presetu długości */
     var any = state.secs.some(function (o) { return !o.locked && o.checked && o.dostepna; });
-    if (!any) applyPreset(+$('#in-dlugosc').value);
+    if (!any) applyPreset(+$('#in-dlugosc').value, false);
     else state.secs.forEach(refreshSec);
+    refreshCounts();
   }
 
-  function applyPreset(level) {
-    var set = {};
-    for (var i = 0; i <= level; i++) PRESET[i].forEach(function (id) { set[id] = 1; });
+  function applyPreset(level, announce) {
+    var set = presetSet(level), on = [], off = [];
     state.secs.forEach(function (o) {
-      o.checked = !!set[o.id];
+      if (o.rodzaj !== 'auto' || o.locked) { refreshSec(o); return; }
+      var want = !!set[o.id];
+      var was = o.checked && o.avail;
+      o.checked = want;
       refreshSec(o);
+      var now = o.checked && o.avail;
+      if (now !== was) {
+        (now ? on : off).push(o.nazwa);
+        o.row.classList.remove('flash'); void o.row.offsetWidth; o.row.classList.add('flash');
+        var g = (state.groups || []).filter(function (x) { return x.id === o.grupa; })[0];
+        if (g && now) g.el.open = true;
+      }
     });
+    refreshCounts();
+    if (announce) {
+      var e = $('#dlugosc-effect'), parts = [];
+      if (on.length) parts.push('Dodano: ' + on.join(', '));
+      if (off.length) parts.push('Usunięto: ' + off.join(', '));
+      e.textContent = parts.length ? parts.join('. ') + '.' : 'Bez zmian w slajdach z folderu.';
+      pulse(e);
+      clearTimeout(effectTimer);
+      effectTimer = setTimeout(function () { e.textContent = 'Zmienia, które slajdy z danymi z folderu wejdą do prezentacji.'; }, 6000);
+    }
   }
 
   function initFilm() {
@@ -548,6 +632,7 @@
       if (o) {
         refreshSec(o);
         if (o.avail && !wasAvail) { o.checked = true; refreshSec(o); }
+        refreshCounts();
       }
       if (!v) { hint.textContent = 'Wklej link, a dodam slajd z filmem.'; hint.style.color = ''; }
       else if (!/^(https?:\/\/)?([\w-]+\.)?(youtube\.com|youtu\.be)\//i.test(v)) {
@@ -570,6 +655,7 @@
     setSlider('dlugosc', d.dlugosc == null ? 1 : d.dlugosc);
     setSlider('tekst', d.tekst == null ? 1 : d.tekst);
     renderSecs(r);
+    syncSlider('tekst');
     var s = Math.round((+r.szacowany_czas_s || 30) / 5) * 5;
     $('#bar-eta').textContent = 'zwykle ok. ' + num(Math.max(s, 5), 'sekunda', 'sekundy', 'sekund');
   }
@@ -839,6 +925,9 @@
   /* ---------- przyciski ---------- */
   function initButtons() {
     $('#btn-other-folder').addEventListener('click', function () { resetAll(); goto('start'); });
+    $$('input[name="styl"]').forEach(function (i) {
+      i.addEventListener('change', function () { if (state.secs) { state.secs.forEach(refreshSec); refreshCounts(); } });
+    });
     $('#opcje-form').addEventListener('submit', function (e) { e.preventDefault(); startBuild(); });
     $('#btn-cancel').addEventListener('click', cancelBuild);
     $('#btn-back-opts').addEventListener('click', function () { state.building = false; goto('opcje'); });
@@ -927,6 +1016,9 @@
   function loadMock() {
     return new Promise(function (resolve) {
       var s = document.createElement('script');
+      var k = document.createElement('script');  /* katalog slajdów dla atrapy (generuje WORK\\mock_katalog.py) */
+      k.src = 'mock-katalog.js';
+      document.head.appendChild(k);
       s.src = 'mock.js';
       s.onload = function () { resolve(true); };
       s.onerror = function () { resolve(false); };
