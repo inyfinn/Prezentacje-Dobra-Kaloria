@@ -26,6 +26,10 @@ Biblioteka komponentów wyciągnięta z aplikacji "Stwórz prezentację". Żywy 
 18. [Toast](#18-toast)
 19. [Pasek miniatur](#19-pasek-miniatur)
 20. [Dodatek: ikony i zasady wspólne](#20-dodatek-ikony-i-zasady-wspólne)
+21. [Drabina powierzchni: tło, karta, rubryka, okno w oknie, nakładka (od 1.4.0)](#21-drabina-powierzchni-od-140)
+22. [Tagi i chipy kategorii (od 1.4.0)](#22-tagi-i-chipy-kategorii-od-140)
+
+Jak z tych klocków złożyć nowy ekran albo nową aplikację: `IDENTYFIKACJA-WIZUALNA.md`.
 
 ## Zasady wspólne (dotyczą każdego komponentu)
 
@@ -37,7 +41,8 @@ Biblioteka komponentów wyciągnięta z aplikacji "Stwórz prezentację". Żywy 
 - **Cel dotykowy**: min. `--dk-control-h-min` (44 px) w każdym wymiarze.
 - **Kolory**: tylko role `--dk-color-*`, nigdy prymitywy (`--dk-green-700` itp.). Tekst jest brązowy (`--dk-color-text`), nigdy czarny.
 - **Czcionki**: Mindset (`--dk-font-display`) tylko w nagłówkach i liczbach, zawsze `text-transform: uppercase` (font nie ma małych liter). Lato (`--dk-font-text`) do reszty.
-- **Etykieta w kolorze tan** (`--dk-color-label`, kontrast ok. 3,26:1 na bieli): tylko pogrubiony tekst min. 15 px (etykieta nad tytułem) i elementy ozdobne. Nigdy tekst ciągły.
+- **Etykieta w kolorze tan** (`--dk-color-label`, kontrast ok. 3,26:1 na bieli): tylko pogrubiony tekst min. 15 px (etykieta nad tytułem) i elementy ozdobne. Nigdy tekst ciągły. Od 1.4.0: tylko na poziomach L0-L1; na L2 i głębiej etykieta w `--dk-color-text-muted`.
+- **Powierzchnie (od 1.4.0)**: każde tło bierzesz z drabiny `--dk-color-surface-0..4` według głębokości zagnieżdżenia (rozdz. 21), nie „na oko”. `--dk-color-bg` = L0, `--dk-color-surface` = L1, `--dk-color-surface-hover` = L2 (aliasy, stare nazwy działają).
 - **Ruch**: przejścia `--dk-motion-fast/base/slow` + `--dk-motion-ease`; przy `prefers-reduced-motion: reduce` animacje są wyłączone (spinner staje się statyczny).
 - **Ikony**: Lucide-style, kreska `--dk-control-stroke-icon`, `currentColor`, `aria-hidden="true"` gdy dekoracyjne (lista w rozdz. 20).
 - **Stany wymuszone** w galerii (`.is-hover`, `.is-focus`, `.is-active`) służą tylko do dokumentacji - w produkcji działają `:hover`, `:focus-visible`, `:active`.
@@ -694,3 +699,112 @@ Czcionki (`@font-face`) są zdefiniowane w `preview/preview.css` względem `asse
 | Zamknięcie toasta | 32 px | 44 px |
 | Przyciski `.stops` suwaka | 30 px | 44 px |
 | Ramka strefy upuszczania, punkty listy | surowy kolor tan | `--dk-color-label` |
+
+---
+
+## 21. Drabina powierzchni (od 1.4.0)
+
+**Opis i kiedy używać.** Każde tło w aplikacji ma poziom L0-L4 zależny od głębokości zagnieżdżenia. Sąsiednie poziomy różnią się
+stałym, małym skokiem jasności (OKLCH: jasny tryb 0,020 w dół, ciemny 0,034 w górę). Dzięki temu okno w oknie zawsze odcina się
+od rodzica, a aplikacja z głębokim drzewem (DAM) nie „przepala” kolorów. Wartości: `tokens/tokens.md`, sekcja „Drabina”.
+
+| Poziom | Zmienna | Co na nim leży | Przykład: program / Resizer / DAM |
+|---|---|---|---|
+| L0 | `--dk-color-surface-0` (= `--dk-color-bg`) | tło okna, pasek akcji | strona / okno / tło aplikacji |
+| L1 | `--dk-color-surface-1` (= `--dk-color-surface`) | kontener, sekcja, karta | karta „znalazłem”, karta AI / panel „Lista plików” / panel filtrów, sidebar |
+| L2 | `--dk-color-surface-2` (= `--dk-color-surface-hover`) | rubryka, pole, karta w karcie | kafelek smaku, grupa slajdów / lista plików, combo / pole wyszukiwania, karta wyniku |
+| L3 | `--dk-color-surface-3` | element w polu: chip, wiersz, okno w oknie | miniatura w kafelku / wiersz listy / wiersz podpowiedzi, sekcja w oknie podglądu |
+| L4 | `--dk-color-surface-4` | nakładka: menu, podpowiedź, modal nad modalem | instrukcja po kopiowaniu / menu combo / menu kontekstowe nad podglądem |
+
+**Warianty.** Jeden zestaw poziomów na każdy styl i tryb (`data-theme`): program (`:root`, L0 = biała kartka), krem jasny, zieleń jasna,
+zieleń ciemna, krem ciemny. Ramka elementu na poziomie N: `--dk-color-border-subtle-N`. Tekst: `--dk-color-on-surface-N` (= `text`).
+
+**Stany.** Hover elementu na poziomie N = poziom N+1 (jeden krok). Zaznaczenie = `--dk-color-brand-soft` + ramka `--dk-color-brand`, nie kolejny poziom.
+
+**Tokeny.** `--dk-color-surface-0..4`, `--dk-color-border-subtle-0..4`, `--dk-color-on-surface-0..4`, `--dk-color-text-muted`, `--dk-color-label` (tylko L0-L1).
+Qt: `T["color_surface_2"]`, `T_DARK["color_surface_2"]` itd.
+
+**Dostępność.** `text` i `text-muted` mają >= 4,5:1 na każdym poziomie każdego wariantu, link (`brand`) na L0-L3, na L4 link w `brand-hover`.
+Sprawdza to `build_tokens.py --check`. Skok jasności nie niesie znaczenia sam: zaznaczenie i błąd mają też ramkę, ikonę albo tekst.
+
+**Rób / Nie rób.**
+- Rób: policz głębokość (ile razy kontener leży w kontenerze) i przypisz poziom, zanim wybierzesz kolor.
+- Rób: ramkę `border-subtle-N` dodawaj tylko tam, gdzie sam skok jasności nie wystarcza (np. pole na tym samym poziomie co rodzic, lista kart).
+- Nie rób: białych płyt na kremie albo szałwii w stylach DK (czysta biel tylko jako L0 programu).
+- Nie rób: przeskoku o dwa poziomy, żeby „mocniej odciąć” - zamiast tego ramka albo cień nakładki.
+- Nie rób: poziomu wyżej niż L4. Głębsze drzewo spłaszcz (np. wiersz w oknie w oknie dostaje ramkę, nie L5).
+
+**Przykład HTML/CSS.**
+```css
+.page    { background: var(--dk-color-surface-0); }
+.card    { background: var(--dk-color-surface-1); border-radius: var(--dk-radius-md); padding: var(--dk-layout-card-pad); }
+.field   { background: var(--dk-color-surface-2); border: 1.5px solid var(--dk-color-field-border); border-radius: var(--dk-radius-sm); }
+.row     { background: var(--dk-color-surface-3); border-radius: var(--dk-radius-sm); }
+.row:hover { background: var(--dk-color-surface-4); }
+.menu    { background: var(--dk-color-surface-4); border: 1px solid var(--dk-color-border-subtle-4); box-shadow: var(--dk-shadow-toast); }
+```
+
+**Przykład Qt (QSS przez `str.format(**T)`, podwójne klamry = dosłowna klamra).**
+```python
+from tokens_qt import VARIANTS
+T = VARIANTS["zielen-ciemny"]            # albo "program", "krem-jasny", "zielen-jasny", "krem-ciemny"
+QSS = """
+QMainWindow, QWidget#okno {{ background: {color_surface_0}; color: {color_text}; }}
+QFrame#karta   {{ background: {color_surface_1}; border-radius: 12px; }}
+QLineEdit, QComboBox, QListView {{ background: {color_surface_2}; border: 1px solid {color_border_subtle_2};
+                                   border-radius: 8px; color: {color_text}; }}
+QListView::item:hover {{ background: {color_surface_3}; }}
+QMenu, QComboBox QAbstractItemView {{ background: {color_surface_4}; border: 1px solid {color_border_subtle_4}; }}
+""".format(**T)
+```
+
+---
+
+## 22. Tagi i chipy kategorii (od 1.4.0)
+
+**Opis i kiedy używać.** Oznaczenie kategorii (typ, smak, opakowanie, autor, rodzaj slajdu). Kolor tagu to odcień stylu z małym
+przesunięciem barwy, nie stała barwa (fiolet, pomarańcz, niebieski). Kategorie rozróżnia etykieta i kolejność; kolor tylko pomaga.
+
+**Wzór (do odtworzenia).** `hue_k = tag_hue stylu + [0, +8, -8, +16, -16, +24, -24, +32][k-1]` (stopnie OKLCH).
+`tag_hue`: krem i program 90 (miód, piasek, morela, oliwka), zieleń 146. Tło, ramka i tekst mają stałą jasność i nasycenie trybu:
+
+| Tryb | Tło L / C | Ramka L / C | Tekst L / C (start) |
+|---|---|---|---|
+| jasny | 0,930 / 0,038 | 0,845 / 0,055 | 0,440 / 0,085, przyciemniany o 0,01 aż kontrast >= 4,6:1 |
+| ciemny | 0,360 / 0,048 | 0,470 / 0,062 | 0,870 / 0,070, rozjaśniany o 0,01 aż kontrast >= 4,6:1 |
+
+Kolor poza sRGB: nasycenie maleje o 0,001, odcień i jasność zostają. Parametry: `tokens.json` → `tags`; generator: `build_tokens.py`.
+
+**Warianty.** `tag-1` ... `tag-8` (8 kategorii). Więcej kategorii = powtórz od `tag-1` i rozróżniaj etykietą. Wariant „aktywny filtr”:
+tło `--dk-color-brand`, tekst `--dk-color-on-brand` (to już nie tag, tylko wybrany chip). Licznik „+12”: `tag` bez koloru (`surface-3`, `text-muted`).
+
+**Stany.** Hover (klikalny tag): ramka w kolorze tekstu tagu. Fokus: pierścień `--dk-color-focus`. Wyłączony: `opacity: .55`.
+
+**Tokeny.** `--dk-color-tag-N-bg`, `--dk-color-tag-N-fg`, `--dk-color-tag-N-border`, `--dk-radius-pill`, `--dk-space-1`, `--dk-space-2`.
+
+**Dostępność.** Tekst tagu >= 4,5:1 w każdym wariancie (sprawdza `--check`). Tag klikalny ma cel min. 32 px wysokości w gęstym
+widoku i 44 px w wygodnym (albo obszar klikalny powiększony paddingiem wiersza).
+
+**Rób / Nie rób.**
+- Rób: przypisz kategorię do numeru tagu raz, na stałe (np. smak = 1, typ = 2, opakowanie = 3), w każdej aplikacji tak samo.
+- Nie rób: kolorów spoza wzoru, nawet „bo ładniej” - zmień `tag_hue` albo `offsets` w `tokens.json`.
+- Nie rób: tagu jako jedynej informacji o stanie (błąd, ostrzeżenie mają swoje role).
+
+**Przykład HTML/CSS.**
+```css
+.tag { display: inline-flex; align-items: center; min-height: 24px; padding: 0 var(--dk-space-2); border-radius: var(--dk-radius-pill);
+       font: 700 13px/1 var(--dk-font-text); background: var(--tag-bg); color: var(--tag-fg); border: 1px solid var(--tag-bd); }
+.tag[data-k="1"] { --tag-bg: var(--dk-color-tag-1-bg); --tag-fg: var(--dk-color-tag-1-fg); --tag-bd: var(--dk-color-tag-1-border); }
+.tag[data-k="2"] { --tag-bg: var(--dk-color-tag-2-bg); --tag-fg: var(--dk-color-tag-2-fg); --tag-bd: var(--dk-color-tag-2-border); }
+/* ... do 8 */
+```
+```html
+<span class="tag" data-k="1">Smak</span> <span class="tag" data-k="3">Opakowanie</span>
+```
+
+**Przykład Qt.**
+```python
+def tag_qss(T, k):   # k = 1..8
+    return ("background:{bg}; color:{fg}; border:1px solid {bd}; border-radius:10px; padding:2px 8px;"
+            .format(bg=T["color_tag_%d_bg" % k], fg=T["color_tag_%d_fg" % k], bd=T["color_tag_%d_border" % k]))
+```

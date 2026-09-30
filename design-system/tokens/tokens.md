@@ -1,17 +1,128 @@
-# Tokeny Dobra Kaloria 1.3.1
+# Tokeny Dobra Kaloria 1.4.0
 
-PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`.
+PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
-## Kolory - role (tych używaj)
+## Drabina powierzchni L0-L4 (od 1.4.0)
 
-| Rola | Zmienna CSS | Wartość | Prymityw |
+L = jasność OKLCH (0-100), L* = CIELAB. dL = zmiana L względem poziomu niżej. Kontrast: tekst i tekst pomocniczy na danym poziomie (WCAG).
+
+### Program 'Stwórz prezentację' (domyślny, biała kartka)
+
+`:root, [data-theme="dobra-kaloria"]` · light · L0 1.000, dL 0.020
+
+| Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
+|---|---|---|---|---|---|---|---|---|---|
+| L0 tło okna | `--dk-color-surface-0` | `#FFFFFF` | 100.0 | 100.0 | - | - | 13.65 | 5.90 | `#F5EEDD` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#FDF8ED` | 98.0 | 97.7 | -2.0 | 1.059 | 12.89 | 5.57 | `#EEE7D6` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#F8F1E0` | 95.9 | 95.3 | -2.1 | 1.063 | 12.13 | 5.24 | `#E8E1D0` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#F2EBDA` | 94.1 | 93.2 | -1.8 | 1.055 | 11.49 | 4.97 | `#E1DAC9` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#EBE4D3` | 92.0 | 90.7 | -2.1 | 1.066 | 10.77 | 4.66 | `#DBD4C3` |
+
+### Dobra Kaloria 2 · krem, jasny
+
+`[data-theme="dobra-kaloria-krem-jasny"]` · light · L0 0.990, dL 0.020
+
+| Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
+|---|---|---|---|---|---|---|---|---|---|
+| L0 tło okna | `--dk-color-surface-0` | `#FEFCF6` | 99.1 | 99.0 | - | - | 13.31 | 5.76 | `#F2EBDA` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#FCF5E3` | 97.1 | 96.6 | -2.0 | 1.060 | 12.55 | 5.43 | `#EBE4D3` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#F5EEDD` | 95.0 | 94.2 | -2.1 | 1.063 | 11.81 | 5.11 | `#E5DDCD` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#EEE7D6` | 92.9 | 91.8 | -2.1 | 1.066 | 11.08 | 4.79 | `#DED7C6` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#E8E1D0` | 91.1 | 89.7 | -1.8 | 1.057 | 10.48 | 4.53 | `#D7D0C0` |
+
+### Dobra Kaloria 1 · zieleń, jasny
+
+`[data-theme="dobra-kaloria-zielen-jasny"]` · light · L0 0.985, dL 0.020
+
+| Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
+|---|---|---|---|---|---|---|---|---|---|
+| L0 tło okna | `--dk-color-surface-0` | `#F8FBF9` | 98.5 | 98.3 | - | - | 14.70 | 6.30 | `#E2EDE4` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#EFF5F1` | 96.5 | 96.0 | -2.1 | 1.061 | 13.86 | 5.94 | `#D9E7DC` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#E6F0E8` | 94.5 | 93.9 | -1.9 | 1.056 | 13.12 | 5.63 | `#D0E2D4` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#DDEAE0` | 92.4 | 91.5 | -2.1 | 1.063 | 12.34 | 5.29 | `#CADBCE` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#D4E5D8` | 90.6 | 89.4 | -1.9 | 1.058 | 11.67 | 5.00 | `#C3D5C7` |
+
+### Dobra Kaloria 1 · zieleń, ciemny
+
+`[data-theme="dobra-kaloria-zielen-ciemny"], [data-theme="dobra-kaloria-ciemny"]` · dark · L0 0.221, dL 0.034
+
+| Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
+|---|---|---|---|---|---|---|---|---|---|
+| L0 tło okna | `--dk-color-surface-0` | `#0F1F15` | 22.1 | 10.1 | - | - | 15.18 | 9.29 | `#1E3727` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#14281C` | 25.6 | 14.1 | +3.4 | 1.100 | 13.80 | 8.44 | `#24412F` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#1A3123` | 28.9 | 18.1 | +3.4 | 1.117 | 12.36 | 7.56 | `#2A4A36` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#203A2A` | 32.2 | 21.9 | +3.3 | 1.128 | 10.96 | 6.71 | `#31543E` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#264431` | 35.7 | 26.1 | +3.5 | 1.149 | 9.54 | 5.84 | `#385E46` |
+
+### Dobra Kaloria 2 · krem, ciemny
+
+`[data-theme="dobra-kaloria-krem-ciemny"], [data-theme="dobra-kaloria-krem"]` · dark · L0 0.212, dL 0.034
+
+| Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
+|---|---|---|---|---|---|---|---|---|---|
+| L0 tło okna | `--dk-color-surface-0` | `#1C1812` | 21.2 | 8.5 | - | - | 15.67 | 9.72 | `#342D24` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#252019` | 24.7 | 12.6 | +3.5 | 1.093 | 14.34 | 8.89 | `#3D362B` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#2E2820` | 28.1 | 16.5 | +3.4 | 1.109 | 12.93 | 8.02 | `#473E32` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#373027` | 31.4 | 20.3 | +3.3 | 1.121 | 11.54 | 7.16 | `#50473A` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#40392E` | 34.8 | 24.4 | +3.5 | 1.141 | 10.11 | 6.27 | `#5A5042` |
+
+## Tagi (od 1.4.0)
+
+Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32]` (stopnie OKLCH). Tło L 0.930 C 0.038 / ramka L 0.845 C 0.055 / tekst L 0.440 C 0.085 w jasnym; w ciemnym tło L 0.360 C 0.048 / ramka L 0.470 C 0.062 / tekst L 0.870 C 0.070. Tekst dociągany o 0.01 L do kontrastu >= 4.6.
+
+| Wariant | Tag | Hue | Tło | Tekst | Ramka | Kontrast |
+|---|---|---|---|---|---|---|
+| program | tag-1 | 90 | `#F2E7CC` | `#65500B` | `#DACBA4` | 6.31:1 |
+| program | tag-2 | 98 | `#EEE9CC` | `#5F520D` | `#D5CDA4` | 6.36:1 |
+| program | tag-3 | 82 | `#F5E6CC` | `#6A4D0C` | `#DEC9A4` | 6.37:1 |
+| program | tag-4 | 106 | `#EBEACD` | `#595512` | `#D0CFA6` | 6.29:1 |
+| program | tag-5 | 74 | `#F8E5CD` | `#6E4A11` | `#E2C7A5` | 6.44:1 |
+| program | tag-6 | 114 | `#E7EBCF` | `#525718` | `#CBD1A8` | 6.28:1 |
+| program | tag-7 | 66 | `#FAE3CE` | `#724816` | `#E6C6A7` | 6.38:1 |
+| program | tag-8 | 122 | `#E3ECD1` | `#4B5A1F` | `#C6D2AB` | 6.18:1 |
+| krem-jasny | tag-1 | 90 | `#F2E7CC` | `#65500B` | `#DACBA4` | 6.31:1 |
+| krem-jasny | tag-2 | 98 | `#EEE9CC` | `#5F520D` | `#D5CDA4` | 6.36:1 |
+| krem-jasny | tag-3 | 82 | `#F5E6CC` | `#6A4D0C` | `#DEC9A4` | 6.37:1 |
+| krem-jasny | tag-4 | 106 | `#EBEACD` | `#595512` | `#D0CFA6` | 6.29:1 |
+| krem-jasny | tag-5 | 74 | `#F8E5CD` | `#6E4A11` | `#E2C7A5` | 6.44:1 |
+| krem-jasny | tag-6 | 114 | `#E7EBCF` | `#525718` | `#CBD1A8` | 6.28:1 |
+| krem-jasny | tag-7 | 66 | `#FAE3CE` | `#724816` | `#E6C6A7` | 6.38:1 |
+| krem-jasny | tag-8 | 122 | `#E3ECD1` | `#4B5A1F` | `#C6D2AB` | 6.18:1 |
+| zielen-jasny | tag-1 | 146 | `#D8EFD9` | `#305F35` | `#B6D6B7` | 6.14:1 |
+| zielen-jasny | tag-2 | 154 | `#D5F0DD` | `#26603C` | `#B1D7BC` | 6.15:1 |
+| zielen-jasny | tag-3 | 138 | `#DCEED6` | `#3A5D2D` | `#BBD5B3` | 6.19:1 |
+| zielen-jasny | tag-4 | 162 | `#D2F0E0` | `#196144` | `#ADD8C1` | 6.10:1 |
+| zielen-jasny | tag-5 | 130 | `#E0EDD3` | `#435C26` | `#C0D4AE` | 6.16:1 |
+| zielen-jasny | tag-6 | 170 | `#D0F1E4` | `#06614B` | `#A9D8C7` | 6.17:1 |
+| zielen-jasny | tag-7 | 122 | `#E3ECD1` | `#4B5A1F` | `#C6D2AB` | 6.18:1 |
+| zielen-jasny | tag-8 | 178 | `#CEF1E8` | `#006152` | `#A6D8CC` | 6.13:1 |
+| zielen-ciemny | tag-1 | 146 | `#2C442E` | `#B7E1B9` | `#446446` | 7.34:1 |
+| zielen-ciemny | tag-2 | 154 | `#284531` | `#B1E2C0` | `#3E654B` | 7.31:1 |
+| zielen-ciemny | tag-3 | 138 | `#31432A` | `#BEE0B3` | `#496341` | 7.37:1 |
+| zielen-ciemny | tag-4 | 162 | `#244535` | `#ABE3C6` | `#386650` | 7.35:1 |
+| zielen-ciemny | tag-5 | 130 | `#354227` | `#C5DEAE` | `#4F623C` | 7.36:1 |
+| zielen-ciemny | tag-6 | 170 | `#204539` | `#A6E4CD` | `#336655` | 7.40:1 |
+| zielen-ciemny | tag-7 | 122 | `#394124` | `#CCDCA9` | `#556038` | 7.35:1 |
+| zielen-ciemny | tag-8 | 178 | `#1D453D` | `#A2E4D4` | `#2F665B` | 7.40:1 |
+| krem-ciemny | tag-1 | 90 | `#473C1E` | `#E6D3A0` | `#685930` | 7.34:1 |
+| krem-ciemny | tag-2 | 98 | `#443D1F` | `#E0D5A0` | `#645B31` | 7.34:1 |
+| krem-ciemny | tag-3 | 82 | `#4A3B1E` | `#EBD0A0` | `#6C5730` | 7.27:1 |
+| krem-ciemny | tag-4 | 106 | `#403F20` | `#DAD8A2` | `#5F5D32` | 7.35:1 |
+| krem-ciemny | tag-5 | 74 | `#4C391F` | `#F0CEA1` | `#705632` | 7.35:1 |
+| krem-ciemny | tag-6 | 114 | `#3D4022` | `#D3DAA5` | `#5A5F35` | 7.34:1 |
+| krem-ciemny | tag-7 | 66 | `#4E3821` | `#F5CCA4` | `#735434` | 7.35:1 |
+| krem-ciemny | tag-8 | 122 | `#394124` | `#CCDCA9` | `#556038` | 7.35:1 |
+
+## Kolory - role programu (tych używaj)
+
+| Rola | Zmienna CSS | Wartość | Źródło |
 |---|---|---|---|
 | text | `--dk-color-text` | `#3B2A20` | brown-900 |
 | text-muted | `--dk-color-text-muted` | `#7D5E44` | brown-600 |
 | label | `--dk-color-label` | `#AD8767` | tan-400 |
-| bg | `--dk-color-bg` | `#FFFFFF` | white |
-| surface | `--dk-color-surface` | `#FDF8EC` | cream-50 |
-| surface-hover | `--dk-color-surface-hover` | `#FBF3E0` | cream-100 |
+| bg | `--dk-color-bg` | `#FFFFFF` | @surface-0 |
+| surface | `--dk-color-surface` | `#FDF8ED` | @surface-1 |
+| surface-hover | `--dk-color-surface-hover` | `#F8F1E0` | @surface-2 |
 | border | `--dk-color-border` | `#EDE7DA` | sand-200 |
 | border-strong | `--dk-color-border-strong` | `#D9CFBB` | sand-300 |
 | field-border | `--dk-color-field-border` | `#9C8B72` | sand-700 |
@@ -45,6 +156,7 @@ PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `..
 | brown-900 | `--dk-brown-900` | `#3B2A20` |
 | brown-600 | `--dk-brown-600` | `#7D5E44` |
 | tan-400 | `--dk-tan-400` | `#AD8767` |
+| tan-450 | `--dk-tan-450` | `#A47E5E` |
 | sand-700 | `--dk-sand-700` | `#9C8B72` |
 | sand-300 | `--dk-sand-300` | `#D9CFBB` |
 | sand-200 | `--dk-sand-200` | `#EDE7DA` |
@@ -99,12 +211,12 @@ PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `..
 | red-700 | `--dk-red-700` | `#C0262C` |
 | amber-950 | `--dk-amber-950` | `#6F4A00` |
 
-## Kontrast (WCAG)
+## Kontrast (WCAG) - program
 
 | Tekst | Tło | Kontrast | Minimum | Zastosowanie |
 |---|---|---|---|---|
 | text | bg | 13.65:1 | 4.5:1 | tekst na tle |
-| text | surface | 12.88:1 | 4.5:1 | tekst na karcie |
+| text | surface | 12.89:1 | 4.5:1 | tekst na karcie |
 | text-muted | bg | 5.90:1 | 4.5:1 | tekst pomocniczy na tle |
 | text-muted | surface | 5.57:1 | 4.5:1 | tekst pomocniczy na karcie |
 | label | bg | 3.26:1 | 3.0:1 | etykieta (tylko >=14 px bold) |

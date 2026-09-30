@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drabina powierzchni i tagi</title>
+<!-- Design system Dobra Kaloria 1.4.0: drabina L0-L4 i tagi dla każdego wariantu.
+     Serwuj folder skilla przez HTTP (python -m http.server 8793) i otwórz /preview/drabina.html.
+     Wartości wyłącznie ze zmiennych --dk-* (tokens.css). -->
+<link rel="stylesheet" href="../tokens/tokens.css">
+<style>
+@font-face { font-family: "Mindset"; src: url("../assets/fonts/Mindset.otf") format("opentype"); font-display: block; }
+@font-face { font-family: "Lato"; src: url("../assets/fonts/Lato-Regular.ttf") format("truetype"); font-weight: 400; font-display: block; }
+@font-face { font-family: "Lato"; src: url("../assets/fonts/Lato-Bold.ttf") format("truetype"); font-weight: 700; font-display: block; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #d9d6ce; font: 400 15px/1.45 var(--dk-font-text); }
+.variant { background: var(--dk-color-surface-0); color: var(--dk-color-text); padding: 32px; width: 1180px; }
+.variant + .variant { margin-top: 0; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+h2 { margin: 0; font: 400 34px/1 var(--dk-font-display); text-transform: uppercase; letter-spacing: .01em; }
+.eyebrow { font: 700 13px/1.2 var(--dk-font-text); letter-spacing: .1em; text-transform: uppercase; color: var(--dk-color-label); }
+.muted { color: var(--dk-color-text-muted); }
+.grid { display: grid; grid-template-columns: 560px 1fr; gap: 28px; align-items: start; }
+/* zagnieżdżenie: L1 w L0, L2 w L1 ... */
+.lvl { border-radius: 12px; padding: 16px 18px 18px; }
+.lvl > .tag-l { display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+.lvl > .tag-l span:last-child { font-weight: 400; color: var(--dk-color-text-muted); font-family: Consolas, monospace; font-size: 13px; }
+.l1 { background: var(--dk-color-surface-1); }
+.l2 { background: var(--dk-color-surface-2); border-radius: 8px; }
+.l3 { background: var(--dk-color-surface-3); border-radius: 8px; }
+.l4 { background: var(--dk-color-surface-4); border-radius: 8px; border: 1px solid var(--dk-color-border-subtle-4); box-shadow: var(--dk-shadow-toast); }
+.l4 a { color: var(--dk-color-brand-hover); font-weight: 700; }
+.demo-field { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; margin-bottom: 12px; border-radius: 8px;
+  background: var(--dk-color-surface-2); border: 1.5px solid var(--dk-color-field-border); color: var(--dk-color-text-muted); }
+.btns { display: flex; gap: 12px; margin-top: 14px; }
+.btn { min-height: 44px; padding: 0 20px; border-radius: 4px; font: 700 15px/44px var(--dk-font-text); border: 2px solid transparent; }
+.btn-p { background: var(--dk-color-cta); color: var(--dk-color-on-cta); }
+.btn-s { border-color: var(--dk-color-brand); color: var(--dk-color-brand); }
+/* tabela poziomów */
+.swatches { display: grid; gap: 8px; }
+.sw { display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center; }
+.chip-c { height: 52px; border-radius: 8px; border: 1px solid var(--dk-color-border-subtle-0); display: grid; place-items: center; font-weight: 700; }
+.sw .t { font-size: 14px; line-height: 1.3; }
+.sw code { font-family: Consolas, monospace; font-size: 13px; }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border-radius: 999px; font: 700 13px/1 var(--dk-font-text);
+  background: var(--tag-bg); color: var(--tag-fg); border: 1px solid var(--tag-bd); }
+.tag small { font-weight: 400; opacity: .85; font-family: Consolas, monospace; }
+.tags-on { margin-top: 10px; padding: 12px; border-radius: 8px; background: var(--dk-color-surface-2); display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+<main id="all"></main>
+<script>
+const VARIANTS = [
+  ["dobra-kaloria", "Program „Stwórz prezentację”", "jasny · biała kartka"],
+  ["dobra-kaloria-krem-jasny", "Dobra Kaloria 2 · krem", "jasny"],
+  ["dobra-kaloria-zielen-jasny", "Dobra Kaloria 1 · zieleń", "jasny"],
+  ["dobra-kaloria-zielen-ciemny", "Dobra Kaloria 1 · zieleń", "ciemny"],
+  ["dobra-kaloria-krem-ciemny", "Dobra Kaloria 2 · krem", "ciemny"],
+];
+const LV = ["L0 tło okna", "L1 karta, sekcja", "L2 rubryka, pole", "L3 element w polu, okno w oknie", "L4 nakładka, menu"];
+const CAT = ["Smak", "Typ", "Opakowanie", "Autor", "Opis", "Podkategoria", "Marka", "Kanał"];
+const main = document.getElementById("all");
+for (const [id, name, mode] of VARIANTS) {
+  const s = document.createElement("section");
+  s.className = "variant"; s.dataset.theme = id; s.id = "v-" + id;
+  s.innerHTML = `
+    <div class="head"><div><p class="eyebrow">Drabina powierzchni 1.4.0</p><h2>${name}</h2></div><span class="muted">${mode} · data-theme="${id}"</span></div>
+    <div class="grid">
+      <div class="lvl l0" style="padding:0">
+        <div class="lvl l1"><div class="tag-l"><span>${LV[1]}</span><span data-v="surface-1"></span></div>
+          <div class="demo-field">Szukaj indeksu lub skojarzenia…</div>
+          <div class="lvl l2"><div class="tag-l"><span>${LV[2]}</span><span data-v="surface-2"></span></div>
+            <div class="lvl l3"><div class="tag-l"><span>${LV[3]}</span><span data-v="surface-3"></span></div>
+              <div class="lvl l4"><div class="tag-l"><span>${LV[4]}</span><span data-v="surface-4"></span></div>
+                <span class="muted">Tekst pomocniczy na nakładce.</span> <a>Link</a>
+              </div>
+            </div>
+          </div>
+          <div class="btns"><span class="btn btn-p">Główna akcja</span><span class="btn btn-s">Drugorzędna</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="swatches">${LV.map((l, i) => `<div class="sw"><div class="chip-c" style="background:var(--dk-color-surface-${i})">L${i}</div>
+          <div class="t"><strong>${l}</strong><br><code data-v="surface-${i}"></code> · <span class="muted" data-info="${i}"></span></div></div>`).join("")}</div>
+        <div class="tags">${CAT.map((c, k) => `<span class="tag" style="--tag-bg:var(--dk-color-tag-${k+1}-bg);--tag-fg:var(--dk-color-tag-${k+1}-fg);--tag-bd:var(--dk-color-tag-${k+1}-border)">${c} <small>${k+1}</small></span>`).join("")}</div>
+        <div class="tags-on">${CAT.slice(0, 5).map((c, k) => `<span class="tag" style="--tag-bg:var(--dk-color-tag-${k+1}-bg);--tag-fg:var(--dk-color-tag-${k+1}-fg);--tag-bd:var(--dk-color-tag-${k+1}-border)">${c} na L2</span>`).join("")}</div>
+      </div>
+    </div>`;
+  main.appendChild(s);
+}
+/* hex, jasność względna (WCAG) i kontrast tekstu, liczone z tego, co przeglądarka naprawdę wyrenderowała */
+function hex(c) { const m = c.match(/\d+(\.\d+)?/g).map(Number); return "#" + m.slice(0, 3).map(x => x.toString(16).padStart(2, "0")).join("").toUpperCase(); }
+function lum(h) { return [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16) / 255).map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4).reduce((a, c, i) => a + c * [.2126, .7152, .0722][i], 0); }
+function cr(a, b) { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); }
+for (const s of document.querySelectorAll(".variant")) {
+  const cs = getComputedStyle(s);
+  const v = n => cs.getPropertyValue("--dk-color-" + n).trim();
+  const probe = document.createElement("i"); s.appendChild(probe);
+  const res = n => { probe.style.color = `var(--dk-color-${n})`; return hex(getComputedStyle(probe).color); };
+  s.querySelectorAll("[data-v]").forEach(e => e.textContent = res(e.dataset.v));
+  const text = res("text"), muted = res("text-muted");
+  s.querySelectorAll("[data-info]").forEach(e => {
+    const i = +e.dataset.info, h = res("surface-" + i);
+    const prev = i ? " · z L" + (i - 1) + " " + cr(h, res("surface-" + (i - 1))).toFixed(3) + ":1" : "";
+    e.textContent = "tekst " + cr(text, h).toFixed(1) + ":1, pomocniczy " + cr(muted, h).toFixed(1) + ":1" + prev;
+  });
+  probe.remove();
+}
+document.documentElement.dataset.ready = "1";
+</script>
+</body>
+</html>
