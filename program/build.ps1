@@ -59,6 +59,11 @@ Run $csc @("/nologo", "/target:winexe", "/optimize+", "/codepage:65001", "/win32
 $new = Join-Path $dist "program"
 Copy-Item -LiteralPath (Join-Path $dist "stworz-cli\stworz-cli.exe") -Destination $new -Force
 Set-Content -Path (Join-Path $new "wersja.txt") -Value $ver -Encoding ASCII
+# .NET Framework odmawia wczytania Python.Runtime.dll (okno programu), gdy program stoi na dysku sieciowym
+# adresowanym przez IP (strefa Internet) albo jest rozpakowany z zipa pobranego z internetu (30.09, błąd z M:)
+foreach ($e in "program.exe", "stworz-cli.exe") {
+    Copy-Item -LiteralPath (Join-Path $SRC "app\program.exe.config") -Destination (Join-Path $new "$e.config") -Force
+}
 $target = Join-Path $R "pliki programu"
 $running = @(Get-Process -Name program, stworz-cli -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$target\*" })
 if ($running.Count -gt 0) { throw "Program jest uruchomiony z '$target' (procesy: $($running.Id -join ', ')). Zamknij okno i uruchom budowe ponownie." }

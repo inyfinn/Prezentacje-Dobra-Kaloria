@@ -21,6 +21,10 @@ a = ap.parse_args()
 OUT = os.path.join(HERE, "e2e-shots")
 os.makedirs(OUT, exist_ok=True)
 env = dict(os.environ, DK_DEBUG_PORT="9333")
+busy = subprocess.run(["powershell", "-NoProfile", "-Command", "(Get-Process -Name program -ErrorAction SilentlyContinue | Measure-Object).Count"],
+                      capture_output=True, text=True).stdout.strip()
+if busy not in ("", "0"):  # port debugowania trafiłby w stare okno i test oceniałby nie ten program
+    sys.exit("Najpierw zamknij otwarte okna programu (%s)" % busy)
 proc = subprocess.Popen([a.exe], env=env)
 print("exe pid", proc.pid, "->", a.exe)
 try:
@@ -87,6 +91,7 @@ try:
 finally:
     proc.kill()
     # plik startowy uruchamia osobny proces program.exe - samo proc.kill() zostawiało otwarte okno (29.09)
+    # realpath: ścieżka z TEMP bywa krótka (KRZYSZ~1.WIE), a proces zgłasza długą - bez tego okno zostawało (30.09)
     subprocess.run(["powershell", "-NoProfile", "-Command",
                     "Get-Process -Name program -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '%s\\*' } | "
-                    "Stop-Process -Force -Confirm:$false" % os.path.dirname(a.exe).replace("'", "''")])
+                    "Stop-Process -Force -Confirm:$false" % os.path.dirname(os.path.realpath(a.exe)).replace("'", "''")])

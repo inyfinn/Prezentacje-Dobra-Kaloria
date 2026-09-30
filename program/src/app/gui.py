@@ -17,13 +17,6 @@ import update  # noqa: E402
 import paths  # noqa: E402
 
 
-def close_splash():
-    """Zamyka ekran powitalny PyInstallera (jest tylko w spakowanym programie)."""
-    try:
-        import pyi_splash  # noqa: F401 - moduł dostarcza bootloader
-        pyi_splash.close()
-    except Exception:
-        pass
 
 
 def set_clipboard(text):
@@ -214,7 +207,7 @@ def run():
 
     # Ekran powitalny zamykamy PRZED startem okna: trzymany dłużej (do 'loaded') blokował start WebView2 (29.09)
     engine._log_file("start: biblioteki wczytane po %.1f s, zamykam ekran powitalny i otwieram okno" % (time.time() - T0))
-    close_splash()
+
     webview.start(after_start, window, gui="edgechromium")  # tryb prywatny: każdy start ma własny, tymczasowy profil WebView2
 
 

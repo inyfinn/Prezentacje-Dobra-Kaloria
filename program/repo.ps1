@@ -19,11 +19,11 @@ function Mirror($src, $dst, $xd, $xf) {
     if ($LASTEXITCODE -ge 8) { throw "robocopy $src -> $dst kod $LASTEXITCODE" }
 }
 Mirror (Join-Path $W "src") (Join-Path $Repo "program\src") @("__pycache__", ".cache") @("*.pyc")
-foreach ($f in "build.ps1", "wydaj.ps1", "repo.ps1", "ikona.py", "powitanie.py", "stworz_gui.spec", "stworz_cli.spec", "wersja.txt") {
+foreach ($f in "build.ps1", "wydaj.ps1", "repo.ps1", "zip_release.py", "ikona.py", "powitanie.py", "stworz_gui.spec", "stworz_cli.spec", "wersja.txt") {
     Copy-Item -LiteralPath (Join-Path $W $f) -Destination (Join-Path $Repo "program\$f") -Force
 }
 New-Item -ItemType Directory -Force (Join-Path $Repo "program\testy") | Out-Null
-foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1") {
+foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1", "test_u_innych.ps1") {
     $p = Join-Path $W "logs\$f"
     if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination (Join-Path $Repo "program\testy\$f") -Force }
 }
@@ -40,18 +40,8 @@ if ($Zip) {
     New-Item -ItemType Directory -Force $out | Out-Null
     $zipPath = Join-Path $out "Stworz-prezentacje-$ver-Windows.zip"
     if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Confirm:$false }   # pojedynczy plik z tej budowy
-    Add-Type -AssemblyName System.IO.Compression
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    $enc = New-Object System.Text.UTF8Encoding($false)   # nazwy z polskimi literami zapisane jako UTF-8
-    $z = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create, $enc)
-    try {
-        $files = @(Get-ChildItem -LiteralPath (Join-Path $R "pliki programu") -Recurse -File)
-        foreach ($f in "Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "CZYTAJ - jak zrobić prezentację.txt", "DK - szablon prezentacji.pptx") { $files += Get-Item -LiteralPath (Join-Path $R $f) }
-        foreach ($f in $files) {
-            $rel = $f.FullName.Substring($R.Length + 1).Replace("\", "/")
-            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($z, $f.FullName, $rel, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
-        }
-    } finally { $z.Dispose() }
-    "zip: $zipPath ({0:N0} MB, {1} plikow)" -f ((Get-Item -LiteralPath $zipPath).Length / 1MB), $files.Count
+    # Python zipfile: flaga UTF-8 w nazwach (Eksplorator inaczej psuje polskie litery)
+    python (Join-Path $W "zip_release.py") $R $zipPath
+    if ($LASTEXITCODE -ne 0) { throw "zip_release.py kod $LASTEXITCODE" }
 }
 exit 0

@@ -16,6 +16,10 @@ potem „Uruchom mimo to”.
 Program sam sprawdza, czy jest nowsze wydanie, i pokazuje przycisk „Zaktualizuj”.
 Kopia stojąca na dysku wspólnym nie aktualizuje się sama, wgrywa ją opiekun.
 
+Wymagany składnik Windows: **Microsoft Edge WebView2** (jest w Windows 11 i w aktualnym Windows 10).
+Jeśli go brakuje, program pokaże komunikat z linkiem do pobrania. Program działa z dysku lokalnego,
+z dysku sieciowego i z zipa pobranego z internetu.
+
 Do kontroli tekstu i osadzenia czcionek program używa PowerPointa. Bez niego prezentacja też powstanie,
 ale bez tej kontroli.
 

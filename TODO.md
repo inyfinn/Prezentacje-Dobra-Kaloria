@@ -1,6 +1,14 @@
 # Do zrobienia
 
-Stan na 29.09.2026, program w wersji 1.0.9. Kolejność = priorytet.
+Stan na 30.09.2026, program w wersji 1.1.0. Kolejność = priorytet.
+
+## Zasada: każde wydanie przechodzi test „u innych” przed publikacją
+
+`program/testy/test_u_innych.ps1 -Zip <zip> -Sieci <M:...>,<G:...>` odtwarza komputer handlowca: zip oznaczony jako
+pobrany z internetu i rozpakowany jak w Eksploratorze, start bez zmiennych Pythona, start z dysków sieciowych
+(M: przez adres IP = strefa Internet, G: = Intranet), spis bibliotek wczytanych spoza folderu programu.
+Potem `program/testy/e2e_gui.py --exe <rozpakowana kopia>` (cały proces do gotowej prezentacji).
+Czystej maszyny wirtualnej nie mamy (brak Windows Sandbox i Hyper-V) - to jest najbliższe przybliżenie.
 
 ## Program „Stwórz prezentację”
 
@@ -15,7 +23,9 @@ Stan na 29.09.2026, program w wersji 1.0.9. Kolejność = priorytet.
 5. **Przyciski Claude / ChatGPT / Gemini** sprawdzone tylko częściowo: kopiowanie i wyszukanie aplikacji działa,
    samo otwarcie aplikacji w prawdziwym oknie nie było klikane.
 6. **Mac.** Okno działa tylko w Windows. Na Macu jest tylko instrukcja dla AI (README), nietestowana.
-7. **Wydania 1.0.7 i 1.0.8** mają zepsutą samoaktualizację. Kto je ma, pobiera 1.0.9 ręcznie.
+7. **Wydania 1.0.7-1.0.9:** nie uruchamiają się z dysku M: (adres IP), a po rozpakowaniu zipa w Eksploratorze
+   mają zniekształcone polskie nazwy plików; 1.0.7-1.0.8 mają też zepsutą samoaktualizację. Poprawione w 1.1.0.
+   Kto ma starsze wydanie, pobiera 1.1.0 ręcznie.
 
 ## Wygląd w innych aplikacjach (design system)
 

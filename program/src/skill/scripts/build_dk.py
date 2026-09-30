@@ -1135,8 +1135,12 @@ def s_kpis(deck, sp):
         txt(s, x + cm(1.1), cm(9.4), lw, lh, ll, lz, color="white" if hi else "ink", font="bold", line=lz + 4)
         if it.get("note"):
             ny = cm(9.4) + lh + cm(0.25)
-            txt(s, x + cm(1.1), ny, lw, cm(14.2) - ny - cm(0.3), it["note"], 13, color="on_brand" if hi else "muted",
-                line=18)
+            nh = cm(14.2) - ny - cm(0.3)
+            nz = 13  # opis zmniejszamy do 11 pt, aż zmieści się w karcie (30.09: po większych marginesach wychodził +19 pt)
+            while nz > 11 and len(lines_for(it["note"], nz, lw)) * (nz + 5) * 12700 > nh:
+                nz -= 1
+            txt(s, x + cm(1.1), ny, lw, nh, lines_for(it["note"], nz, lw), nz, color="on_brand" if hi else "muted",
+                line=nz + 5)
 
 
 def s_bars(deck, sp):

@@ -34,6 +34,16 @@ static class Launcher
         }
 
         Application.EnableVisualStyles();
+        if (!WebView2Installed())   // okno programu rysuje Microsoft Edge WebView2 - bez niego program się nie uruchomi
+        {
+            var r = MessageBox.Show("Do działania programu potrzebny jest składnik Windows „Microsoft Edge WebView2”, " +
+                                    "którego nie ma na tym komputerze.\n\nKliknij OK, żeby otworzyć stronę pobierania " +
+                                    "(wybierz „Evergreen Bootstrapper”), zainstaluj go i uruchom program ponownie.",
+                                    Title, MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            if (r == DialogResult.OK)
+                try { Process.Start("https://developer.microsoft.com/microsoft-edge/webview2/"); } catch { }
+            return 3;
+        }
         var form = new Form();
         form.Text = Title;
         form.FormBorderStyle = FormBorderStyle.None;
@@ -103,6 +113,24 @@ static class Launcher
         form.Click += delegate { form.Close(); };                         // klik zamyka planszę (program działa dalej)
         Application.Run(form);
         return 0;
+    }
+
+    static bool WebView2Installed()
+    {
+        // klucze z dokumentacji Microsoft (wykrywanie WebView2 Runtime): maszyna 64/32-bit i instalacja na użytkownika
+        const string id = @"\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
+        string[] keys = { @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node" + id, @"HKEY_LOCAL_MACHINE\SOFTWARE" + id,
+                          @"HKEY_CURRENT_USER\Software" + id };
+        foreach (string k in keys)
+        {
+            try
+            {
+                var v = Microsoft.Win32.Registry.GetValue(k, "pv", null) as string;
+                if (!string.IsNullOrEmpty(v) && v != "0.0.0.0") return true;
+            }
+            catch { }
+        }
+        return false;
     }
 
     static string QuoteAll(string[] args)
