@@ -1,6 +1,6 @@
 # Design system Dobra Kaloria
 
-Wersja 1.0.0, 29.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
+Wersja 1.1.0, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
 dobrakaloria.pl opisany w skillu `prezentacje` (`references/styl-dk.md`).
 
 ## 1. Do czego służy
@@ -85,6 +85,26 @@ potem `SZABLON.format(**T)`. Czcionki: `QFontDatabase.addApplicationFont` dla pl
 są dziś wpisane osobno. Przy zmianie koloru w `tokens.json` trzeba je poprawić także tam
 (`scripts/build_dk.py`, `THEMES["shop"]`).
 
+## 5a. Dwa motywy: jasny i ciemny (od 1.1.0)
+
+Decyzja usera 30.09.2026: aplikacje marki mają tylko dwa motywy, **Dobra Kaloria jasny** i **Dobra Kaloria
+ciemny**. Stare motywy aplikacji (np. indygo w Photo Resizerze) są zastąpione, zapisany wybór „ciemny” przechodzi
+na DK ciemny, każdy inny na DK jasny.
+
+Ciemny to leśna zieleń z tekstem w kolorze kości słoniowej. Role są te same co w jasnym, zmieniają się wartości
+(`color.semantic-dark` w `tokens.json`, w CSS pod `[data-theme="dobra-kaloria-ciemny"]`, w Qt słownik `T_DARK`).
+
+| Rola | Jasny | Ciemny |
+|---|---|---|
+| tło okna | `#FFFFFF` | `#0F1F15` |
+| karta | `#FDF8EC` | `#162B1E` |
+| tekst | `#3B2A20` | `#F5F1E8` |
+| tekst pomocniczy | `#7D5E44` | `#C9BEA6` |
+| akcent (linki, suwaki, zaznaczenie) | `#0F763E` | `#6FC792` |
+| główny przycisk | `#FFD42A` z tekstem `#3B2A20` | bez zmian |
+
+Na ciemnym tle ciemna zieleń marki `#0F763E` ginie, dlatego akcent jest jaśniejszy, a tekst na nim ciemny.
+
 ## 6. Motyw w istniejącej aplikacji
 
 Zasada: motyw to **nakładka**, nie przebudowa. Aplikacja zostaje taka, jaka jest, a jej własne zmienne
@@ -119,5 +139,4 @@ Opis wariantów, stanów i dostępności: `components.md`. Żywa galeria: `previ
 |---|---|---|
 | Trzy zielenie | interfejs `#0F763E`, DAM `#007936` (przycisk sklepu) i `#008244` (logo SVG), logo PNG w programie `#006400` | ustalić jedną zieleń interfejsu; logo zostaje plikiem i nie jest przebarwiane |
 | Prezentacje poza generatorem | kolory wpisane w `build_dk.py` | czytać je z `tokens.json` przy budowie |
-| Motyw ciemny | brak | dodać dopiero, gdy któraś aplikacja go potrzebuje w stylu DK |
 | Wartości jeszcze wpisane na sztywno w programie | kilka kolorów pomocniczych w `style.css` (np. ramka kropki suwaka, tekst w polu uwag) | przenieść do tokenów przy następnej zmianie tych elementów |

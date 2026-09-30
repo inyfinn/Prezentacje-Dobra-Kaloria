@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 1.0.0
+# Tokeny Dobra Kaloria 1.1.0
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`.
 
@@ -61,6 +61,19 @@ PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `..
 | amber-900 | `--dk-amber-900` | `#7A4E00` |
 | amber-300 | `--dk-amber-300` | `#EBCB6B` |
 | amber-50 | `--dk-amber-50` | `#FFF4D6` |
+| forest-950 | `--dk-forest-950` | `#0F1F15` |
+| forest-900 | `--dk-forest-900` | `#162B1E` |
+| forest-850 | `--dk-forest-850` | `#1D3526` |
+| forest-800 | `--dk-forest-800` | `#26422F` |
+| forest-700 | `--dk-forest-700` | `#2F4D39` |
+| forest-600 | `--dk-forest-600` | `#44664F` |
+| forest-400 | `--dk-forest-400` | `#7E9C88` |
+| ivory-50 | `--dk-ivory-50` | `#F5F1E8` |
+| sand-400 | `--dk-sand-400` | `#C9BEA6` |
+| tan-300 | `--dk-tan-300` | `#D2B48F` |
+| green-300 | `--dk-green-300` | `#6FC792` |
+| green-250 | `--dk-green-250` | `#8AD6A8` |
+| red-300 | `--dk-red-300` | `#F2878A` |
 
 ## Kontrast (WCAG)
 
