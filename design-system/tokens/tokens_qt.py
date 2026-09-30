@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tokeny Dobra Kaloria 1.1.0 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T)."""
+"""Tokeny Dobra Kaloria 1.2.0 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T)."""
 T = {
     "color_green_700": '#0F763E',
     "color_green_800": '#0B5F31',
@@ -37,6 +37,19 @@ T = {
     "color_green_300": '#6FC792',
     "color_green_250": '#8AD6A8',
     "color_red_300": '#F2878A',
+    "color_cocoa_950": '#1C1812',
+    "color_cocoa_900": '#26211A',
+    "color_cocoa_850": '#302A21',
+    "color_cocoa_800": '#3A3329',
+    "color_cocoa_700": '#4A4135',
+    "color_cocoa_600": '#6B5E4B',
+    "color_cocoa_400": '#8C7D65',
+    "color_sand_450": '#CBBFA8',
+    "color_green_350": '#4CC46A',
+    "color_green_500": '#1EA03A',
+    "color_tan_500": '#8E7C50',
+    "color_tan_350": '#B8A274',
+    "color_tan_650": '#6E5F3C',
     "font_display": '"Mindset", "Arial Narrow", Impact, sans-serif',
     "font_text": '"Lato", "Segoe UI", Arial, sans-serif',
     "font_mono": 'Consolas, "Cascadia Mono", "Courier New", monospace',
@@ -122,7 +135,7 @@ T = {
     "color_on_inverse": '#FFFFFF',
     "color_focus": '#0F763E',
 }
-T_DARK = {  # motyw ciemny: role kolorów (nazwy jak w T)
+T_DARK = {  # semantic-dark: role kolorów (nazwy jak w T)
     "color_text": '#F5F1E8',
     "color_text_muted": '#C9BEA6',
     "color_label": '#D2B48F',
@@ -150,5 +163,34 @@ T_DARK = {  # motyw ciemny: role kolorów (nazwy jak w T)
     "color_inverse_bg": '#F5F1E8',
     "color_on_inverse": '#0F1F15',
     "color_focus": '#6FC792',
+}
+T_KREM = {  # semantic-krem: role kolorów (nazwy jak w T)
+    "color_text": '#F5F1E8',
+    "color_text_muted": '#CBBFA8',
+    "color_label": '#D2B48F',
+    "color_bg": '#1C1812',
+    "color_surface": '#26211A',
+    "color_surface_hover": '#302A21',
+    "color_border": '#4A4135',
+    "color_border_strong": '#6B5E4B',
+    "color_field_border": '#8C7D65',
+    "color_brand": '#4CC46A',
+    "color_brand_hover": '#8AD6A8',
+    "color_brand_soft": '#302A21',
+    "color_brand_soft_strong": '#3A3329',
+    "color_on_brand": '#1C1812',
+    "color_cta": '#FFD42A',
+    "color_cta_hover": '#F6C700',
+    "color_on_cta": '#3B2A20',
+    "color_disabled_bg": '#3A3329',
+    "color_switch_off": '#8C7D65',
+    "color_danger": '#F2878A',
+    "color_danger_soft": '#302A21',
+    "color_warning_text": '#EBCB6B',
+    "color_warning_border": '#8E7C50',
+    "color_warning_bg": '#302A21',
+    "color_inverse_bg": '#F5F1E8',
+    "color_on_inverse": '#1C1812',
+    "color_focus": '#4CC46A',
 }
 FONT_FILES = ['Mindset.otf', 'Lato-Regular.ttf', 'Lato-Bold.ttf']  # QFontDatabase.addApplicationFont

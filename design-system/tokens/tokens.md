@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 1.1.0
+# Tokeny Dobra Kaloria 1.2.0
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`.
 
@@ -74,6 +74,19 @@ PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `..
 | green-300 | `--dk-green-300` | `#6FC792` |
 | green-250 | `--dk-green-250` | `#8AD6A8` |
 | red-300 | `--dk-red-300` | `#F2878A` |
+| cocoa-950 | `--dk-cocoa-950` | `#1C1812` |
+| cocoa-900 | `--dk-cocoa-900` | `#26211A` |
+| cocoa-850 | `--dk-cocoa-850` | `#302A21` |
+| cocoa-800 | `--dk-cocoa-800` | `#3A3329` |
+| cocoa-700 | `--dk-cocoa-700` | `#4A4135` |
+| cocoa-600 | `--dk-cocoa-600` | `#6B5E4B` |
+| cocoa-400 | `--dk-cocoa-400` | `#8C7D65` |
+| sand-450 | `--dk-sand-450` | `#CBBFA8` |
+| green-350 | `--dk-green-350` | `#4CC46A` |
+| green-500 | `--dk-green-500` | `#1EA03A` |
+| tan-500 | `--dk-tan-500` | `#8E7C50` |
+| tan-350 | `--dk-tan-350` | `#B8A274` |
+| tan-650 | `--dk-tan-650` | `#6E5F3C` |
 
 ## Kontrast (WCAG)
 

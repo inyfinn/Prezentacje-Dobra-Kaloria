@@ -1,4 +1,4 @@
-/* Design system Dobra Kaloria 1.1.0 (2026-09-30) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+/* Design system Dobra Kaloria 1.2.0 (2026-09-30) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
 :root, [data-theme="dobra-kaloria"] {
   /* kolory - prymitywy */
   --dk-green-700: #0F763E;
@@ -37,6 +37,19 @@
   --dk-green-300: #6FC792;
   --dk-green-250: #8AD6A8;
   --dk-red-300: #F2878A;
+  --dk-cocoa-950: #1C1812;
+  --dk-cocoa-900: #26211A;
+  --dk-cocoa-850: #302A21;
+  --dk-cocoa-800: #3A3329;
+  --dk-cocoa-700: #4A4135;
+  --dk-cocoa-600: #6B5E4B;
+  --dk-cocoa-400: #8C7D65;
+  --dk-sand-450: #CBBFA8;
+  --dk-green-350: #4CC46A;
+  --dk-green-500: #1EA03A;
+  --dk-tan-500: #8E7C50;
+  --dk-tan-350: #B8A274;
+  --dk-tan-650: #6E5F3C;
   /* kolory - role (tych używaj w komponentach) */
   --dk-color-text: var(--dk-brown-900);
   --dk-color-text-muted: var(--dk-brown-600);
@@ -161,4 +174,34 @@
   --dk-color-inverse-bg: var(--dk-ivory-50);
   --dk-color-on-inverse: var(--dk-forest-950);
   --dk-color-focus: var(--dk-green-300);
+}
+[data-theme="dobra-kaloria-krem"] {
+  color-scheme: dark;
+  --dk-color-text: var(--dk-ivory-50);
+  --dk-color-text-muted: var(--dk-sand-450);
+  --dk-color-label: var(--dk-tan-300);
+  --dk-color-bg: var(--dk-cocoa-950);
+  --dk-color-surface: var(--dk-cocoa-900);
+  --dk-color-surface-hover: var(--dk-cocoa-850);
+  --dk-color-border: var(--dk-cocoa-700);
+  --dk-color-border-strong: var(--dk-cocoa-600);
+  --dk-color-field-border: var(--dk-cocoa-400);
+  --dk-color-brand: var(--dk-green-350);
+  --dk-color-brand-hover: var(--dk-green-250);
+  --dk-color-brand-soft: var(--dk-cocoa-850);
+  --dk-color-brand-soft-strong: var(--dk-cocoa-800);
+  --dk-color-on-brand: var(--dk-cocoa-950);
+  --dk-color-cta: var(--dk-yellow-400);
+  --dk-color-cta-hover: var(--dk-yellow-500);
+  --dk-color-on-cta: var(--dk-brown-900);
+  --dk-color-disabled-bg: var(--dk-cocoa-800);
+  --dk-color-switch-off: var(--dk-cocoa-400);
+  --dk-color-danger: var(--dk-red-300);
+  --dk-color-danger-soft: var(--dk-cocoa-850);
+  --dk-color-warning-text: var(--dk-amber-300);
+  --dk-color-warning-border: var(--dk-tan-500);
+  --dk-color-warning-bg: var(--dk-cocoa-850);
+  --dk-color-inverse-bg: var(--dk-ivory-50);
+  --dk-color-on-inverse: var(--dk-cocoa-950);
+  --dk-color-focus: var(--dk-green-350);
 }

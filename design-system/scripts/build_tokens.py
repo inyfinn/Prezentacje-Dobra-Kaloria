@@ -78,9 +78,11 @@ def css(d, prim):
             val = "var(--%s-%s)" % (p, m.group(1).replace(".", "-")) if m else v
             out.append("  --%s-%s-%s: %s;" % (p, short, k, val))
     out.append("}")
-    dark = d["color"].get("semantic-dark")
-    if dark:  # motyw ciemny: te same role, wartości z leśnej zieleni
-        out.append('[data-theme="dobra-kaloria-ciemny"] {')
+    for tid, role in (("dobra-kaloria-ciemny", "semantic-dark"), ("dobra-kaloria-krem", "semantic-krem")):
+        dark = d["color"].get(role)
+        if not dark:  # motywy ciemne: te same role, inne wartości
+            continue
+        out.append('[data-theme="%s"] {' % tid)
         out.append("  color-scheme: dark;")
         for k, v in dark.items():
             m = re.fullmatch(r"\{([a-z0-9-]+)\}", v)
@@ -96,11 +98,11 @@ def qt(d, flat):
     for k, v in flat.items():
         lines.append('    "%s": %r,' % (k.replace("-", "_"), v))
     lines.append("}")
-    dark = d["color"].get("semantic-dark", {})
-    lines.append("T_DARK = {  # motyw ciemny: role kolorów (nazwy jak w T)")
-    for k, v in dark.items():
-        lines.append('    "color_%s": %r,' % (k.replace("-", "_"), d["color"]["primitive"].get(v.strip("{}"), v)))
-    lines.append("}")
+    for name, role in (("T_DARK", "semantic-dark"), ("T_KREM", "semantic-krem")):
+        lines.append("%s = {  # %s: role kolorów (nazwy jak w T)" % (name, role))
+        for k, v in d["color"].get(role, {}).items():
+            lines.append('    "color_%s": %r,' % (k.replace("-", "_"), d["color"]["primitive"].get(v.strip("{}"), v)))
+        lines.append("}")
     lines.append("FONT_FILES = ['Mindset.otf', 'Lato-Regular.ttf', 'Lato-Bold.ttf']  # QFontDatabase.addApplicationFont")
     return "\n".join(lines) + "\n"
 
@@ -188,12 +190,12 @@ RESIZER_PAIRS = [("@FG_TEXT@", "@BG_WINDOW@", 4.5), ("@FG_TEXT@", "@BG_PANEL@", 
 def check(d, flat, ref):
     bad = 0
     prim = d["color"]["primitive"]
-    dk = {k: prim.get(v.strip("{}"), v) for k, v in d["color"].get("semantic-dark", {}).items()}
-    for fg, bg, need, what in PAIRS:
-        if dk:
+    for tag, role in (("ZIELEN", "semantic-dark"), ("KREM", "semantic-krem")):
+        dk = {k: prim.get(v.strip("{}"), v) for k, v in d["color"].get(role, {}).items()}
+        for fg, bg, need, what in (PAIRS if dk else []):
             r = contrast(dk[fg], dk[bg])
             bad += 0 if r >= need else 1
-            print("%s %5.2f:1 (min %.1f)  CIEMNY %-14s na %-12s %s" % ("OK " if r >= need else "ZLE", r, need, fg, bg, what))
+            print("%s %5.2f:1 (min %.1f)  %-6s %-14s na %-12s %s" % ("OK " if r >= need else "ZLE", r, need, tag, fg, bg, what))
     for fg, bg, need, what in PAIRS:
         r = contrast(flat["color-" + fg], flat["color-" + bg])
         ok = r >= need

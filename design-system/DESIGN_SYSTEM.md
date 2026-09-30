@@ -1,6 +1,6 @@
 # Design system Dobra Kaloria
 
-Wersja 1.1.0, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
+Wersja 1.2.0, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
 dobrakaloria.pl opisany w skillu `prezentacje` (`references/styl-dk.md`).
 
 ## 1. Do czego służy
@@ -85,23 +85,25 @@ potem `SZABLON.format(**T)`. Czcionki: `QFontDatabase.addApplicationFont` dla pl
 są dziś wpisane osobno. Przy zmianie koloru w `tokens.json` trzeba je poprawić także tam
 (`scripts/build_dk.py`, `THEMES["shop"]`).
 
-## 5a. Dwa motywy: jasny i ciemny (od 1.1.0)
+## 5a. Trzy motywy: jasny, ciemna zieleń, ciemny krem (od 1.2.0)
 
-Decyzja usera 30.09.2026: aplikacje marki mają tylko dwa motywy, **Dobra Kaloria jasny** i **Dobra Kaloria
-ciemny**. Stare motywy aplikacji (np. indygo w Photo Resizerze) są zastąpione, zapisany wybór „ciemny” przechodzi
+Decyzja usera 30.09.2026: aplikacje marki mają trzy motywy do przełączania: **Dobra Kaloria jasny**, **Dobra Kaloria
+ciemna zieleń** i **Dobra Kaloria ciemny krem**. Motyw to nie tylko kolory: we wszystkich trzech obowiązuje ten sam
+styl (nagłówki Mindset, przyciski, karty i pola jak w `components.md`). Stare motywy aplikacji (np. indygo w Photo Resizerze) są zastąpione, zapisany wybór „ciemny” przechodzi
 na DK ciemny, każdy inny na DK jasny.
 
-Ciemny to leśna zieleń z tekstem w kolorze kości słoniowej. Role są te same co w jasnym, zmieniają się wartości
-(`color.semantic-dark` w `tokens.json`, w CSS pod `[data-theme="dobra-kaloria-ciemny"]`, w Qt słownik `T_DARK`).
+Role są te same we wszystkich motywach, zmieniają się wartości: ciemna zieleń `color.semantic-dark`
+(`[data-theme="dobra-kaloria-ciemny"]`, Qt `T_DARK`), ciemny krem `color.semantic-krem`
+(`[data-theme="dobra-kaloria-krem"]`, Qt `T_KREM`). Lista motywów: `themes-list` w `tokens.json`.
 
-| Rola | Jasny | Ciemny |
-|---|---|---|
-| tło okna | `#FFFFFF` | `#0F1F15` |
-| karta | `#FDF8EC` | `#162B1E` |
-| tekst | `#3B2A20` | `#F5F1E8` |
-| tekst pomocniczy | `#7D5E44` | `#C9BEA6` |
-| akcent (linki, suwaki, zaznaczenie) | `#0F763E` | `#6FC792` |
-| główny przycisk | `#FFD42A` z tekstem `#3B2A20` | bez zmian |
+| Rola | Jasny | Ciemna zieleń | Ciemny krem |
+|---|---|---|---|
+| tło okna | `#FFFFFF` | `#0F1F15` | `#1C1812` |
+| karta | `#FDF8EC` | `#162B1E` | `#26211A` |
+| tekst | `#3B2A20` | `#F5F1E8` | `#F5F1E8` |
+| tekst pomocniczy | `#7D5E44` | `#C9BEA6` | `#CBBFA8` |
+| akcent (linki, suwaki, zaznaczenie) | `#0F763E` | `#6FC792` | `#4CC46A` |
+| główny przycisk | `#FFD42A` z tekstem `#3B2A20` | bez zmian | bez zmian |
 
 Na ciemnym tle ciemna zieleń marki `#0F763E` ginie, dlatego akcent jest jaśniejszy, a tekst na nim ciemny.
 
