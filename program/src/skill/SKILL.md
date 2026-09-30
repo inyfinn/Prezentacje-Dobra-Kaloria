@@ -13,7 +13,7 @@ Nie bierzesz ich wyglądu ani HTML - wynik to zawsze PPTX w stylu marki. Przy do
 
 ## 0. Program dla handlowców „Stwórz prezentację” (29.09.2026)
 
-Ten skill jest silnikiem programu portable „Stwórz prezentację” (wersja 1.0.4; wygląd okna z design systemu: skill `ds-dobra-kaloria`, `tokens.css` kopiuje `build.ps1`; ekran „Gotowe” ma wybór czatu Claude / ChatGPT / Gemini: polecenie z całą treścią slajdów trafia do schowka i otwiera się czat). Układ u użytkownika: `Stwórz
+Ten skill jest silnikiem programu portable „Stwórz prezentację” (wersja 1.1.1; w oknie 60 typów slajdów w 7 grupach - 10 z danymi z folderu, 50 z szablonu przez `make_template.spec`; paczki bez smaku w nazwie pliku rozpoznaje `szybka.match_by_ocr` (OCR Windows); wygląd okna z design systemu: skill `ds-dobra-kaloria`, `tokens.css` kopiuje `build.ps1`; ekran „Gotowe” ma wybór czatu Claude / ChatGPT / Gemini: polecenie z całą treścią slajdów trafia do schowka i otwiera się czat). Układ u użytkownika: `Stwórz
 prezentację.exe` (maleńki plik startowy C# z planszą „Uruchamiam…”) + `pliki programu\` (`program.exe` = okno
 pywebview/WebView2, `stworz-cli.exe` = wiersz poleceń dla AI, biblioteki, `app\ui`, `app\skill`). Jedno źródło:
 - kod programu: `D:\Marketing\- POLSKA\02 - FIRMOWE MATERIAŁY\PREZENTACJE\— SZABLON AI - skrypt\WORK\` (src\app =

@@ -12,13 +12,12 @@ im = Image.new("RGB", (W, H), (15, 118, 62))  # 0F763E
 logo = Image.open(os.path.join(A, "logo_white_box.png")).convert("RGBA")
 lw = 190
 logo = logo.resize((lw, int(logo.height * lw / logo.width)), Image.LANCZOS)
-im.paste(logo, ((W - lw) // 2, 46), logo)
+im.paste(logo, ((W - lw) // 2, 34), logo)
 d = ImageDraw.Draw(im)
 f1 = ImageFont.truetype(os.path.join(A, "fonts", "Mindset.otf"), 34)
 f2 = ImageFont.truetype(os.path.join(A, "fonts", "Lato-Regular.ttf"), 17)
-t1, t2 = "STWÓRZ PREZENTACJĘ", "Uruchamiam program, to potrwa kilka sekund…"
-d.text(((W - d.textlength(t1, font=f1)) / 2, 206), t1, font=f1, fill=(255, 255, 255))
-d.text(((W - d.textlength(t2, font=f2)) / 2, 262), t2, font=f2, fill=(224, 236, 228))
+t1 = "STWÓRZ PREZENTACJĘ"  # "Uruchamiam…", kółko i pasek rysuje na żywo launcher.cs (1.1.2)
+d.text(((W - d.textlength(t1, font=f1)) / 2, 188), t1, font=f1, fill=(255, 255, 255))
 out = os.path.join(HERE, "src", "ui", "img", "powitanie.png")
 im.save(out)
 print("OK", out)

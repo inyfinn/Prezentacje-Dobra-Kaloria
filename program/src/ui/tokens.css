@@ -1,5 +1,5 @@
-/* Design system Dobra Kaloria 1.0.0 (2026-09-29) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
-:root, [data-theme="dobra-kaloria"] {
+/* Design system Dobra Kaloria 1.3.1 (2026-09-30) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+:root, [data-theme="dobra-kaloria"], [data-theme="dobra-kaloria-krem-jasny"] {
   /* kolory - prymitywy */
   --dk-green-700: #0F763E;
   --dk-green-800: #0B5F31;
@@ -24,6 +24,43 @@
   --dk-amber-900: #7A4E00;
   --dk-amber-300: #EBCB6B;
   --dk-amber-50: #FFF4D6;
+  --dk-forest-950: #0F1F15;
+  --dk-forest-900: #162B1E;
+  --dk-forest-850: #1D3526;
+  --dk-forest-800: #26422F;
+  --dk-forest-700: #2F4D39;
+  --dk-forest-600: #44664F;
+  --dk-forest-400: #7E9C88;
+  --dk-ivory-50: #F5F1E8;
+  --dk-sand-400: #C9BEA6;
+  --dk-tan-300: #D2B48F;
+  --dk-green-300: #6FC792;
+  --dk-green-250: #8AD6A8;
+  --dk-red-300: #F2878A;
+  --dk-cocoa-950: #1C1812;
+  --dk-cocoa-900: #26211A;
+  --dk-cocoa-850: #302A21;
+  --dk-cocoa-800: #3A3329;
+  --dk-cocoa-700: #4A4135;
+  --dk-cocoa-600: #6B5E4B;
+  --dk-cocoa-400: #8C7D65;
+  --dk-sand-450: #CBBFA8;
+  --dk-green-350: #4CC46A;
+  --dk-green-500: #1EA03A;
+  --dk-tan-500: #8E7C50;
+  --dk-tan-350: #B8A274;
+  --dk-tan-650: #6E5F3C;
+  --dk-sage-50: #EEF4EF;
+  --dk-sage-100: #E4EEE7;
+  --dk-sage-150: #DDEBE1;
+  --dk-sage-200: #D3E1D7;
+  --dk-sage-300: #B3C9BA;
+  --dk-sage-500: #6E8C78;
+  --dk-pine-900: #17291D;
+  --dk-pine-600: #4A6352;
+  --dk-olive-500: #5E7A4A;
+  --dk-red-700: #C0262C;
+  --dk-amber-950: #6F4A00;
   /* kolory - role (tych używaj w komponentach) */
   --dk-color-text: var(--dk-brown-900);
   --dk-color-text-muted: var(--dk-brown-600);
@@ -118,4 +155,94 @@
   --dk-layout-card-pad-sm: var(--dk-space-5);
   --dk-layout-section-gap-sm: var(--dk-space-6);
   --dk-layout-stack-sm: var(--dk-space-3);
+}
+[data-theme="dobra-kaloria-zielen-ciemny"], [data-theme="dobra-kaloria-ciemny"] {
+  color-scheme: dark;
+  --dk-color-text: var(--dk-ivory-50);
+  --dk-color-text-muted: var(--dk-sand-400);
+  --dk-color-label: var(--dk-tan-300);
+  --dk-color-bg: var(--dk-forest-950);
+  --dk-color-surface: var(--dk-forest-900);
+  --dk-color-surface-hover: var(--dk-forest-850);
+  --dk-color-border: var(--dk-forest-700);
+  --dk-color-border-strong: var(--dk-forest-600);
+  --dk-color-field-border: var(--dk-forest-400);
+  --dk-color-brand: var(--dk-green-300);
+  --dk-color-brand-hover: var(--dk-green-250);
+  --dk-color-brand-soft: var(--dk-forest-850);
+  --dk-color-brand-soft-strong: var(--dk-forest-800);
+  --dk-color-on-brand: var(--dk-forest-950);
+  --dk-color-cta: var(--dk-yellow-400);
+  --dk-color-cta-hover: var(--dk-yellow-500);
+  --dk-color-on-cta: var(--dk-brown-900);
+  --dk-color-disabled-bg: var(--dk-forest-800);
+  --dk-color-switch-off: var(--dk-forest-400);
+  --dk-color-danger: var(--dk-red-300);
+  --dk-color-danger-soft: var(--dk-forest-850);
+  --dk-color-warning-text: var(--dk-amber-300);
+  --dk-color-warning-border: var(--dk-amber-900);
+  --dk-color-warning-bg: var(--dk-forest-850);
+  --dk-color-inverse-bg: var(--dk-ivory-50);
+  --dk-color-on-inverse: var(--dk-forest-950);
+  --dk-color-focus: var(--dk-green-300);
+}
+[data-theme="dobra-kaloria-krem-ciemny"], [data-theme="dobra-kaloria-krem"] {
+  color-scheme: dark;
+  --dk-color-text: var(--dk-ivory-50);
+  --dk-color-text-muted: var(--dk-sand-450);
+  --dk-color-label: var(--dk-tan-300);
+  --dk-color-bg: var(--dk-cocoa-950);
+  --dk-color-surface: var(--dk-cocoa-900);
+  --dk-color-surface-hover: var(--dk-cocoa-850);
+  --dk-color-border: var(--dk-cocoa-700);
+  --dk-color-border-strong: var(--dk-cocoa-600);
+  --dk-color-field-border: var(--dk-cocoa-400);
+  --dk-color-brand: var(--dk-green-350);
+  --dk-color-brand-hover: var(--dk-green-250);
+  --dk-color-brand-soft: var(--dk-cocoa-850);
+  --dk-color-brand-soft-strong: var(--dk-cocoa-800);
+  --dk-color-on-brand: var(--dk-cocoa-950);
+  --dk-color-cta: var(--dk-yellow-400);
+  --dk-color-cta-hover: var(--dk-yellow-500);
+  --dk-color-on-cta: var(--dk-brown-900);
+  --dk-color-disabled-bg: var(--dk-cocoa-800);
+  --dk-color-switch-off: var(--dk-cocoa-400);
+  --dk-color-danger: var(--dk-red-300);
+  --dk-color-danger-soft: var(--dk-cocoa-850);
+  --dk-color-warning-text: var(--dk-amber-300);
+  --dk-color-warning-border: var(--dk-tan-500);
+  --dk-color-warning-bg: var(--dk-cocoa-850);
+  --dk-color-inverse-bg: var(--dk-ivory-50);
+  --dk-color-on-inverse: var(--dk-cocoa-950);
+  --dk-color-focus: var(--dk-green-350);
+}
+[data-theme="dobra-kaloria-zielen-jasny"] {
+  color-scheme: dark;
+  --dk-color-text: var(--dk-pine-900);
+  --dk-color-text-muted: var(--dk-pine-600);
+  --dk-color-label: var(--dk-olive-500);
+  --dk-color-bg: var(--dk-sage-50);
+  --dk-color-surface: var(--dk-white);
+  --dk-color-surface-hover: var(--dk-sage-100);
+  --dk-color-border: var(--dk-sage-200);
+  --dk-color-border-strong: var(--dk-sage-300);
+  --dk-color-field-border: var(--dk-sage-500);
+  --dk-color-brand: var(--dk-green-700);
+  --dk-color-brand-hover: var(--dk-green-800);
+  --dk-color-brand-soft: var(--dk-sage-150);
+  --dk-color-brand-soft-strong: var(--dk-green-200);
+  --dk-color-on-brand: var(--dk-white);
+  --dk-color-cta: var(--dk-yellow-400);
+  --dk-color-cta-hover: var(--dk-yellow-500);
+  --dk-color-on-cta: var(--dk-brown-900);
+  --dk-color-disabled-bg: var(--dk-sage-100);
+  --dk-color-switch-off: var(--dk-sage-500);
+  --dk-color-danger: var(--dk-red-700);
+  --dk-color-danger-soft: var(--dk-red-50);
+  --dk-color-warning-text: var(--dk-amber-950);
+  --dk-color-warning-border: var(--dk-amber-300);
+  --dk-color-warning-bg: var(--dk-amber-50);
+  --dk-color-inverse-bg: var(--dk-pine-900);
+  --dk-color-on-inverse: var(--dk-white);
+  --dk-color-focus: var(--dk-green-700);
 }

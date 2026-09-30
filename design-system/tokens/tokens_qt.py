@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tokeny Dobra Kaloria 1.3.0 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T)."""
+"""Tokeny Dobra Kaloria 1.3.1 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T)."""
 T = {
     "color_green_700": '#0F763E',
     "color_green_800": '#0B5F31',

@@ -209,6 +209,10 @@ def run():
     engine._log_file("start: biblioteki wczytane po %.1f s, zamykam ekran powitalny i otwieram okno" % (time.time() - T0))
 
     webview.start(after_start, window, gui="edgechromium")  # tryb prywatny: każdy start ma własny, tymczasowy profil WebView2
+    # Okno zamknięte = koniec programu. Zamknięcie przed załadowaniem strony zostawiało proces w tle (wątek czekał
+    # na 'loaded', 30.09) - taki proces blokuje aktualizację i kolejne uruchomienia.
+    engine._log_file("okno zamknięte po %.1f s - koniec programu" % (time.time() - T0))
+    os._exit(0)
 
 
 if __name__ == "__main__":
