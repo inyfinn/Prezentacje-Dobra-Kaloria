@@ -1,6 +1,6 @@
 # Design system Dobra Kaloria
 
-Wersja 1.2.0, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
+Wersja 1.3.0, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
 dobrakaloria.pl opisany w skillu `prezentacje` (`references/styl-dk.md`).
 
 ## 1. Do czego służy
@@ -85,27 +85,23 @@ potem `SZABLON.format(**T)`. Czcionki: `QFontDatabase.addApplicationFont` dla pl
 są dziś wpisane osobno. Przy zmianie koloru w `tokens.json` trzeba je poprawić także tam
 (`scripts/build_dk.py`, `THEMES["shop"]`).
 
-## 5a. Trzy motywy: jasny, ciemna zieleń, ciemny krem (od 1.2.0)
+## 5a. Dwa style kolorystyczne x tryb jasny i ciemny (od 1.3.0)
 
-Decyzja usera 30.09.2026: aplikacje marki mają trzy motywy do przełączania: **Dobra Kaloria jasny**, **Dobra Kaloria
-ciemna zieleń** i **Dobra Kaloria ciemny krem**. Motyw to nie tylko kolory: we wszystkich trzech obowiązuje ten sam
-styl (nagłówki Mindset, przyciski, karty i pola jak w `components.md`). Stare motywy aplikacji (np. indygo w Photo Resizerze) są zastąpione, zapisany wybór „ciemny” przechodzi
-na DK ciemny, każdy inny na DK jasny.
+Decyzja usera 30.09.2026: tryb wyświetlania (jasny / ciemny) i styl kolorystyczny to dwa osobne ustawienia.
+Dobra Kaloria ma dwa style, każdy w obu trybach. W aplikacjach z wieloma stylami (DAM) to dwie nowe pozycje
+na liście stylów, obok dotychczasowych. Styl to nie tylko kolory: we wszystkich wariantach obowiązują nagłówki
+Mindset, przyciski, karty i pola jak w `components.md`. Mindset: firma ma licencję na użytek komercyjny.
 
-Role są te same we wszystkich motywach, zmieniają się wartości: ciemna zieleń `color.semantic-dark`
-(`[data-theme="dobra-kaloria-ciemny"]`, Qt `T_DARK`), ciemny krem `color.semantic-krem`
-(`[data-theme="dobra-kaloria-krem"]`, Qt `T_KREM`). Lista motywów: `themes-list` w `tokens.json`.
+| Styl | Tryb | id (`data-theme`) | Tło | Karta | Tekst | Akcent |
+|---|---|---|---|---|---|---|
+| Dobra Kaloria 1 · zieleń | jasny | `dobra-kaloria-zielen-jasny` | `#EEF4EF` | `#FFFFFF` | `#17291D` | `#0F763E` |
+| Dobra Kaloria 1 · zieleń | ciemny | `dobra-kaloria-zielen-ciemny` | `#0F1F15` | `#162B1E` | `#F5F1E8` | `#6FC792` |
+| Dobra Kaloria 2 · krem | jasny | `dobra-kaloria-krem-jasny` | `#FFFFFF` | `#FDF8EC` | `#3B2A20` | `#0F763E` |
+| Dobra Kaloria 2 · krem | ciemny | `dobra-kaloria-krem-ciemny` | `#1C1812` | `#26211A` | `#F5F1E8` | `#4CC46A` |
 
-| Rola | Jasny | Ciemna zieleń | Ciemny krem |
-|---|---|---|---|
-| tło okna | `#FFFFFF` | `#0F1F15` | `#1C1812` |
-| karta | `#FDF8EC` | `#162B1E` | `#26211A` |
-| tekst | `#3B2A20` | `#F5F1E8` | `#F5F1E8` |
-| tekst pomocniczy | `#7D5E44` | `#C9BEA6` | `#CBBFA8` |
-| akcent (linki, suwaki, zaznaczenie) | `#0F763E` | `#6FC792` | `#4CC46A` |
-| główny przycisk | `#FFD42A` z tekstem `#3B2A20` | bez zmian | bez zmian |
-
-Na ciemnym tle ciemna zieleń marki `#0F763E` ginie, dlatego akcent jest jaśniejszy, a tekst na nim ciemny.
+Główny przycisk we wszystkich wariantach: żółty `#FFD42A` z tekstem `#3B2A20`. Na ciemnym tle ciemna zieleń marki
+ginie, dlatego akcent jest jaśniejszy, a tekst na nim ciemny. Źródło: `color.semantic*` i `themes-list` w
+`tokens.json`; Qt: słowniki `T`, `T_ZIELEN_JASNY`, `T_DARK`, `T_KREM`. Kontrast: `build_tokens.py --check` (79 par).
 
 ## 6. Motyw w istniejącej aplikacji
 

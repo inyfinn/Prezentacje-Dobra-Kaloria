@@ -63,7 +63,7 @@ def css(d, prim):
     p = d["meta"]["prefix"]
     out = ["/* Design system %s %s (%s) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */"
            % (d["meta"]["name"], d["meta"]["version"], d["meta"]["date"]),
-           ':root, [data-theme="dobra-kaloria"] {']
+           ':root, [data-theme="dobra-kaloria"], [data-theme="dobra-kaloria-krem-jasny"] {']
     out.append("  /* kolory - prymitywy */")
     for k, v in prim.items():
         out.append("  --%s-%s: %s;" % (p, k, v))
@@ -78,7 +78,10 @@ def css(d, prim):
             val = "var(--%s-%s)" % (p, m.group(1).replace(".", "-")) if m else v
             out.append("  --%s-%s-%s: %s;" % (p, short, k, val))
     out.append("}")
-    for tid, role in (("dobra-kaloria-ciemny", "semantic-dark"), ("dobra-kaloria-krem", "semantic-krem")):
+    # identyfikatory: styl-tryb (themes-list w tokens.json); stare nazwy zostają jako aliasy
+    for tid, role in (("dobra-kaloria-zielen-ciemny\"], [data-theme=\"dobra-kaloria-ciemny", "semantic-dark"),
+                      ("dobra-kaloria-krem-ciemny\"], [data-theme=\"dobra-kaloria-krem", "semantic-krem"),
+                      ("dobra-kaloria-zielen-jasny", "semantic-zielen-jasny")):
         dark = d["color"].get(role)
         if not dark:  # motywy ciemne: te same role, inne wartości
             continue
@@ -98,7 +101,7 @@ def qt(d, flat):
     for k, v in flat.items():
         lines.append('    "%s": %r,' % (k.replace("-", "_"), v))
     lines.append("}")
-    for name, role in (("T_DARK", "semantic-dark"), ("T_KREM", "semantic-krem")):
+    for name, role in (("T_DARK", "semantic-dark"), ("T_KREM", "semantic-krem"), ("T_ZIELEN_JASNY", "semantic-zielen-jasny")):
         lines.append("%s = {  # %s: role kolorów (nazwy jak w T)" % (name, role))
         for k, v in d["color"].get(role, {}).items():
             lines.append('    "color_%s": %r,' % (k.replace("-", "_"), d["color"]["primitive"].get(v.strip("{}"), v)))
@@ -190,7 +193,7 @@ RESIZER_PAIRS = [("@FG_TEXT@", "@BG_WINDOW@", 4.5), ("@FG_TEXT@", "@BG_PANEL@", 
 def check(d, flat, ref):
     bad = 0
     prim = d["color"]["primitive"]
-    for tag, role in (("ZIELEN", "semantic-dark"), ("KREM", "semantic-krem")):
+    for tag, role in (("ZIELEN", "semantic-dark"), ("KREM", "semantic-krem"), ("SZALW", "semantic-zielen-jasny")):
         dk = {k: prim.get(v.strip("{}"), v) for k, v in d["color"].get(role, {}).items()}
         for fg, bg, need, what in (PAIRS if dk else []):
             r = contrast(dk[fg], dk[bg])

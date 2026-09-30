@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Motyw "Dobra Kaloria" dla Inyfinn Photo Resizer - PLIK GENEROWANY (design system Dobra Kaloria 1.2.0).
+"""Motyw "Dobra Kaloria" dla Inyfinn Photo Resizer - PLIK GENEROWANY (design system Dobra Kaloria 1.3.0).
 Status: szkic - nie renderowany w aplikacji. Wdrożenie: themes/photo-resizer/README.md.
 """
 DOBRA_KALORIA = {

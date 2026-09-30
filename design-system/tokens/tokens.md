@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 1.2.0
+# Tokeny Dobra Kaloria 1.3.0
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`.
 
@@ -87,6 +87,17 @@ PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `..
 | tan-500 | `--dk-tan-500` | `#8E7C50` |
 | tan-350 | `--dk-tan-350` | `#B8A274` |
 | tan-650 | `--dk-tan-650` | `#6E5F3C` |
+| sage-50 | `--dk-sage-50` | `#EEF4EF` |
+| sage-100 | `--dk-sage-100` | `#E4EEE7` |
+| sage-150 | `--dk-sage-150` | `#DDEBE1` |
+| sage-200 | `--dk-sage-200` | `#D3E1D7` |
+| sage-300 | `--dk-sage-300` | `#B3C9BA` |
+| sage-500 | `--dk-sage-500` | `#6E8C78` |
+| pine-900 | `--dk-pine-900` | `#17291D` |
+| pine-600 | `--dk-pine-600` | `#4A6352` |
+| olive-500 | `--dk-olive-500` | `#5E7A4A` |
+| red-700 | `--dk-red-700` | `#C0262C` |
+| amber-950 | `--dk-amber-950` | `#6F4A00` |
 
 ## Kontrast (WCAG)
 
