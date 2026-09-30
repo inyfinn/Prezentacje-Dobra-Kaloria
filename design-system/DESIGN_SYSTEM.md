@@ -1,6 +1,6 @@
 # Design system Dobra Kaloria
 
-Wersja 1.4.0, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
+Wersja 1.4.1, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
 dobrakaloria.pl opisany w skillu `prezentacje` (`references/styl-dk.md`).
 
 **Nowy ekran albo nowa aplikacja w stylu Dobra Kaloria: zacznij od `IDENTYFIKACJA-WIZUALNA.md`** (jeden język wizualny,
@@ -105,11 +105,13 @@ Mindset, przyciski, karty i pola jak w `components.md`. Mindset: firma ma licenc
 
 Od 1.4.0 krem jasny ma własny zestaw ról (`semantic-krem-jasny`, bez czystej bieli); do 1.3.x był równy programowi.
 Program zostaje z białą kartką (L0 `#FFFFFF`) - to jedyny wariant, w którym biel jest dozwolona.
+Od 1.4.1 czerwień błędu w kremie jasnym to `red-700` `#C0262C` (jak w zieleni jasnej): `#DA272D` na karcie L1
+kremu dawał 4,48:1, poniżej 4,5:1. Kontrola sprawdza teraz także `danger` na tle i na karcie.
 
 Główny przycisk we wszystkich wariantach: żółty `#FFD42A` z tekstem `#3B2A20`. Na ciemnym tle ciemna zieleń marki
 ginie, dlatego akcent jest jaśniejszy, a tekst na nim ciemny. Źródło: `color.semantic*` i `themes-list` w
 `tokens.json`; Qt: słowniki `T`, `T_KREM_JASNY`, `T_ZIELEN_JASNY`, `T_DARK`, `T_KREM` (i `VARIANTS[nazwa]`).
-Kontrola: `build_tokens.py --check` (288 sprawdzeń: role, drabina, skoki jasności, tagi).
+Kontrola: `build_tokens.py --check` (298 sprawdzeń: role, drabina, skoki jasności, tagi).
 
 ## 5b. Drabina powierzchni L0-L4 (od 1.4.0)
 

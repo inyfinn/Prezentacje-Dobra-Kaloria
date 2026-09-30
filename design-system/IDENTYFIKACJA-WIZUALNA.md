@@ -1,7 +1,7 @@
 # Identyfikacja wizualna Dobra Kaloria
 
 Jeden język wizualny dla narzędzi marki: program „Stwórz prezentację”, Inyfinn Photo Resizer, DAM Dobra Kaloria
-i każda następna aplikacja. Wersja tokenów 1.4.0, 30.09.2026. Decyzje usera, z których to wynika: `ZALECENIA-USERA.md`.
+i każda następna aplikacja. Wersja tokenów 1.4.1, 30.09.2026. Decyzje usera, z których to wynika: `ZALECENIA-USERA.md`.
 
 Prośba „zrób w stylu Dobra Kaloria” = ten dokument od góry do dołu. Wartości są w `tokens/tokens.json`
 (generowane `tokens.css` dla web, `tokens_qt.py` dla Qt), przepisy komponentów w `components.md`.

@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 1.4.0
+# Tokeny Dobra Kaloria 1.4.1
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -227,6 +227,8 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | on-cta | cta | 9.56:1 | 4.5:1 | tekst na żółtym przycisku |
 | on-inverse | inverse-bg | 13.65:1 | 4.5:1 | biały na brązie (toast) |
 | on-inverse | danger | 4.87:1 | 4.5:1 | biały na czerwieni |
+| danger | bg | 4.87:1 | 4.5:1 | czerwony tekst błędu na tle |
+| danger | surface | 4.60:1 | 4.5:1 | czerwony tekst błędu na karcie |
 | warning-text | warning-bg | 6.57:1 | 4.5:1 | ostrzeżenie |
 | field-border | bg | 3.31:1 | 3.0:1 | ramka pola |
 | switch-off | bg | 3.31:1 | 3.0:1 | wyłączony przełącznik |

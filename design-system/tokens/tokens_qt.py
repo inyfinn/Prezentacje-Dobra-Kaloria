@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tokeny Dobra Kaloria 1.4.0 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
+"""Tokeny Dobra Kaloria 1.4.1 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
 
 T              program (biała kartka) - pełny zestaw: kolory, odstępy, czcionki, drabina, tagi
 T_KREM_JASNY   Dobra Kaloria 2 · krem, jasny   (role + drabina + tagi; nazwy jak w T)
@@ -215,7 +215,7 @@ T_KREM_JASNY = {  # krem-jasny (semantic-krem-jasny): role kolorów, drabina, ta
     "color_on_cta": '#3B2A20',
     "color_disabled_bg": '#F0EBDD',
     "color_switch_off": '#9C8B72',
-    "color_danger": '#DA272D',
+    "color_danger": '#C0262C',
     "color_danger_soft": '#FCE8E9',
     "color_warning_text": '#7A4E00',
     "color_warning_border": '#EBCB6B',

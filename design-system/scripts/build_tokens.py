@@ -368,6 +368,7 @@ PAIRS = [("text", "bg", 4.5, "tekst na tle"), ("text", "surface", 4.5, "tekst na
          ("brand", "bg", 4.5, "zielony tekst/link na tle"), ("brand", "brand-soft", 4.5, "zielony na jasnej zieleni"),
          ("on-brand", "brand", 4.5, "biały na zieleni"), ("on-cta", "cta", 4.5, "tekst na żółtym przycisku"),
          ("on-inverse", "inverse-bg", 4.5, "biały na brązie (toast)"), ("on-inverse", "danger", 4.5, "biały na czerwieni"),
+         ("danger", "bg", 4.5, "czerwony tekst błędu na tle"), ("danger", "surface", 4.5, "czerwony tekst błędu na karcie"),
          ("warning-text", "warning-bg", 4.5, "ostrzeżenie"), ("field-border", "bg", 3.0, "ramka pola"),
          ("switch-off", "bg", 3.0, "wyłączony przełącznik")]
 # pary w motywie Photo Resizera (klucz tekstu, klucz tła, minimum)
