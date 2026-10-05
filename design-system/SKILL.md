@@ -31,6 +31,7 @@ Potem, w miarę potrzeby: `DESIGN_SYSTEM.md` (zasady, wersjonowanie), `component
 | Podgląd drabiny i tagów, zrzuty | `python scripts/zrzuty_drabiny.py` -> `preview/shots/50-*.png`, `51-tagi.png` |
 | Wartości drabiny w konsoli | `python scripts/build_tokens.py --ladder` |
 | Sprawdzenie kontrastu i drabiny | `python scripts/build_tokens.py --check` (288 sprawdzeń) |
+| Skala tekstu i odstępy Qt (z programu) | `components.md` sekcja 23, tokeny `qt.*` (od 1.5.0) |
 | Ikona nowej aplikacji | wpis w `APPS`, `python scripts/ikony_aplikacji.py` |
 | Motyw DK w Photo Resizerze / DAM | `themes/photo-resizer/README.md`, `themes/dam/README.md` (szkice 1.2; 1.4.0: `T_*` / `VARIANTS` z `tokens_qt.py`, `data-theme` z `tokens.css`) |
 | Czy motyw Photo Resizera ma komplet kluczy | `python scripts/build_tokens.py --resizer "<ścieżka do app/themes/__init__.py>"` |
@@ -46,7 +47,7 @@ tokens/tokens.json          JEDYNE źródło wartości (sekcje color, ladder, ta
 tokens/tokens.css           web: zmienne --dk-* na :root i [data-theme] (generowany)
 tokens/tokens_qt.py         Qt: T, T_KREM_JASNY, T_ZIELEN_JASNY, T_DARK, T_KREM, VARIANTS (generowany)
 tokens/tokens.md            tabele wartości, drabiny, tagów i kontrastu (generowany)
-tokens/READY-1.4.0.txt      znacznik gotowości tokenów dla agentów Resizera i DAM
+tokens/READY-1.5.0.txt      znacznik gotowości tokenów dla agentów Resizera i DAM (1.5.0: jasne = biała kartka programu)
 themes/photo-resizer/       słownik motywu + instrukcja wdrożenia
 themes/dam/                 nakładka CSS na --dam-* + instrukcja wdrożenia
 scripts/build_tokens.py     generator (OKLCH: drabina, tagi) i kontrola

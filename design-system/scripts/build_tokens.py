@@ -33,7 +33,8 @@ GROUPS = (("font", "font", "czcionki"), ("font-size", "fs", "rozmiary tekstu"),
           ("line-height", "lh", "interlinie"), ("space", "space", "odstępy (siatka 4 px)"),
           ("radius", "radius", "promienie"), ("shadow", "shadow", "cienie (podbarwione brązem)"),
           ("motion", "motion", "ruch"), ("control", "control", "kontrolki"),
-          ("layout", "layout", "układ"))
+          ("layout", "layout", "układ"),
+          ("qt", "qt", "Qt: skala tekstu i odstępy z programu (QSS px)"))
 LEVEL_NAMES = ("tło okna", "kontener, sekcja, karta", "rubryka, pole, karta w karcie",
                "element w polu: chip, wiersz, okno w oknie", "nakładka: menu, podpowiedź, modal nad modalem")
 # selektor CSS i nazwa słownika Qt dla każdego wariantu drabiny
@@ -115,14 +116,16 @@ def ladder_variant(d, key):
     out = {}
     for i in range(n):
         L = v["L0"] + sgn * i * v["dL"]
+        H = (v["hue"] + i * v.get("hue_step", 0)) % 360  # 1.5.0: opcjonalne ocieplenie głębszych poziomów
         for name, LL in (("surface", L), ("border-subtle", L + sgn * v["border_dL"])):
             C = min(v["chroma_k"] * ((1 - LL) if v["mode"] == "light" else LL), v["chroma_max"])
-            out["%s-%d" % (name, i)] = oklch_hex(LL, C, v["hue"])
+            out["%s-%d" % (name, i)] = oklch_hex(LL, C, H)
     t = d["tags"]
     spec = t[v["mode"]]
+    tdl = v.get("tag_dL", 0)  # 1.5.0: przesunięcie L tła i ramki tagów wariantu (krem ciemny: ciemniej)
     for k in range(t["count"]):
         H = (v["tag_hue"] + t["offsets"][k]) % 360
-        bg = oklch_hex(spec["bg"][0], spec["bg"][1], H)
+        bg = oklch_hex(spec["bg"][0] + tdl, spec["bg"][1], H)
         fL = spec["fg"][0]
         fg = oklch_hex(fL, spec["fg"][1], H)
         while contrast(fg, bg) < t["min_contrast"] and 0 < fL < 1:
@@ -130,7 +133,7 @@ def ladder_variant(d, key):
             fg = oklch_hex(fL, spec["fg"][1], H)
         out["tag-%d-bg" % (k + 1)] = bg
         out["tag-%d-fg" % (k + 1)] = fg
-        out["tag-%d-border" % (k + 1)] = oklch_hex(spec["border"][0], spec["border"][1], H)
+        out["tag-%d-border" % (k + 1)] = oklch_hex(spec["border"][0] + tdl, spec["border"][1], H)
     return out
 
 

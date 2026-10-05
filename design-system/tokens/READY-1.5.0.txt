@@ -1,0 +1,17 @@
+Design system Dobra Kaloria 1.5.0 - tokeny gotowe do użycia (2026-10-05).
+Źródło: tokens/tokens.json -> scripts/build_tokens.py (tokens.css, tokens_qt.py, tokens.md); --check: 288 sprawdzeń, 0 błędów.
+
+Co się zmieniło względem 1.4.x:
+- Jasne style (DK1 zieleń jasny, DK2 krem jasny) = drabina programu "Stwórz prezentację" 1:1:
+  L0 #FFFFFF (biała strona), L1 #FDF8ED (kremowa karta), L2 #F8F1E0 (pole / kafelek w karcie), L3 #F2EBDA, L4 #EBE4D3.
+  Ramki: border #EDE7DA (karta, 1px, jak .hints/.found w programie), border-strong #D9CFBB, pole #9C8B72.
+  DK1 zieleń jasny różni się tylko akcentem: tekst #17291D (sosna), etykiety (eyebrow) zielone #0F763E.
+  DK2 krem jasny = program 1:1: tekst #3B2A20, etykiety #AD8767.
+- DK1 zieleń ciemny cieplejszy: głębsze poziomy przesuwają się w stronę oliwki
+  (L0 #0F2315, L1 #192C18, L2 #24341C, L3 #303C21, L4 #3D4427), tekst kremowy #FBF3E0,
+  etykiety miodowe #ECCA76, akcent #A2D686, fokus żółty #FFD42A.
+- krem ciemny przyciemniony: L0 #120F0A, L1 #1A1611, L2 #231E17, L3 #2C261E, L4 #352E25
+  (było #1C1812 / #252019 / #2E2820 / #373027 / #40392E), ramki i tła tagów ciemniejsze o ~0,04-0,05 L.
+- Nowa grupa tokenów "qt" (--dk-qt-* / T["qt_*"]): skala tekstu i odstępy programu przeniesione do Qt.
+
+Notka: krem ciemny przyciemniony (wymaganie usera 05.10.2026) - zawarte od pierwszego wydania tego znacznika.

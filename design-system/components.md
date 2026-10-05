@@ -808,3 +808,44 @@ def tag_qss(T, k):   # k = 1..8
     return ("background:{bg}; color:{fg}; border:1px solid {bd}; border-radius:10px; padding:2px 8px;"
             .format(bg=T["color_tag_%d_bg" % k], fg=T["color_tag_%d_fg" % k], bd=T["color_tag_%d_border" % k]))
 ```
+
+
+## 23. Skala tekstu i odstępy skopiowane z programu (web i Qt, od 1.5.0)
+
+Źródło: pomiar okna programu „Stwórz prezentację” (`WORK/src/ui/style.css`, `getComputedStyle` w Chromium, 1366x768,
+05.10.2026). Web używa wartości programu wprost; Qt (PySide6/QSS, px) używa tokenów `qt.*` - te same proporcje,
+ok. 10 % mniej, żeby okno aplikacji desktopowej mieściło się w 1366x768. Wzorcowa aplikacja Qt: Inyfinn Photo Resizer 2.6.4.
+
+### Web (program 1:1)
+
+| Element | Wartość |
+|---|---|
+| strona | tło L0 `#FFFFFF`, tekst 16 px / 24 px Lato, kolor `text` |
+| karta (`.hints`, `.found`, `.checklist`) | tło L1 `#FDF8ED`, ramka 1 px `border` `#EDE7DA`, promień 12 px, wypełnienie 32 px, bez cienia |
+| kafelek w karcie (`.flav`) | tło L2 `#F8F1E0`, ramka 1 px `border-subtle-2` `#E8E1D0`, promień 10 px, wypełnienie 8-12 px |
+| eyebrow | 15 px bold, wersaliki, odstęp liter 0,1 em, kolor `label`, odstęp pod 12-20 px |
+| nagłówek | Mindset 40 px (`.h-md`), 44 px produkt, 60 px „Gotowe” |
+| lead / podtytuł | 19 px / 1,4 `text-muted` |
+| lista w karcie | 16 px / 1,35, podpis 15 px `text-muted`, odstęp wierszy 16-20 px |
+| pole | 48 px, ramka 1,5 px `field-border`, promień 8 px, 16 px tekst, wypełnienie 12/16 px, fokus: ramka `brand` + `shadow-focus-field` |
+| etykieta pola | 15 px bold, 8 px nad polem; podpowiedź 15 px `text-muted` |
+| przycisk | 48 px, 17 px bold, promień 4 px, ramka 2 px (drugorzędny zielony); główny żółty 56 px / 19 px |
+| pasek akcji | tło L0, ramka górna 1 px `border-strong`, cień `shadow-bar`, przycisk 58 px / 20 px |
+| odstępy | sekcje 40 px (`layout.section-gap`), kolumny 48 px, stos 20 px (`layout.stack`) |
+
+### Qt (tokeny `qt.*`)
+
+| Element | QSS |
+|---|---|
+| tekst okna | `font-size: 15px` (`app.setFont` z `setPixelSize(15)`; menu: `app.setFont(font, "QMenuBar")`) |
+| karta | `background: L1; border: 1px solid <border>; border-radius: 12px`, wypełnienie 20 px, odstęp między kartami 12-16 px |
+| nagłówek karty | Mindset 22 px, wersaliki; okno dialogu 26 px |
+| eyebrow | Lato 14 px bold, wersaliki, `letterSpacing` 110 %, kolor `label` |
+| etykieta pola | 14 px bold (Lato ma tylko 400 i 700 - nie używaj 600) |
+| podpowiedź | 14 px `text-muted` |
+| pole (`QLineEdit`, `QComboBox`, `QSpinBox`) | 40 px: `min-height: 30px; padding: 4px 12px; border: 1px solid <field-border>`; fokus `2px solid <focus>`, `padding: 3px 11px` |
+| przycisk | 40 px, 15 px bold, ramka 2 px `brand`; mały 36 px |
+| przycisk główny | 48 px, 17 px bold, `cta` bez ramki |
+| chip / tag klikalny | 48 px, ramka 1 px w kolorze tekstu tagu |
+| okno dialogu | marginesy 20/16 px, odstęp 10-12 px |
+| okno | min. 1180x700 (mieści się na 1366x768); widok, który nie mieści się w wysokości, przewija się (`QScrollArea`), a nie ściska listy |

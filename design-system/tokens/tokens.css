@@ -1,4 +1,4 @@
-/* Design system Dobra Kaloria 1.4.1 (2026-09-30) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+/* Design system Dobra Kaloria 1.5.0 (2026-10-05) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
 /* Drabina powierzchni: --dk-color-surface-0 (tło okna) ... -4 (nakładka); tagi: --dk-color-tag-N-bg/-fg/-border. */
 :root, [data-theme="dobra-kaloria"] {
   color-scheme: light;
@@ -64,6 +64,19 @@
   --dk-olive-500: #5E7A4A;
   --dk-red-700: #C0262C;
   --dk-amber-950: #6F4A00;
+  --dk-lime-300: #A2D686;
+  --dk-lime-200: #C2E59F;
+  --dk-honey-300: #ECCA76;
+  --dk-moss-950: #0F190C;
+  --dk-moss-850: #242F1E;
+  --dk-moss-800: #2C3A25;
+  --dk-moss-700: #3B4E37;
+  --dk-moss-600: #516448;
+  --dk-moss-400: #889979;
+  --dk-espresso-850: #262017;
+  --dk-espresso-800: #2F291F;
+  --dk-espresso-700: #3F362A;
+  --dk-espresso-600: #5F5240;
   /* drabina program: L0 1.000, dL 0.020 (OKLCH), jasny: głębiej = ciemniej */
   --dk-color-surface-0: #FFFFFF;
   --dk-color-border-subtle-0: #F5EEDD;
@@ -198,24 +211,49 @@
   --dk-layout-card-pad-sm: var(--dk-space-5);
   --dk-layout-section-gap-sm: var(--dk-space-6);
   --dk-layout-stack-sm: var(--dk-space-3);
+  /* Qt: skala tekstu i odstępy z programu (QSS px) */
+  --dk-qt-fs-body: 15px;
+  --dk-qt-fs-label: 14px;
+  --dk-qt-fs-hint: 14px;
+  --dk-qt-fs-eyebrow: 14px;
+  --dk-qt-fs-btn: 15px;
+  --dk-qt-fs-btn-primary: 17px;
+  --dk-qt-fs-title: 22px;
+  --dk-qt-fs-app-title: 20px;
+  --dk-qt-fs-dialog-title: 26px;
+  --dk-qt-control-h: 40px;
+  --dk-qt-control-h-primary: 48px;
+  --dk-qt-control-h-sm: 36px;
+  --dk-qt-pad-card: 20px;
+  --dk-qt-gap-cards: 16px;
+  --dk-qt-gap-stack: 12px;
+  --dk-qt-gap-row: 10px;
+  --dk-qt-margin-window: 20px;
+  --dk-qt-card-border: 1px;
+  --dk-qt-field-border: 1px;
+  --dk-qt-focus-border: 2px;
+  --dk-qt-radius-card: 12px;
+  --dk-qt-radius-field: 8px;
+  --dk-qt-radius-btn: 4px;
+  --dk-qt-radius-drop: 16px;
 }
 [data-theme="dobra-kaloria-krem-jasny"] {
   color-scheme: light;
-  /* drabina krem-jasny: L0 0.990, dL 0.020 (OKLCH), jasny: głębiej = ciemniej */
-  --dk-color-surface-0: #FEFCF6;
-  --dk-color-border-subtle-0: #F2EBDA;
+  /* drabina krem-jasny: L0 1.000, dL 0.020 (OKLCH), jasny: głębiej = ciemniej */
+  --dk-color-surface-0: #FFFFFF;
+  --dk-color-border-subtle-0: #F5EEDD;
   --dk-color-on-surface-0: var(--dk-color-text);
-  --dk-color-surface-1: #FCF5E3;
-  --dk-color-border-subtle-1: #EBE4D3;
+  --dk-color-surface-1: #FDF8ED;
+  --dk-color-border-subtle-1: #EEE7D6;
   --dk-color-on-surface-1: var(--dk-color-text);
-  --dk-color-surface-2: #F5EEDD;
-  --dk-color-border-subtle-2: #E5DDCD;
+  --dk-color-surface-2: #F8F1E0;
+  --dk-color-border-subtle-2: #E8E1D0;
   --dk-color-on-surface-2: var(--dk-color-text);
-  --dk-color-surface-3: #EEE7D6;
-  --dk-color-border-subtle-3: #DED7C6;
+  --dk-color-surface-3: #F2EBDA;
+  --dk-color-border-subtle-3: #E1DAC9;
   --dk-color-on-surface-3: var(--dk-color-text);
-  --dk-color-surface-4: #E8E1D0;
-  --dk-color-border-subtle-4: #D7D0C0;
+  --dk-color-surface-4: #EBE4D3;
+  --dk-color-border-subtle-4: #DBD4C3;
   --dk-color-on-surface-4: var(--dk-color-text);
   --dk-color-tag-1-bg: #F2E7CC;
   --dk-color-tag-1-fg: #65500B;
@@ -244,7 +282,7 @@
   /* kolory - role (tych używaj w komponentach) */
   --dk-color-text: var(--dk-brown-900);
   --dk-color-text-muted: var(--dk-brown-600);
-  --dk-color-label: var(--dk-tan-450);
+  --dk-color-label: var(--dk-tan-400);
   --dk-color-bg: var(--dk-color-surface-0);
   --dk-color-surface: var(--dk-color-surface-1);
   --dk-color-surface-hover: var(--dk-color-surface-2);
@@ -272,21 +310,21 @@
 }
 [data-theme="dobra-kaloria-zielen-jasny"] {
   color-scheme: light;
-  /* drabina zielen-jasny: L0 0.985, dL 0.020 (OKLCH), jasny: głębiej = ciemniej */
-  --dk-color-surface-0: #F8FBF9;
-  --dk-color-border-subtle-0: #E2EDE4;
+  /* drabina zielen-jasny: L0 1.000, dL 0.020 (OKLCH), jasny: głębiej = ciemniej */
+  --dk-color-surface-0: #FFFFFF;
+  --dk-color-border-subtle-0: #F5EEDD;
   --dk-color-on-surface-0: var(--dk-color-text);
-  --dk-color-surface-1: #EFF5F1;
-  --dk-color-border-subtle-1: #D9E7DC;
+  --dk-color-surface-1: #FDF8ED;
+  --dk-color-border-subtle-1: #EEE7D6;
   --dk-color-on-surface-1: var(--dk-color-text);
-  --dk-color-surface-2: #E6F0E8;
-  --dk-color-border-subtle-2: #D0E2D4;
+  --dk-color-surface-2: #F8F1E0;
+  --dk-color-border-subtle-2: #E8E1D0;
   --dk-color-on-surface-2: var(--dk-color-text);
-  --dk-color-surface-3: #DDEAE0;
-  --dk-color-border-subtle-3: #CADBCE;
+  --dk-color-surface-3: #F2EBDA;
+  --dk-color-border-subtle-3: #E1DAC9;
   --dk-color-on-surface-3: var(--dk-color-text);
-  --dk-color-surface-4: #D4E5D8;
-  --dk-color-border-subtle-4: #C3D5C7;
+  --dk-color-surface-4: #EBE4D3;
+  --dk-color-border-subtle-4: #DBD4C3;
   --dk-color-on-surface-4: var(--dk-color-text);
   --dk-color-tag-1-bg: #D8EFD9;
   --dk-color-tag-1-fg: #305F35;
@@ -315,23 +353,23 @@
   /* kolory - role (tych używaj w komponentach) */
   --dk-color-text: var(--dk-pine-900);
   --dk-color-text-muted: var(--dk-pine-600);
-  --dk-color-label: var(--dk-olive-500);
+  --dk-color-label: var(--dk-green-700);
   --dk-color-bg: var(--dk-color-surface-0);
   --dk-color-surface: var(--dk-color-surface-1);
   --dk-color-surface-hover: var(--dk-color-surface-2);
-  --dk-color-border: var(--dk-sage-200);
-  --dk-color-border-strong: var(--dk-sage-300);
-  --dk-color-field-border: var(--dk-sage-500);
+  --dk-color-border: var(--dk-sand-200);
+  --dk-color-border-strong: var(--dk-sand-300);
+  --dk-color-field-border: var(--dk-sand-700);
   --dk-color-brand: var(--dk-green-700);
   --dk-color-brand-hover: var(--dk-green-800);
-  --dk-color-brand-soft: var(--dk-sage-150);
+  --dk-color-brand-soft: var(--dk-green-100);
   --dk-color-brand-soft-strong: var(--dk-green-200);
   --dk-color-on-brand: var(--dk-white);
   --dk-color-cta: var(--dk-yellow-400);
   --dk-color-cta-hover: var(--dk-yellow-500);
   --dk-color-on-cta: var(--dk-brown-900);
-  --dk-color-disabled-bg: var(--dk-sage-100);
-  --dk-color-switch-off: var(--dk-sage-500);
+  --dk-color-disabled-bg: var(--dk-sand-150);
+  --dk-color-switch-off: var(--dk-sand-700);
   --dk-color-danger: var(--dk-red-700);
   --dk-color-danger-soft: var(--dk-red-50);
   --dk-color-warning-text: var(--dk-amber-950);
@@ -343,21 +381,21 @@
 }
 [data-theme="dobra-kaloria-zielen-ciemny"], [data-theme="dobra-kaloria-ciemny"] {
   color-scheme: dark;
-  /* drabina zielen-ciemny: L0 0.221, dL 0.034 (OKLCH), ciemny: głębiej = jaśniej */
-  --dk-color-surface-0: #0F1F15;
-  --dk-color-border-subtle-0: #1E3727;
+  /* drabina zielen-ciemny: L0 0.235, dL 0.034 (OKLCH), ciemny: głębiej = jaśniej */
+  --dk-color-surface-0: #0F2315;
+  --dk-color-border-subtle-0: #213B28;
   --dk-color-on-surface-0: var(--dk-color-text);
-  --dk-color-surface-1: #14281C;
-  --dk-color-border-subtle-1: #24412F;
+  --dk-color-surface-1: #192C18;
+  --dk-color-border-subtle-1: #2E432D;
   --dk-color-on-surface-1: var(--dk-color-text);
-  --dk-color-surface-2: #1A3123;
-  --dk-color-border-subtle-2: #2A4A36;
+  --dk-color-surface-2: #24341C;
+  --dk-color-border-subtle-2: #3B4C33;
   --dk-color-on-surface-2: var(--dk-color-text);
-  --dk-color-surface-3: #203A2A;
-  --dk-color-border-subtle-3: #31543E;
+  --dk-color-surface-3: #303C21;
+  --dk-color-border-subtle-3: #485439;
   --dk-color-on-surface-3: var(--dk-color-text);
-  --dk-color-surface-4: #264431;
-  --dk-color-border-subtle-4: #385E46;
+  --dk-color-surface-4: #3D4427;
+  --dk-color-border-subtle-4: #555C3F;
   --dk-color-on-surface-4: var(--dk-color-text);
   --dk-color-tag-1-bg: #2C442E;
   --dk-color-tag-1-fg: #B7E1B9;
@@ -384,76 +422,76 @@
   --dk-color-tag-8-fg: #A2E4D4;
   --dk-color-tag-8-border: #2F665B;
   /* kolory - role (tych używaj w komponentach) */
-  --dk-color-text: var(--dk-ivory-50);
+  --dk-color-text: var(--dk-cream-100);
   --dk-color-text-muted: var(--dk-sand-400);
-  --dk-color-label: var(--dk-tan-300);
+  --dk-color-label: var(--dk-honey-300);
   --dk-color-bg: var(--dk-color-surface-0);
   --dk-color-surface: var(--dk-color-surface-1);
   --dk-color-surface-hover: var(--dk-color-surface-2);
-  --dk-color-border: var(--dk-forest-700);
-  --dk-color-border-strong: var(--dk-forest-600);
-  --dk-color-field-border: var(--dk-forest-400);
-  --dk-color-brand: var(--dk-green-300);
-  --dk-color-brand-hover: var(--dk-green-250);
-  --dk-color-brand-soft: var(--dk-forest-850);
-  --dk-color-brand-soft-strong: var(--dk-forest-800);
-  --dk-color-on-brand: var(--dk-forest-950);
+  --dk-color-border: var(--dk-moss-700);
+  --dk-color-border-strong: var(--dk-moss-600);
+  --dk-color-field-border: var(--dk-moss-400);
+  --dk-color-brand: var(--dk-lime-300);
+  --dk-color-brand-hover: var(--dk-lime-200);
+  --dk-color-brand-soft: var(--dk-moss-850);
+  --dk-color-brand-soft-strong: var(--dk-moss-800);
+  --dk-color-on-brand: var(--dk-moss-950);
   --dk-color-cta: var(--dk-yellow-400);
   --dk-color-cta-hover: var(--dk-yellow-500);
   --dk-color-on-cta: var(--dk-brown-900);
-  --dk-color-disabled-bg: var(--dk-forest-800);
-  --dk-color-switch-off: var(--dk-forest-400);
+  --dk-color-disabled-bg: var(--dk-moss-800);
+  --dk-color-switch-off: var(--dk-moss-400);
   --dk-color-danger: var(--dk-red-300);
-  --dk-color-danger-soft: var(--dk-forest-850);
+  --dk-color-danger-soft: var(--dk-moss-850);
   --dk-color-warning-text: var(--dk-amber-300);
   --dk-color-warning-border: var(--dk-amber-900);
-  --dk-color-warning-bg: var(--dk-forest-850);
-  --dk-color-inverse-bg: var(--dk-ivory-50);
-  --dk-color-on-inverse: var(--dk-forest-950);
-  --dk-color-focus: var(--dk-green-300);
+  --dk-color-warning-bg: var(--dk-moss-850);
+  --dk-color-inverse-bg: var(--dk-cream-100);
+  --dk-color-on-inverse: var(--dk-moss-950);
+  --dk-color-focus: var(--dk-yellow-400);
 }
 [data-theme="dobra-kaloria-krem-ciemny"], [data-theme="dobra-kaloria-krem"] {
   color-scheme: dark;
-  /* drabina krem-ciemny: L0 0.212, dL 0.034 (OKLCH), ciemny: głębiej = jaśniej */
-  --dk-color-surface-0: #1C1812;
-  --dk-color-border-subtle-0: #342D24;
+  /* drabina krem-ciemny: L0 0.170, dL 0.034 (OKLCH), ciemny: głębiej = jaśniej */
+  --dk-color-surface-0: #120F0A;
+  --dk-color-border-subtle-0: #28231B;
   --dk-color-on-surface-0: var(--dk-color-text);
-  --dk-color-surface-1: #252019;
-  --dk-color-border-subtle-1: #3D362B;
+  --dk-color-surface-1: #1A1611;
+  --dk-color-border-subtle-1: #312B22;
   --dk-color-on-surface-1: var(--dk-color-text);
-  --dk-color-surface-2: #2E2820;
-  --dk-color-border-subtle-2: #473E32;
+  --dk-color-surface-2: #231E17;
+  --dk-color-border-subtle-2: #3B3429;
   --dk-color-on-surface-2: var(--dk-color-text);
-  --dk-color-surface-3: #373027;
-  --dk-color-border-subtle-3: #50473A;
+  --dk-color-surface-3: #2C261E;
+  --dk-color-border-subtle-3: #443C31;
   --dk-color-on-surface-3: var(--dk-color-text);
-  --dk-color-surface-4: #40392E;
-  --dk-color-border-subtle-4: #5A5042;
+  --dk-color-surface-4: #352E25;
+  --dk-color-border-subtle-4: #4E4538;
   --dk-color-on-surface-4: var(--dk-color-text);
-  --dk-color-tag-1-bg: #473C1E;
+  --dk-color-tag-1-bg: #3A2F11;
   --dk-color-tag-1-fg: #E6D3A0;
-  --dk-color-tag-1-border: #685930;
-  --dk-color-tag-2-bg: #443D1F;
+  --dk-color-tag-1-border: #5A4B22;
+  --dk-color-tag-2-bg: #373011;
   --dk-color-tag-2-fg: #E0D5A0;
-  --dk-color-tag-2-border: #645B31;
-  --dk-color-tag-3-bg: #4A3B1E;
+  --dk-color-tag-2-border: #564D23;
+  --dk-color-tag-3-bg: #3C2E11;
   --dk-color-tag-3-fg: #EBD0A0;
-  --dk-color-tag-3-border: #6C5730;
-  --dk-color-tag-4-bg: #403F20;
+  --dk-color-tag-3-border: #5E4A22;
+  --dk-color-tag-4-bg: #333213;
   --dk-color-tag-4-fg: #DAD8A2;
-  --dk-color-tag-4-border: #5F5D32;
-  --dk-color-tag-5-bg: #4C391F;
+  --dk-color-tag-4-border: #514F25;
+  --dk-color-tag-5-bg: #3F2C12;
   --dk-color-tag-5-fg: #F0CEA1;
-  --dk-color-tag-5-border: #705632;
-  --dk-color-tag-6-bg: #3D4022;
+  --dk-color-tag-5-border: #614824;
+  --dk-color-tag-6-bg: #303315;
   --dk-color-tag-6-fg: #D3DAA5;
-  --dk-color-tag-6-border: #5A5F35;
-  --dk-color-tag-7-bg: #4E3821;
+  --dk-color-tag-6-border: #4D5127;
+  --dk-color-tag-7-bg: #412B14;
   --dk-color-tag-7-fg: #F5CCA4;
-  --dk-color-tag-7-border: #735434;
-  --dk-color-tag-8-bg: #394124;
+  --dk-color-tag-7-border: #644626;
+  --dk-color-tag-8-bg: #2C3417;
   --dk-color-tag-8-fg: #CCDCA9;
-  --dk-color-tag-8-border: #556038;
+  --dk-color-tag-8-border: #47522B;
   /* kolory - role (tych używaj w komponentach) */
   --dk-color-text: var(--dk-ivory-50);
   --dk-color-text-muted: var(--dk-sand-450);
@@ -461,24 +499,24 @@
   --dk-color-bg: var(--dk-color-surface-0);
   --dk-color-surface: var(--dk-color-surface-1);
   --dk-color-surface-hover: var(--dk-color-surface-2);
-  --dk-color-border: var(--dk-cocoa-700);
-  --dk-color-border-strong: var(--dk-cocoa-600);
+  --dk-color-border: var(--dk-espresso-700);
+  --dk-color-border-strong: var(--dk-espresso-600);
   --dk-color-field-border: var(--dk-cocoa-400);
   --dk-color-brand: var(--dk-green-350);
   --dk-color-brand-hover: var(--dk-green-250);
-  --dk-color-brand-soft: var(--dk-cocoa-850);
-  --dk-color-brand-soft-strong: var(--dk-cocoa-800);
+  --dk-color-brand-soft: var(--dk-espresso-850);
+  --dk-color-brand-soft-strong: var(--dk-espresso-800);
   --dk-color-on-brand: var(--dk-cocoa-950);
   --dk-color-cta: var(--dk-yellow-400);
   --dk-color-cta-hover: var(--dk-yellow-500);
   --dk-color-on-cta: var(--dk-brown-900);
-  --dk-color-disabled-bg: var(--dk-cocoa-800);
+  --dk-color-disabled-bg: var(--dk-espresso-800);
   --dk-color-switch-off: var(--dk-cocoa-400);
   --dk-color-danger: var(--dk-red-300);
-  --dk-color-danger-soft: var(--dk-cocoa-850);
+  --dk-color-danger-soft: var(--dk-espresso-850);
   --dk-color-warning-text: var(--dk-amber-300);
   --dk-color-warning-border: var(--dk-tan-500);
-  --dk-color-warning-bg: var(--dk-cocoa-850);
+  --dk-color-warning-bg: var(--dk-espresso-850);
   --dk-color-inverse-bg: var(--dk-ivory-50);
   --dk-color-on-inverse: var(--dk-cocoa-950);
   --dk-color-focus: var(--dk-green-350);

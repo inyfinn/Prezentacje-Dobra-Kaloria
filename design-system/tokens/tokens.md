@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 1.4.1
+# Tokeny Dobra Kaloria 1.5.0
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -20,51 +20,51 @@ L = jasność OKLCH (0-100), L* = CIELAB. dL = zmiana L względem poziomu niżej
 
 ### Dobra Kaloria 2 · krem, jasny
 
-`[data-theme="dobra-kaloria-krem-jasny"]` · light · L0 0.990, dL 0.020
+`[data-theme="dobra-kaloria-krem-jasny"]` · light · L0 1.000, dL 0.020
 
 | Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
 |---|---|---|---|---|---|---|---|---|---|
-| L0 tło okna | `--dk-color-surface-0` | `#FEFCF6` | 99.1 | 99.0 | - | - | 13.31 | 5.76 | `#F2EBDA` |
-| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#FCF5E3` | 97.1 | 96.6 | -2.0 | 1.060 | 12.55 | 5.43 | `#EBE4D3` |
-| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#F5EEDD` | 95.0 | 94.2 | -2.1 | 1.063 | 11.81 | 5.11 | `#E5DDCD` |
-| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#EEE7D6` | 92.9 | 91.8 | -2.1 | 1.066 | 11.08 | 4.79 | `#DED7C6` |
-| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#E8E1D0` | 91.1 | 89.7 | -1.8 | 1.057 | 10.48 | 4.53 | `#D7D0C0` |
+| L0 tło okna | `--dk-color-surface-0` | `#FFFFFF` | 100.0 | 100.0 | - | - | 13.65 | 5.90 | `#F5EEDD` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#FDF8ED` | 98.0 | 97.7 | -2.0 | 1.059 | 12.89 | 5.57 | `#EEE7D6` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#F8F1E0` | 95.9 | 95.3 | -2.1 | 1.063 | 12.13 | 5.24 | `#E8E1D0` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#F2EBDA` | 94.1 | 93.2 | -1.8 | 1.055 | 11.49 | 4.97 | `#E1DAC9` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#EBE4D3` | 92.0 | 90.7 | -2.1 | 1.066 | 10.77 | 4.66 | `#DBD4C3` |
 
 ### Dobra Kaloria 1 · zieleń, jasny
 
-`[data-theme="dobra-kaloria-zielen-jasny"]` · light · L0 0.985, dL 0.020
+`[data-theme="dobra-kaloria-zielen-jasny"]` · light · L0 1.000, dL 0.020
 
 | Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
 |---|---|---|---|---|---|---|---|---|---|
-| L0 tło okna | `--dk-color-surface-0` | `#F8FBF9` | 98.5 | 98.3 | - | - | 14.70 | 6.30 | `#E2EDE4` |
-| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#EFF5F1` | 96.5 | 96.0 | -2.1 | 1.061 | 13.86 | 5.94 | `#D9E7DC` |
-| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#E6F0E8` | 94.5 | 93.9 | -1.9 | 1.056 | 13.12 | 5.63 | `#D0E2D4` |
-| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#DDEAE0` | 92.4 | 91.5 | -2.1 | 1.063 | 12.34 | 5.29 | `#CADBCE` |
-| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#D4E5D8` | 90.6 | 89.4 | -1.9 | 1.058 | 11.67 | 5.00 | `#C3D5C7` |
+| L0 tło okna | `--dk-color-surface-0` | `#FFFFFF` | 100.0 | 100.0 | - | - | 15.31 | 6.57 | `#F5EEDD` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#FDF8ED` | 98.0 | 97.7 | -2.0 | 1.059 | 14.46 | 6.20 | `#EEE7D6` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#F8F1E0` | 95.9 | 95.3 | -2.1 | 1.063 | 13.60 | 5.83 | `#E8E1D0` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#F2EBDA` | 94.1 | 93.2 | -1.8 | 1.055 | 12.89 | 5.53 | `#E1DAC9` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#EBE4D3` | 92.0 | 90.7 | -2.1 | 1.066 | 12.08 | 5.18 | `#DBD4C3` |
 
 ### Dobra Kaloria 1 · zieleń, ciemny
 
-`[data-theme="dobra-kaloria-zielen-ciemny"], [data-theme="dobra-kaloria-ciemny"]` · dark · L0 0.221, dL 0.034
+`[data-theme="dobra-kaloria-zielen-ciemny"], [data-theme="dobra-kaloria-ciemny"]` · dark · L0 0.235, dL 0.034
 
 | Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
 |---|---|---|---|---|---|---|---|---|---|
-| L0 tło okna | `--dk-color-surface-0` | `#0F1F15` | 22.1 | 10.1 | - | - | 15.18 | 9.29 | `#1E3727` |
-| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#14281C` | 25.6 | 14.1 | +3.4 | 1.100 | 13.80 | 8.44 | `#24412F` |
-| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#1A3123` | 28.9 | 18.1 | +3.4 | 1.117 | 12.36 | 7.56 | `#2A4A36` |
-| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#203A2A` | 32.2 | 21.9 | +3.3 | 1.128 | 10.96 | 6.71 | `#31543E` |
-| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#264431` | 35.7 | 26.1 | +3.5 | 1.149 | 9.54 | 5.84 | `#385E46` |
+| L0 tło okna | `--dk-color-surface-0` | `#0F2315` | 23.4 | 11.7 | - | - | 14.94 | 8.97 | `#213B28` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#192C18` | 27.0 | 15.9 | +3.6 | 1.113 | 13.43 | 8.06 | `#2E432D` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#24341C` | 30.4 | 19.7 | +3.3 | 1.119 | 12.00 | 7.20 | `#3B4C33` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#303C21` | 33.7 | 23.6 | +3.4 | 1.133 | 10.59 | 6.35 | `#485439` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#3D4427` | 37.2 | 27.5 | +3.5 | 1.145 | 9.25 | 5.55 | `#555C3F` |
 
 ### Dobra Kaloria 2 · krem, ciemny
 
-`[data-theme="dobra-kaloria-krem-ciemny"], [data-theme="dobra-kaloria-krem"]` · dark · L0 0.212, dL 0.034
+`[data-theme="dobra-kaloria-krem-ciemny"], [data-theme="dobra-kaloria-krem"]` · dark · L0 0.170, dL 0.034
 
 | Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |
 |---|---|---|---|---|---|---|---|---|---|
-| L0 tło okna | `--dk-color-surface-0` | `#1C1812` | 21.2 | 8.5 | - | - | 15.67 | 9.72 | `#342D24` |
-| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#252019` | 24.7 | 12.6 | +3.5 | 1.093 | 14.34 | 8.89 | `#3D362B` |
-| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#2E2820` | 28.1 | 16.5 | +3.4 | 1.109 | 12.93 | 8.02 | `#473E32` |
-| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#373027` | 31.4 | 20.3 | +3.3 | 1.121 | 11.54 | 7.16 | `#50473A` |
-| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#40392E` | 34.8 | 24.4 | +3.5 | 1.141 | 10.11 | 6.27 | `#5A5042` |
+| L0 tło okna | `--dk-color-surface-0` | `#120F0A` | 17.0 | 4.4 | - | - | 16.96 | 10.52 | `#28231B` |
+| L1 kontener, sekcja, karta | `--dk-color-surface-1` | `#1A1611` | 20.3 | 7.5 | +3.3 | 1.062 | 15.97 | 9.91 | `#312B22` |
+| L2 rubryka, pole, karta w karcie | `--dk-color-surface-2` | `#231E17` | 23.8 | 11.6 | +3.5 | 1.088 | 14.67 | 9.10 | `#3B3429` |
+| L3 element w polu: chip, wiersz, okno w oknie | `--dk-color-surface-3` | `#2C261E` | 27.3 | 15.6 | +3.4 | 1.105 | 13.28 | 8.24 | `#443C31` |
+| L4 nakładka: menu, podpowiedź, modal nad modalem | `--dk-color-surface-4` | `#352E25` | 30.6 | 19.4 | +3.3 | 1.118 | 11.87 | 7.37 | `#4E4538` |
 
 ## Tagi (od 1.4.0)
 
@@ -104,14 +104,14 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | zielen-ciemny | tag-6 | 170 | `#204539` | `#A6E4CD` | `#336655` | 7.40:1 |
 | zielen-ciemny | tag-7 | 122 | `#394124` | `#CCDCA9` | `#556038` | 7.35:1 |
 | zielen-ciemny | tag-8 | 178 | `#1D453D` | `#A2E4D4` | `#2F665B` | 7.40:1 |
-| krem-ciemny | tag-1 | 90 | `#473C1E` | `#E6D3A0` | `#685930` | 7.34:1 |
-| krem-ciemny | tag-2 | 98 | `#443D1F` | `#E0D5A0` | `#645B31` | 7.34:1 |
-| krem-ciemny | tag-3 | 82 | `#4A3B1E` | `#EBD0A0` | `#6C5730` | 7.27:1 |
-| krem-ciemny | tag-4 | 106 | `#403F20` | `#DAD8A2` | `#5F5D32` | 7.35:1 |
-| krem-ciemny | tag-5 | 74 | `#4C391F` | `#F0CEA1` | `#705632` | 7.35:1 |
-| krem-ciemny | tag-6 | 114 | `#3D4022` | `#D3DAA5` | `#5A5F35` | 7.34:1 |
-| krem-ciemny | tag-7 | 66 | `#4E3821` | `#F5CCA4` | `#735434` | 7.35:1 |
-| krem-ciemny | tag-8 | 122 | `#394124` | `#CCDCA9` | `#556038` | 7.35:1 |
+| krem-ciemny | tag-1 | 90 | `#3A2F11` | `#E6D3A0` | `#5A4B22` | 8.90:1 |
+| krem-ciemny | tag-2 | 98 | `#373011` | `#E0D5A0` | `#564D23` | 8.91:1 |
+| krem-ciemny | tag-3 | 82 | `#3C2E11` | `#EBD0A0` | `#5E4A22` | 8.84:1 |
+| krem-ciemny | tag-4 | 106 | `#333213` | `#DAD8A2` | `#514F25` | 8.92:1 |
+| krem-ciemny | tag-5 | 74 | `#3F2C12` | `#F0CEA1` | `#614824` | 8.89:1 |
+| krem-ciemny | tag-6 | 114 | `#303315` | `#D3DAA5` | `#4D5127` | 8.91:1 |
+| krem-ciemny | tag-7 | 66 | `#412B14` | `#F5CCA4` | `#644626` | 8.89:1 |
+| krem-ciemny | tag-8 | 122 | `#2C3417` | `#CCDCA9` | `#47522B` | 8.93:1 |
 
 ## Kolory - role programu (tych używaj)
 
@@ -210,6 +210,19 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | olive-500 | `--dk-olive-500` | `#5E7A4A` |
 | red-700 | `--dk-red-700` | `#C0262C` |
 | amber-950 | `--dk-amber-950` | `#6F4A00` |
+| lime-300 | `--dk-lime-300` | `#A2D686` |
+| lime-200 | `--dk-lime-200` | `#C2E59F` |
+| honey-300 | `--dk-honey-300` | `#ECCA76` |
+| moss-950 | `--dk-moss-950` | `#0F190C` |
+| moss-850 | `--dk-moss-850` | `#242F1E` |
+| moss-800 | `--dk-moss-800` | `#2C3A25` |
+| moss-700 | `--dk-moss-700` | `#3B4E37` |
+| moss-600 | `--dk-moss-600` | `#516448` |
+| moss-400 | `--dk-moss-400` | `#889979` |
+| espresso-850 | `--dk-espresso-850` | `#262017` |
+| espresso-800 | `--dk-espresso-800` | `#2F291F` |
+| espresso-700 | `--dk-espresso-700` | `#3F362A` |
+| espresso-600 | `--dk-espresso-600` | `#5F5240` |
 
 ## Kontrast (WCAG) - program
 
@@ -334,3 +347,32 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | card-pad-sm | `--dk-layout-card-pad-sm` | `20px` (= space.5) |
 | section-gap-sm | `--dk-layout-section-gap-sm` | `24px` (= space.6) |
 | stack-sm | `--dk-layout-stack-sm` | `12px` (= space.3) |
+
+## Qt: skala tekstu i odstępy z programu (QSS px)
+
+| Nazwa | Zmienna CSS | Wartość |
+|---|---|---|
+| fs-body | `--dk-qt-fs-body` | `15px` |
+| fs-label | `--dk-qt-fs-label` | `14px` |
+| fs-hint | `--dk-qt-fs-hint` | `14px` |
+| fs-eyebrow | `--dk-qt-fs-eyebrow` | `14px` |
+| fs-btn | `--dk-qt-fs-btn` | `15px` |
+| fs-btn-primary | `--dk-qt-fs-btn-primary` | `17px` |
+| fs-title | `--dk-qt-fs-title` | `22px` |
+| fs-app-title | `--dk-qt-fs-app-title` | `20px` |
+| fs-dialog-title | `--dk-qt-fs-dialog-title` | `26px` |
+| control-h | `--dk-qt-control-h` | `40px` |
+| control-h-primary | `--dk-qt-control-h-primary` | `48px` |
+| control-h-sm | `--dk-qt-control-h-sm` | `36px` |
+| pad-card | `--dk-qt-pad-card` | `20px` |
+| gap-cards | `--dk-qt-gap-cards` | `16px` |
+| gap-stack | `--dk-qt-gap-stack` | `12px` |
+| gap-row | `--dk-qt-gap-row` | `10px` |
+| margin-window | `--dk-qt-margin-window` | `20px` |
+| card-border | `--dk-qt-card-border` | `1px` |
+| field-border | `--dk-qt-field-border` | `1px` |
+| focus-border | `--dk-qt-focus-border` | `2px` |
+| radius-card | `--dk-qt-radius-card` | `12px` |
+| radius-field | `--dk-qt-radius-field` | `8px` |
+| radius-btn | `--dk-qt-radius-btn` | `4px` |
+| radius-drop | `--dk-qt-radius-drop` | `16px` |

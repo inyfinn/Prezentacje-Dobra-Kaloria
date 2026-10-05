@@ -1,6 +1,6 @@
 # Design system Dobra Kaloria
 
-Wersja 1.4.1, 30.09.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
+Wersja 1.5.0, 05.10.2026. Źródło wyglądu: okno programu „Stwórz prezentację” i styl sklepu
 dobrakaloria.pl opisany w skillu `prezentacje` (`references/styl-dk.md`).
 
 **Nowy ekran albo nowa aplikacja w stylu Dobra Kaloria: zacznij od `IDENTYFIKACJA-WIZUALNA.md`** (jeden język wizualny,
@@ -95,13 +95,21 @@ Dobra Kaloria ma dwa style, każdy w obu trybach. W aplikacjach z wieloma stylam
 na liście stylów, obok dotychczasowych. Styl to nie tylko kolory: we wszystkich wariantach obowiązują nagłówki
 Mindset, przyciski, karty i pola jak w `components.md`. Mindset: firma ma licencję na użytek komercyjny.
 
-| Styl | Tryb | id (`data-theme`) | Tło L0 | Karta L1 | Rubryka L2 | Tekst | Akcent | Qt |
-|---|---|---|---|---|---|---|---|---|
-| Program „Stwórz prezentację” | jasny | `:root`, `dobra-kaloria` | `#FFFFFF` | `#FDF8ED` | `#F8F1E0` | `#3B2A20` | `#0F763E` | `T` |
-| Dobra Kaloria 1 · zieleń | jasny | `dobra-kaloria-zielen-jasny` | `#F8FBF9` | `#EFF5F1` | `#E6F0E8` | `#17291D` | `#0F763E` | `T_ZIELEN_JASNY` |
-| Dobra Kaloria 1 · zieleń | ciemny | `dobra-kaloria-zielen-ciemny` | `#0F1F15` | `#14281C` | `#1A3123` | `#F5F1E8` | `#6FC792` | `T_DARK` |
-| Dobra Kaloria 2 · krem | jasny | `dobra-kaloria-krem-jasny` | `#FEFCF6` | `#FCF5E3` | `#F5EEDD` | `#3B2A20` | `#0F763E` | `T_KREM_JASNY` |
-| Dobra Kaloria 2 · krem | ciemny | `dobra-kaloria-krem-ciemny` | `#1C1812` | `#252019` | `#2E2820` | `#F5F1E8` | `#4CC46A` | `T_KREM` |
+| Styl | Tryb | id (`data-theme`) | Tło L0 | Karta L1 | Rubryka L2 | L3 | L4 | Tekst | Etykieta | Akcent | Qt |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Program „Stwórz prezentację” | jasny | `:root`, `dobra-kaloria` | `#FFFFFF` | `#FDF8ED` | `#F8F1E0` | `#F2EBDA` | `#EBE4D3` | `#3B2A20` | `#AD8767` | `#0F763E` | `T` |
+| Dobra Kaloria 1 · zieleń | jasny | `dobra-kaloria-zielen-jasny` | `#FFFFFF` | `#FDF8ED` | `#F8F1E0` | `#F2EBDA` | `#EBE4D3` | `#17291D` | `#0F763E` | `#0F763E` | `T_ZIELEN_JASNY` |
+| Dobra Kaloria 1 · zieleń | ciemny | `dobra-kaloria-zielen-ciemny` | `#0F2315` | `#192C18` | `#24341C` | `#303C21` | `#3D4427` | `#FBF3E0` | `#ECCA76` | `#A2D686` | `T_DARK` |
+| Dobra Kaloria 2 · krem | jasny | `dobra-kaloria-krem-jasny` | `#FFFFFF` | `#FDF8ED` | `#F8F1E0` | `#F2EBDA` | `#EBE4D3` | `#3B2A20` | `#AD8767` | `#0F763E` | `T_KREM_JASNY` |
+| Dobra Kaloria 2 · krem | ciemny | `dobra-kaloria-krem-ciemny` | `#120F0A` | `#1A1611` | `#231E17` | `#2C261E` | `#352E25` | `#F5F1E8` | `#D2B48F` | `#4CC46A` | `T_KREM` |
+
+**Od 1.5.0 (05.10.2026, decyzja usera „zerżnij wprost z PREZENTACJE”):** oba jasne style mają powierzchnie programu 1:1 -
+biała strona L0 i kremowe karty L1, ramka karty 1 px `border` `#EDE7DA` (jak `.hints`/`.found` w programie), bez cienia.
+Różnica między jasnymi stylami jest tylko w akcencie: **DK1 zieleń** = tekst sosnowy `#17291D` i zielone etykiety (eyebrow)
+`#0F763E`; **DK2 krem** = program 1:1 (tekst brązowy `#3B2A20`, etykiety beżowe `#AD8767`). Zieleń nigdy nie barwi powierzchni.
+**DK1 zieleń ciemny** jest cieplejszy: poziomy przesuwają odcień w stronę oliwki (`hue_step` -8° na poziom), tekst kremowy,
+etykiety miodowe `#ECCA76`, akcent żółtawozielony `#A2D686`, fokus żółty `#FFD42A`, ramki mchowe (`moss-*`).
+**DK2 krem ciemny** jest ciemniejszy (L0 0,170 zamiast 0,212; te same kroki 0,034), ramki `espresso-*`, tła tagów -0,05 L (`tag_dL`).
 
 Od 1.4.0 krem jasny ma własny zestaw ról (`semantic-krem-jasny`, bez czystej bieli); do 1.3.x był równy programowi.
 Program zostaje z białą kartką (L0 `#FFFFFF`) - to jedyny wariant, w którym biel jest dozwolona.
@@ -143,7 +151,7 @@ Dlaczego tak:
 
 Reguły kontrastu (sprawdza `--check`): `text` i `text-muted` >= 4,5:1 na każdym poziomie; link `brand` na L0-L3,
 na L4 link w `brand-hover`; beżowa etykieta `label` tylko na L0-L1 (na L2+ etykieta w `text-muted`); sąsiednie poziomy
-różnią się o 0,015-0,045 L; L4-L0 >= 0,06; brak `#FFFFFF` na żadnym poziomie stylów DK. Pełne tabele (hex, L, L*, dL,
+różnią się o 0,015-0,045 L; L4-L0 >= 0,06; od 1.5.0 `#FFFFFF` tylko jako L0 w jasnych stylach (biała kartka programu), w ciemnych nigdzie. Pełne tabele (hex, L, L*, dL,
 kontrast): `tokens/tokens.md`. Zrzuty: `preview/shots/50-drabina-*.png`.
 
 ## 5c. Tagi (od 1.4.0)
@@ -189,3 +197,24 @@ Opis wariantów, stanów i dostępności: `components.md`. Żywa galeria: `previ
 | Prezentacje poza generatorem | kolory wpisane w `build_dk.py` | czytać je z `tokens.json` przy budowie |
 | Kierunek drabiny w jasnym | 1.4.0: głębiej = ciemniej (menu L4 najciemniejsze, z cieniem) | wrócić, jeśli w DAM menu na L4 będzie wyglądać „zapadnięte” - wtedy menu na L1 + cień |
 | Wartości jeszcze wpisane na sztywno w programie | kilka kolorów pomocniczych w `style.css` (np. ramka kropki suwaka, tekst w polu uwag) | przenieść do tokenów przy następnej zmianie tych elementów |
+
+
+## 10. Skala tekstu i odstępy: program -> Qt (od 1.5.0)
+
+Tokeny `qt.*` w `tokens.json` (CSS `--dk-qt-*`, Qt `T["qt_*"]`). Wartości web to pomiar programu (`getComputedStyle`, 05.10.2026);
+Qt to te same proporcje zmniejszone o ok. 10 %, żeby okno mieściło się na ekranie 1366x768. Szczegóły i komponenty:
+`components.md` sekcja 23.
+
+| Rola | Program (web) | Qt (`qt.*`) |
+|---|---|---|
+| tekst | 16 px / 1,5 Lato | `fs-body` 15 px |
+| etykieta pola | 15 px bold | `fs-label` 14 px bold |
+| podpowiedź / opis | 15 px `text-muted` | `fs-hint` 14 px |
+| eyebrow (etykieta sekcji) | 15 px bold, wersaliki, 0,1 em | `fs-eyebrow` 14 px bold, wersaliki, 110 % |
+| nagłówek karty (Mindset) | 40-44 px | `fs-title` 22 px; okno dialogu `fs-dialog-title` 26 px |
+| przycisk | 17 px bold, 48 px | `fs-btn` 15 px, `control-h` 40 px |
+| przycisk główny (żółty) | 19-20 px bold, 56-58 px | `fs-btn-primary` 17 px, `control-h-primary` 48 px |
+| pole | 16 px, 48 px, ramka 1,5 px `#9C8B72`, promień 8 | 15 px, 40 px, `field-border` 1 px, fokus 2 px |
+| karta | tło L1, ramka 1 px `border`, promień 12, wypełnienie 32 px | `pad-card` 20 px, `card-border` 1 px, `radius-card` 12 |
+| odstęp między kartami | 40-48 px | `gap-cards` 16 px (w oknie Resizera 12) |
+| odstęp w karcie | 20 px | `gap-stack` 12 px, w rzędzie `gap-row` 10 px |

@@ -46,3 +46,20 @@ pola, filtry) mają mieć ten sam język.
 6. **Odtwarzalność:** dokument `IDENTYFIKACJA-WIZUALNA.md` mówi, jak zrobić nowy ekran/aplikację w tym stylu
    krok po kroku (tokeny, drabina, komponenty, tagi, typografia, ikony, plansza startowa, ikona aplikacji),
    z przykładami z trzech aplikacji i zrzutami.
+
+## 05.10.2026 (DS 1.5.0)
+
+Dosłownie: „Jak dla mnie to szablony kolorystyczne i UI dla photo resizer są bardzo słabe. Bardzo nieczytelne. Większe
+teksty powinny być, a schemat kolorystyczny jest po prostu niepotrzebnie cały całkowicie kremowy, a brakuje bieli.
+Zerżnij kurwa wprost z PREZENTACJE. Widzę, że wszystko jest zbyt ciasno, nieczytelnie, bloki mają jakiś chujowy obrys.
+Nie zastosowałeś schematu. I tak samo na Dobra Kaloria DAM.”
+„Popraw całą Dobrą Kalorię Zieleń, bo cały ten motyw jest nijako zły. Po prostu jest taki… mało ciekawy, nieprzyjazny.
+Brakuje mu, żeby te ciemniejsze kolorki były inne, jakieś takie… kremowe być może właśnie.”
+„Brązy w schemacie brązowym powinny być ciemniejsze. Wprowadź zmiany na Inyfinn Resizer oraz DAM natychmiastowo, w całym spektrum.”
+
+Reguły z tego wynikające:
+7. **Wzorzec = program „Stwórz prezentację”, 1:1.** Jasne style: biała strona, kremowe karty, cienka jasna ramka karty, bez
+   ciemnego obrysu. Zieleń tylko w akcentach, nigdy jako tło powierzchni.
+8. **Czytelność:** tekst co najmniej 15 px w Qt (16 px web), etykiety 14-15 px, kontrolki 40-48 px, więcej odstępu.
+9. **Zieleń ciemna ciepła:** kremowy tekst, miodowe/żółte wyróżnienia, głębsze poziomy w stronę oliwki.
+10. **Krem ciemny ciemniejszy** na wszystkich poziomach (tło, karty, pola, ramki, tagi).

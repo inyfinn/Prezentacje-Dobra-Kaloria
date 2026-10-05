@@ -70,6 +70,13 @@ Do poziomu N: ramka `border-subtle-N`, tekst `on-surface-N`. Wartości i kontras
 |---|---|---|---|---|
 | ![](preview/shots/50-drabina-program.png) | ![](preview/shots/50-drabina-krem-jasny.png) | ![](preview/shots/50-drabina-zielen-jasny.png) | ![](preview/shots/50-drabina-zielen-ciemny.png) | ![](preview/shots/50-drabina-krem-ciemny.png) |
 
+### 3.1a Jasne style = biała kartka programu (od 1.5.0)
+
+W obu jasnych stylach tło okna jest **białe** (L0 `#FFFFFF`), karty kremowe (L1 `#FDF8ED`), pola w kartach L2 `#F8F1E0`.
+Karta odcina się od tła samym kremem i cienką ramką 1 px `border` - **bez ciemnego obrysu i bez cienia** (tak jak karty
+„W folderze powinny być” i „Znalazłem w folderze” w programie). DK1 zieleń i DK2 krem różnią się tylko akcentem
+(zielone etykiety i sosnowy tekst w DK1, beżowe etykiety i brązowy tekst w DK2). Zielone tła powierzchni są zakazane.
+
 ### 3.2 Jak policzyć głębokość (zrób to przed wyborem koloru)
 
 1. Narysuj drzewo kontenerów ekranu: okno → panel → pole → wiersz → menu. Liczą się tylko elementy z własnym tłem.
