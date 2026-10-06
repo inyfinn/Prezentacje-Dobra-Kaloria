@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.2
+# Tokeny Dobra Kaloria 2.0.3
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -459,7 +459,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | margin-window | `--dk-qt-margin-window` | `20px` |
 | card-border | `--dk-qt-card-border` | `1px` |
 | field-border | `--dk-qt-field-border` | `1px` |
-| focus-border | `--dk-qt-focus-border` | `2px` |
+| focus-border | `--dk-qt-focus-border` | `1px` |
 | radius-card | `--dk-qt-radius-card` | `8px` |
 | radius-field | `--dk-qt-radius-field` | `4px` |
 | radius-btn | `--dk-qt-radius-btn` | `4px` |

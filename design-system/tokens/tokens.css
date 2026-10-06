@@ -1,4 +1,4 @@
-/* Design system Dobra Kaloria 2.0.2 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+/* Design system Dobra Kaloria 2.0.3 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
 /* Drabina powierzchni: --dk-color-surface-0 (tło okna) ... -4 (nakładka); tagi: --dk-color-tag-N-bg/-fg/-border. */
 :root, [data-theme="dobra-kaloria"] {
   color-scheme: light;
@@ -297,7 +297,7 @@
   --dk-qt-margin-window: 20px;
   --dk-qt-card-border: 1px;
   --dk-qt-field-border: 1px;
-  --dk-qt-focus-border: 2px;
+  --dk-qt-focus-border: 1px;
   --dk-qt-radius-card: 8px;
   --dk-qt-radius-field: 4px;
   --dk-qt-radius-btn: 4px;
