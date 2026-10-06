@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tokeny Dobra Kaloria 2.0.0 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
+"""Tokeny Dobra Kaloria 2.0.1 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
 
 T              program (biała kartka) - pełny zestaw: kolory, odstępy, czcionki, drabina, tagi
 T_KREM_JASNY   Dobra Kaloria 2 · krem, jasny   (role + drabina + tagi; nazwy jak w T)

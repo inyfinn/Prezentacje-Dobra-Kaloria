@@ -49,6 +49,18 @@
 .dk-btn--display { font: 400 20px/1 var(--dk-font-display); letter-spacing: .01em; }   /* jak „DO KOSZYKA” */
 .dk-btn:disabled { background: var(--dk-color-disabled-bg); color: var(--dk-color-text-muted); border-color: transparent; cursor: not-allowed; }
 .dk-btn--block { display: flex; width: 100%; }
+/* S13: przycisk cichy (trzeciorzędny) - samo wypełnienie, bez obrysu; w grupie najwyżej 1 główny i 1 z obrysem, reszta cicha */
+.dk-btn--quiet { background: var(--dk-color-icon-bg); color: var(--dk-color-text); }
+.dk-panel .dk-btn--quiet, .dk-panel .dk-iconbtn { background: var(--dk-color-surface-2); }
+.dk-card .dk-btn--quiet, .dk-card .dk-iconbtn, .dk-tile .dk-btn--quiet { background: var(--dk-color-icon-bg); }
+.dk-btn--quiet:hover, .dk-panel .dk-btn--quiet:hover, .dk-card .dk-btn--quiet:hover { background: var(--dk-color-brand-soft); }
+/* S13: przełącznik segmentowy (filtry „Wszystko / Produkty”) - aktywny zielony, nieaktywny cichy, bez obrysów */
+.dk-seg { display: inline-flex; gap: 4px; }
+.dk-seg > button { min-height: 36px; padding: 0 var(--dk-space-4); border: 0; border-radius: var(--dk-radius-btn); cursor: pointer;
+  background: var(--dk-color-icon-bg); color: var(--dk-color-text); font: 700 14px/1 var(--dk-font-text); }
+.dk-panel .dk-seg > button { background: var(--dk-color-surface-2); }
+.dk-card .dk-seg > button, .dk-tile .dk-seg > button { background: var(--dk-color-icon-bg); }
+.dk-seg > button[aria-pressed="true"] { background: var(--dk-color-brand); color: var(--dk-color-on-brand); }
 
 /* ikony: liniowe (Lucide), kreska 2, zieleń marki; przycisk-ikona kwadratowy */
 .dk-icon { width: 24px; height: 24px; fill: none; stroke: var(--dk-color-icon); stroke-width: var(--dk-control-stroke-icon);
@@ -126,7 +138,7 @@
 .dk-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--dk-space-3); border-radius: var(--dk-radius-sm);
   background: var(--dk-color-brand); color: var(--dk-color-on-brand); font: 700 13px/1 var(--dk-font-text); }
 .dk-tag { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--dk-space-3); border-radius: var(--dk-radius-pill);
-  font: 700 13px/1 var(--dk-font-text); border: 1px solid; }
+  font: 700 13px/1 var(--dk-font-text); border: 0; }   /* S13: tag bez obrysu */
 .dk-price { font: 400 28px/1 var(--dk-font-display); background: var(--dk-color-brand); color: var(--dk-color-on-brand); padding: 10px 16px 10px 24px;
   clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); display: inline-block; }
 
@@ -215,7 +227,8 @@ body { margin: 0; }
     <div class="stack">
       <h3 class="dk-h3">Przyciski i pola</h3>
       <div class="row"><button class="dk-btn dk-btn--primary dk-btn--display">Do koszyka</button><button class="dk-btn dk-btn--primary">Sprawdź</button>
-        <button class="dk-btn dk-btn--secondary">Powrót</button><button class="dk-btn dk-btn--cta">Zobacz więcej</button><button class="dk-btn" disabled>Niedostępne</button></div>
+        <button class="dk-btn dk-btn--secondary">Powrót</button><button class="dk-btn dk-btn--cta">Zobacz więcej</button><button class="dk-btn dk-btn--quiet">Odśwież</button><button class="dk-btn" disabled>Niedostępne</button></div>
+      <div class="row"><div class="dk-seg"><button aria-pressed="true">Wszystko</button><button aria-pressed="false">Produkty</button><button aria-pressed="false">Warianty</button></div></div>
       <div class="row"><div class="dk-search" style="width:360px"><svg class="dk-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Znajdź dobrą kalorię"><button class="dk-btn dk-btn--primary">Szukaj</button></div>
         <input class="dk-input" value="Pole tekstowe" style="width:200px"></div>
       <div class="row">
@@ -225,9 +238,9 @@ body { margin: 0; }
         <button class="dk-iconbtn" aria-label="wstecz"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
         <button class="dk-iconbtn" aria-label="dalej"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
         <span class="dk-price">2.59 PLN</span><span class="dk-chip">1 / 2</span>
-        <span class="dk-tag" style="background:var(--dk-color-tag-1-bg);color:var(--dk-color-tag-1-fg);border-color:var(--dk-color-tag-1-border)">Nowość</span>
-        <span class="dk-tag" style="background:var(--dk-color-tag-2-bg);color:var(--dk-color-tag-2-fg);border-color:var(--dk-color-tag-2-border)">Bio</span>
-        <span class="dk-tag" style="background:var(--dk-color-tag-3-bg);color:var(--dk-color-tag-3-fg);border-color:var(--dk-color-tag-3-border)">Wege</span>
+        <span class="dk-tag" style="background:var(--dk-color-tag-1-bg);color:var(--dk-color-tag-1-fg)">Nowość</span>
+        <span class="dk-tag" style="background:var(--dk-color-tag-2-bg);color:var(--dk-color-tag-2-fg)">Bio</span>
+        <span class="dk-tag" style="background:var(--dk-color-tag-3-bg);color:var(--dk-color-tag-3-fg)">Wege</span>
       </div>
     </div>
     <div class="dk-panel stack">
@@ -239,6 +252,7 @@ body { margin: 0; }
         <div class="row"><label class="dk-switch"><input type="checkbox" checked><span></span></label><label class="dk-switch"><input type="checkbox"><span></span></label>
           <input type="range" class="dk-slider" style="--v:60%" value="60"></div>
         <div class="dk-progress"><i style="width:45%"></i></div>
+        <div class="row"><div class="dk-seg"><button aria-pressed="true">Produkty</button><button aria-pressed="false">Materiały</button></div><button class="dk-btn dk-btn--quiet">Odśwież z dysku</button></div>
         <div class="dk-feature"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M7 10v12M15 5.9 14 10h5.8a2 2 0 0 1 2 2.5l-2.4 8a2 2 0 0 1-1.9 1.5H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.8a2 2 0 0 0 1.8-1.1L12 2a3.1 3.1 0 0 1 3 3.9Z"/></svg>
           <div><b>Prosty skład i maksimum korzyści</b><span>Ikona liniowa zielona, tytuł Lato pogrubiony, opis zwykły.</span></div></div>
       </div>

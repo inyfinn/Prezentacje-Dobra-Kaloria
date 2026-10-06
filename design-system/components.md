@@ -1199,6 +1199,18 @@ Główny: zielony pełny, biały tekst Lato 700 wersalikami, promień 4, hover `
 .dk-btn--display { font: 400 20px/1 var(--dk-font-display); letter-spacing: .01em; }   /* jak „DO KOSZYKA” */
 .dk-btn:disabled { background: var(--dk-color-disabled-bg); color: var(--dk-color-text-muted); border-color: transparent; cursor: not-allowed; }
 .dk-btn--block { display: flex; width: 100%; }
+/* S13: przycisk cichy (trzeciorzędny) - samo wypełnienie, bez obrysu; w grupie najwyżej 1 główny i 1 z obrysem, reszta cicha */
+.dk-btn--quiet { background: var(--dk-color-icon-bg); color: var(--dk-color-text); }
+.dk-panel .dk-btn--quiet, .dk-panel .dk-iconbtn { background: var(--dk-color-surface-2); }
+.dk-card .dk-btn--quiet, .dk-card .dk-iconbtn, .dk-tile .dk-btn--quiet { background: var(--dk-color-icon-bg); }
+.dk-btn--quiet:hover, .dk-panel .dk-btn--quiet:hover, .dk-card .dk-btn--quiet:hover { background: var(--dk-color-brand-soft); }
+/* S13: przełącznik segmentowy (filtry „Wszystko / Produkty”) - aktywny zielony, nieaktywny cichy, bez obrysów */
+.dk-seg { display: inline-flex; gap: 4px; }
+.dk-seg > button { min-height: 36px; padding: 0 var(--dk-space-4); border: 0; border-radius: var(--dk-radius-btn); cursor: pointer;
+  background: var(--dk-color-icon-bg); color: var(--dk-color-text); font: 700 14px/1 var(--dk-font-text); }
+.dk-panel .dk-seg > button { background: var(--dk-color-surface-2); }
+.dk-card .dk-seg > button, .dk-tile .dk-seg > button { background: var(--dk-color-icon-bg); }
+.dk-seg > button[aria-pressed="true"] { background: var(--dk-color-brand); color: var(--dk-color-on-brand); }
 ```
 
 ```css
@@ -1381,7 +1393,7 @@ tle ze ściętym lewym rogiem.
 .dk-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--dk-space-3); border-radius: var(--dk-radius-sm);
   background: var(--dk-color-brand); color: var(--dk-color-on-brand); font: 700 13px/1 var(--dk-font-text); }
 .dk-tag { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--dk-space-3); border-radius: var(--dk-radius-pill);
-  font: 700 13px/1 var(--dk-font-text); border: 1px solid; }
+  font: 700 13px/1 var(--dk-font-text); border: 0; }   /* S13: tag bez obrysu */
 .dk-price { font: 400 28px/1 var(--dk-font-display); background: var(--dk-color-brand); color: var(--dk-color-on-brand); padding: 10px 16px 10px 24px;
   clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); display: inline-block; }
 ```

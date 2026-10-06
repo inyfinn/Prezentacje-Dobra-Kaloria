@@ -43,7 +43,7 @@ KSZTAŁT, CIEŃ, IKONA
   cienie neutralne rgba(34,34,34,…) - tylko nakładki, toast, uchwyty; karty i panele BEZ cienia i bez obrysu
   focus: obrys 2 px #007936, odstęp 2 px · ikony liniowe Lucide, kreska 2, kolor icon
 
-REGUŁY 2.0 (S1-S12) - obowiązują wszystkie trzy programy
+REGUŁY 2.0 (S1-S13; S13 dodana w 2.0.1) - obowiązują wszystkie trzy programy
   S1  Tło okna jest BIAŁE. Bieli jest najwięcej. Beż, ecru ani szary nigdy jako tło okna.
   S2  Sekcja = panel L1 (jasnoszary ciepły), bez obrysu i bez cienia. W panelu leżą BIAŁE karty i białe pola (L2).
       Biała karta położona wprost na białym tle dostaje linię 1 px border, albo zamiast niej używasz panelu.
@@ -65,6 +65,13 @@ REGUŁY 2.0 (S1-S12) - obowiązują wszystkie trzy programy
   S10 Linie podziału 1 px #DDDDDD. Tabela w pasy zebra/biel, bez linii pionowych. Zakładki: pod spodem linia 1 px #222222.
   S11 Metka pełna (licznik, cena, znaczek) = brand + biały tekst, promień 4. Tagi kategorii = tag-N (zielone odcienie), pigułki.
   S12 Linki w treści: #222222, pogrubione, podkreślone. Linki nawigacji: bez podkreślenia, aktywny lub hover zielony.
+  S13 BUDŻET OBRYSÓW (2.0.1; user 06.10 o DAM: „bubble tagi wyglądają okropnie z tymi obrysami, za dużo obrysów”).
+      Obrys 1 px wolno dać TYLKO na: pole formularza, checkbox/radio, JEDEN przycisk drugorzędny w grupie przycisków,
+      białą kartę leżącą wprost na białym tle, fokus. BEZ obrysu: tagi, metki, pigułki filtrów, liczniki, panele,
+      karty w panelu, kafle, przyciski-ikony, nagłówki zwijanych sekcji. Tag = samo wypełnienie (tag-N-bg + tag-N-fg).
+      Przycisk cichy (trzeciorzędny): wypełnienie #F5F5F5 na bieli / #FFFFFF na panelu, bez obrysu, tekst #222222,
+      hover brand-soft. Przełącznik segmentowy: aktywny zielony z białym tekstem, nieaktywny jak przycisk cichy.
+      Żadnej sepii: beż tylko jako L3/L4, nigdy jako kolor obrysu, metki czy tekstu w stylach jasnych.
   ZOSTAJE z wcześniejszych rund: Mindset także w nazwach (+10), duży tekst (>= 14-15 px), jeden język kształtów,
       okno nigdy większe niż ekran i nigdy przycięte, żadnych zbędnych linijek-podpowiedzi.
 

@@ -137,3 +137,13 @@ Reguły z tego wynikające (pełny opis: `tokens/READY-2.0.0.txt` S1-S12, pomiar
 Co ta runda UCHYLA (kolor; historia zostaje wyżej, oznaczona): „zero zieleni w tekście”, „zieleń tylko logo/splash/KPI/status”
 (G2, G3), tekst brązowy `#3B2A20` i brązowy akcent, przycisk drugorzędny z brązowym obrysem (G4), suwak, przełącznik
 i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bieli na żadnym poziomie”, L4 jako nakładka.
+
+## 06.10.2026 — po obejrzeniu DAM 2.5.4 (stary, brązowy wygląd): mniej obrysów
+
+> „…to DAM wygląda okropnie. Jak SEPIA. A te bubble tagi wyglądają okropnie z tymi obrysami, za dużo obrysów,
+> wszystko wygląda okropnie brzydko. […] w ogóle nie o to chodziło.”
+
+- **S13 budżet obrysów** (DS 2.0.1): obrys tylko na polu, checkboxie, jednym przycisku drugorzędnym w grupie, białej
+  karcie na białym tle i fokusie. Tagi, metki, pigułki filtrów, liczniki, panele, kafle, przyciski-ikony: bez obrysu.
+- **Żadnej sepii:** beż nie jest kolorem obrysu, metki ani tekstu w stylach jasnych; występuje tylko jako kafel L3/L4.
+- Przepisy: `.dk-tag` (samo wypełnienie), `.dk-btn--quiet`, `.dk-seg` w `components.md` rozdz. 25 i `preview/sklep.html`.
