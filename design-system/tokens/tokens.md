@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.4
+# Tokeny Dobra Kaloria 2.0.5
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -68,34 +68,34 @@ L = jasność OKLCH (0-100), L* = CIELAB. dL = zmiana L względem poziomu niżej
 
 ## Tagi (od 1.4.0)
 
-Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32]` (stopnie OKLCH; od 1.6.0 wariant może mieć własne `tag_offsets` - zestawy beżowe mają tylko ciepłe odcienie, zob. kolumnę Hue). Tło L 0.930 C 0.038 / ramka L 0.845 C 0.055 / tekst L 0.440 C 0.085 w jasnym; w ciemnym tło L 0.360 C 0.048 / ramka L 0.470 C 0.062 / tekst L 0.870 C 0.070. Tekst dociągany o 0.01 L do kontrastu >= 4.6.
+Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32]` (stopnie OKLCH; od 1.6.0 wariant może mieć własne `tag_offsets` - zestawy beżowe mają tylko ciepłe odcienie, zob. kolumnę Hue). Tło L 0.930 C 0.060 / ramka L 0.860 C 0.075 / tekst L 0.400 C 0.110 w jasnym; w ciemnym tło L 0.360 C 0.048 / ramka L 0.470 C 0.062 / tekst L 0.870 C 0.070. Tekst dociągany o 0.01 L do kontrastu >= 4.6.
 
 | Wariant | Tag | Hue | Tło | Tekst | Ramka | Kontrast |
 |---|---|---|---|---|---|---|
-| program | tag-1 | 152 | `#D6F0DC` | `#28603A` | `#B2D7BB` | 6.15:1 |
-| program | tag-2 | 160 | `#D3F0DF` | `#1C6142` | `#AED8C0` | 6.10:1 |
-| program | tag-3 | 144 | `#D9EFD8` | `#335F33` | `#B7D6B6` | 6.12:1 |
-| program | tag-4 | 168 | `#D1F1E3` | `#0C6149` | `#AAD8C5` | 6.17:1 |
-| program | tag-5 | 136 | `#DDEED5` | `#3C5D2B` | `#BCD5B1` | 6.18:1 |
-| program | tag-6 | 176 | `#CFF1E7` | `#016151` | `#A7D8CB` | 6.14:1 |
-| program | tag-7 | 128 | `#E0EDD2` | `#455B24` | `#C2D4AD` | 6.20:1 |
-| program | tag-8 | 184 | `#CDF1EB` | `#006057` | `#A4D8D0` | 6.18:1 |
-| krem-jasny | tag-1 | 152 | `#D6F0DC` | `#28603A` | `#B2D7BB` | 6.15:1 |
-| krem-jasny | tag-2 | 160 | `#D3F0DF` | `#1C6142` | `#AED8C0` | 6.10:1 |
-| krem-jasny | tag-3 | 144 | `#D9EFD8` | `#335F33` | `#B7D6B6` | 6.12:1 |
-| krem-jasny | tag-4 | 168 | `#D1F1E3` | `#0C6149` | `#AAD8C5` | 6.17:1 |
-| krem-jasny | tag-5 | 136 | `#DDEED5` | `#3C5D2B` | `#BCD5B1` | 6.18:1 |
-| krem-jasny | tag-6 | 176 | `#CFF1E7` | `#016151` | `#A7D8CB` | 6.14:1 |
-| krem-jasny | tag-7 | 128 | `#E0EDD2` | `#455B24` | `#C2D4AD` | 6.20:1 |
-| krem-jasny | tag-8 | 184 | `#CDF1EB` | `#006057` | `#A4D8D0` | 6.18:1 |
-| zielen-jasny | tag-1 | 152 | `#D6F0DC` | `#28603A` | `#B2D7BB` | 6.15:1 |
-| zielen-jasny | tag-2 | 160 | `#D3F0DF` | `#1C6142` | `#AED8C0` | 6.10:1 |
-| zielen-jasny | tag-3 | 144 | `#D9EFD8` | `#335F33` | `#B7D6B6` | 6.12:1 |
-| zielen-jasny | tag-4 | 168 | `#D1F1E3` | `#0C6149` | `#AAD8C5` | 6.17:1 |
-| zielen-jasny | tag-5 | 136 | `#DDEED5` | `#3C5D2B` | `#BCD5B1` | 6.18:1 |
-| zielen-jasny | tag-6 | 176 | `#CFF1E7` | `#016151` | `#A7D8CB` | 6.14:1 |
-| zielen-jasny | tag-7 | 128 | `#E0EDD2` | `#455B24` | `#C2D4AD` | 6.20:1 |
-| zielen-jasny | tag-8 | 184 | `#CDF1EB` | `#006057` | `#A4D8D0` | 6.18:1 |
+| program | tag-1 | 152 | `#CBF4D5` | `#005729` | `#ADE0B9` | 7.28:1 |
+| program | tag-2 | 125 | `#DFF0C4` | `#3B5001` | `#C6DAA4` | 7.45:1 |
+| program | tag-3 | 95 | `#F4E8BB` | `#564700` | `#E0D199` | 7.45:1 |
+| program | tag-4 | 60 | `#FFE2CB` | `#6B3900` | `#F6C6A0` | 7.69:1 |
+| program | tag-5 | 25 | `#FFDFDC` | `#782A28` | `#FFBFB8` | 7.79:1 |
+| program | tag-6 | 355 | `#FFDEE9` | `#73294B` | `#FABDD3` | 7.86:1 |
+| program | tag-7 | 190 | `#BAF5F1` | `#005350` | `#96E1DC` | 7.40:1 |
+| program | tag-8 | 240 | `#D3ECFF` | `#014D73` | `#A4D8FE` | 7.45:1 |
+| krem-jasny | tag-1 | 152 | `#CBF4D5` | `#005729` | `#ADE0B9` | 7.28:1 |
+| krem-jasny | tag-2 | 125 | `#DFF0C4` | `#3B5001` | `#C6DAA4` | 7.45:1 |
+| krem-jasny | tag-3 | 95 | `#F4E8BB` | `#564700` | `#E0D199` | 7.45:1 |
+| krem-jasny | tag-4 | 60 | `#FFE2CB` | `#6B3900` | `#F6C6A0` | 7.69:1 |
+| krem-jasny | tag-5 | 25 | `#FFDFDC` | `#782A28` | `#FFBFB8` | 7.79:1 |
+| krem-jasny | tag-6 | 355 | `#FFDEE9` | `#73294B` | `#FABDD3` | 7.86:1 |
+| krem-jasny | tag-7 | 190 | `#BAF5F1` | `#005350` | `#96E1DC` | 7.40:1 |
+| krem-jasny | tag-8 | 240 | `#D3ECFF` | `#014D73` | `#A4D8FE` | 7.45:1 |
+| zielen-jasny | tag-1 | 152 | `#CBF4D5` | `#005729` | `#ADE0B9` | 7.28:1 |
+| zielen-jasny | tag-2 | 125 | `#DFF0C4` | `#3B5001` | `#C6DAA4` | 7.45:1 |
+| zielen-jasny | tag-3 | 95 | `#F4E8BB` | `#564700` | `#E0D199` | 7.45:1 |
+| zielen-jasny | tag-4 | 60 | `#FFE2CB` | `#6B3900` | `#F6C6A0` | 7.69:1 |
+| zielen-jasny | tag-5 | 25 | `#FFDFDC` | `#782A28` | `#FFBFB8` | 7.79:1 |
+| zielen-jasny | tag-6 | 355 | `#FFDEE9` | `#73294B` | `#FABDD3` | 7.86:1 |
+| zielen-jasny | tag-7 | 190 | `#BAF5F1` | `#005350` | `#96E1DC` | 7.40:1 |
+| zielen-jasny | tag-8 | 240 | `#D3ECFF` | `#014D73` | `#A4D8FE` | 7.45:1 |
 | zielen-ciemny | tag-1 | 146 | `#2C442E` | `#B7E1B9` | `#446446` | 7.34:1 |
 | zielen-ciemny | tag-2 | 154 | `#284531` | `#B1E2C0` | `#3E654B` | 7.31:1 |
 | zielen-ciemny | tag-3 | 138 | `#31432A` | `#BEE0B3` | `#496341` | 7.37:1 |
@@ -396,6 +396,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | bar | `--dk-shadow-bar` | `0 2px 8px rgba(34,34,34,.08)` |
 | toast | `--dk-shadow-toast` | `0 10px 30px rgba(34,34,34,.22)` |
 | focus-field | `--dk-shadow-focus-field` | `0 0 0 3px rgba(0,121,54,.22)` |
+| scrim | `--dk-shadow-scrim` | `rgba(59,42,32,.55)` |
 
 ## Ruch
 

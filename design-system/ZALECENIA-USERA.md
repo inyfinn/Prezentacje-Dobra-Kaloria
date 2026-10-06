@@ -164,3 +164,13 @@ i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bi
 - **S15 ciemne = ciemna zieleń, fokus cienki:** ciemne elementy `#00642E` zamiast brązu i czerni; fokus pola = 1 px
   zieleni + miękka poświata, nigdy gruby ciemny pierścień; aktywny segment i zaznaczony tag zielone.
 - Przepis listy: `.dk-item` w `components.md` rozdz. 25 i `preview/sklep.html`.
+
+## 06.10.2026 — DAM 2.5.4, widok Wizualizacji: tagi kolorowe, mniej brązu
+
+> „Już jest tak COZY, jest już dużo lepiej, szczególnie to przyciemnienie brązowe, ale dalej za dużo brązu. Dalej jest
+> zdecydowanie za dużo brązu, a TAGI »DK, Kulki, DOYPACK« itp. to jest zbyt brzydkie. Powinny być jednak kolorki. Bo
+> aktualnie to jest niesamowicie brzydkie. Niepotrzebne są te obrysy w tagach… Różnicuj kolory.”
+
+- **S17** (DS 2.0.5): tagi w 8 różnych barwach, samo wypełnienie bez obrysu, jedna grupa tagów = jedna barwa.
+- Ciepłe brązowe przyciemnienie pod oknem dialogowym user pochwalił — zostaje (`shadow-scrim`).
+- UCHYLA zasadę z 30.09 „tagi tylko delikatnie zmieniają barwę” oraz zielone odcienie tagów z 2.0.0.
