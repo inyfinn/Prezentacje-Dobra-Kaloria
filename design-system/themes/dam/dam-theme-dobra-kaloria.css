@@ -1,25 +1,25 @@
-/* Motyw "Dobra Kaloria" dla DAM - PLIK GENEROWANY (design system Dobra Kaloria 1.5.0).
+/* Motyw "Dobra Kaloria" dla DAM - PLIK GENEROWANY (design system Dobra Kaloria 2.0.0).
    Status: szkic - nie renderowany w DAM. Nakładka na istniejące zmienne --dam-*: komponentów nie przepisujemy,
    motywy light i dark zostają bez zmian. Wdrożenie: themes/dam/README.md. */
 html[data-theme="dobra-kaloria"] {
   color-scheme: light;
-  background-color: var(--dam-bg, #FDF8EC);
-  --dam-bg: #FDF8EC;  /* cream-50 */
-  --dam-surface: #FFFFFF;  /* white */
-  --dam-surface-muted: #FDF8EC;  /* cream-50 */
-  --dam-surface-sunken: #FBF3E0;  /* cream-100 */
+  background-color: var(--dam-bg, #FFFFFF);
+  --dam-bg: #FFFFFF;  /* white */
+  --dam-surface: #F8F7F5;  /* stone-100 */
+  --dam-surface-muted: #F6F2EF;  /* stone-200 */
+  --dam-surface-sunken: #F6F2EF;  /* stone-200 */
   --dam-surface-elevated: #FFFFFF;  /* white */
   --dam-surface-raised: #FFFFFF;  /* white */
   --dam-input-bg: #FFFFFF;  /* white */
-  --dam-border: #EDE7DA;  /* sand-200 */
-  --dam-chrome: #EDE7DA;  /* sand-200 */
-  --dam-text: #3B2A20;  /* brown-900 */
-  --dam-text-muted: #7D5E44;  /* brown-600 */
-  --dam-dark: #3B2A20;  /* brown-900 */
-  --dam-danger: #DA272D;  /* red-600 */
-  --dam-sidebar-bg: #FDF8EC;  /* cream-50 */
-  --dam-sidebar-bg-end: #FDF8EC;  /* cream-50 */
-  --dam-shadow-rgb: 59 42 32;
-  --dam-radius-md: 12px;
-  --dam-radius-sm: 8px;
+  --dam-border: #DDDDDD;  /* grey-250 */
+  --dam-chrome: #DDDDDD;  /* grey-250 */
+  --dam-text: #222222;  /* ink-900 */
+  --dam-text-muted: #666666;  /* ink-600 */
+  --dam-dark: #222222;  /* ink-900 */
+  --dam-danger: #C0262C;  /* red-700 */
+  --dam-sidebar-bg: #F8F7F5;  /* stone-100 */
+  --dam-sidebar-bg-end: #F8F7F5;  /* stone-100 */
+  --dam-shadow-rgb: 34 34 34;
+  --dam-radius-md: 8px;
+  --dam-radius-sm: 4px;
 }

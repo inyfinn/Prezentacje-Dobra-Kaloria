@@ -108,13 +108,21 @@ def contrast(a, b):
 
 
 # ---------------------------------------------------------------- drabina i tagi
+def tag_offsets(d, v):
+    """1.6.0: wariant może mieć własne 'tag_offsets' (zestawy beżowe: tylko ciepłe odcienie); inaczej tags.offsets."""
+    return v.get("tag_offsets", d["tags"]["offsets"])
+
+
 def ladder_variant(d, key):
     """Poziomy L0..L4, ramki i tagi wariantu -> słownik {nazwa roli: hex}."""
     v = d["ladder"]["variants"][key]
     n = d["ladder"]["levels"]
     sgn = -1 if v["mode"] == "light" else 1
     out = {}
-    for i in range(n):
+    for i in range(n if "surfaces" in v else 0):  # 2.0.0: drabina jawna (wartości ze zrzutów sklepu), bez wzoru
+        out["surface-%d" % i] = v["surfaces"][i]
+        out["border-subtle-%d" % i] = v["borders"][i]
+    for i in range(0 if "surfaces" in v else n):
         L = v["L0"] + sgn * i * v["dL"]
         H = (v["hue"] + i * v.get("hue_step", 0)) % 360  # 1.5.0: opcjonalne ocieplenie głębszych poziomów
         for name, LL in (("surface", L), ("border-subtle", L + sgn * v["border_dL"])):
@@ -123,8 +131,9 @@ def ladder_variant(d, key):
     t = d["tags"]
     spec = t[v["mode"]]
     tdl = v.get("tag_dL", 0)  # 1.5.0: przesunięcie L tła i ramki tagów wariantu (krem ciemny: ciemniej)
+    offs = tag_offsets(d, v)
     for k in range(t["count"]):
-        H = (v["tag_hue"] + t["offsets"][k]) % 360
+        H = (v["tag_hue"] + offs[k]) % 360
         bg = oklch_hex(spec["bg"][0] + tdl, spec["bg"][1], H)
         fL = spec["fg"][0]
         fg = oklch_hex(fL, spec["fg"][1], H)
@@ -135,6 +144,13 @@ def ladder_variant(d, key):
         out["tag-%d-fg" % (k + 1)] = fg
         out["tag-%d-border" % (k + 1)] = oklch_hex(spec["border"][0] + tdl, spec["border"][1], H)
     return out
+
+
+def ladder_desc(v):
+    if "surfaces" in v:
+        return "jawna (sklep): " + " > ".join(v["surfaces"])
+    return "L0 %.3f, dL %.3f (OKLCH), %s" % (v["L0"], v["dL"], "jasny: głębiej = ciemniej" if v["mode"] == "light"
+                                             else "ciemny: głębiej = jaśniej")
 
 
 def roles(d, key):
@@ -214,8 +230,7 @@ def css(d, prim):
     def role_block(key):
         v = d["ladder"]["variants"][key]
         lad = roles(d, key)
-        lines = ["  /* drabina %s: L0 %.3f, dL %.3f (OKLCH), %s */"
-                 % (key, v["L0"], v["dL"], "jasny: głębiej = ciemniej" if v["mode"] == "light" else "ciemny: głębiej = jaśniej")]
+        lines = ["  /* drabina %s: %s */" % (key, ladder_desc(v))]
         for k in ladder_keys(d):
             val = "var(--%s-color-text)" % p if k.startswith("on-surface-") else lad[k]
             lines.append("  --%s-color-%s: %s;" % (p, k, val))
@@ -323,17 +338,18 @@ def tokens_md(d, flat, prim):
          "Kontrast: tekst i tekst pomocniczy na danym poziomie (WCAG).", ""]
     for key, v in d["ladder"]["variants"].items():
         sel = VARIANT_OUT[key][0] or ':root, [data-theme="dobra-kaloria"]'
-        o += ["### %s" % v["name"], "", "`%s` · %s · L0 %.3f, dL %.3f" % (sel, v["mode"], v["L0"], v["dL"]), "",
+        o += ["### %s" % v["name"], "", "`%s` · %s · %s" % (sel, v["mode"], ladder_desc(v)), "",
               "| Poziom | Zmienna | Hex | L | L* | dL | Kontrast z niższym | Tekst | Pomocniczy | Ramka `border-subtle` |",
               "|---|---|---|---|---|---|---|---|---|---|"]
         for i, h, L, ls, dl, cr, ct, cm, bs in ladder_rows(d, key):
             o.append("| L%d %s | `--%s-color-surface-%d` | `%s` | %.1f | %.1f | %s | %s | %.2f | %.2f | `%s` |"
-                     % (i, LEVEL_NAMES[i], p, i, h, L * 100, ls, "-" if dl is None else "%+.1f" % (dl * 100),
+                     % (i, v.get("level_names", LEVEL_NAMES)[i], p, i, h, L * 100, ls, "-" if dl is None else "%+.1f" % (dl * 100),
                         "-" if cr is None else "%.3f" % cr, ct, cm, bs))
         o.append("")
     t = d["tags"]
     o += ["## Tagi (od 1.4.0)", "",
-          "Wzór: hue = `tag_hue` wariantu + przesunięcie `%s` (stopnie OKLCH). Tło L %.3f C %.3f / ramka L %.3f C %.3f / "
+          "Wzór: hue = `tag_hue` wariantu + przesunięcie `%s` (stopnie OKLCH; od 1.6.0 wariant może mieć własne "
+          "`tag_offsets` - zestawy beżowe mają tylko ciepłe odcienie, zob. kolumnę Hue). Tło L %.3f C %.3f / ramka L %.3f C %.3f / "
           "tekst L %.3f C %.3f w jasnym; w ciemnym tło L %.3f C %.3f / ramka L %.3f C %.3f / tekst L %.3f C %.3f. "
           "Tekst dociągany o 0.01 L do kontrastu >= %.1f." % (
               t["offsets"], *t["light"]["bg"], *t["light"]["border"], *t["light"]["fg"],
@@ -344,7 +360,7 @@ def tokens_md(d, flat, prim):
         for k in range(t["count"]):
             n = k + 1
             o.append("| %s | tag-%d | %.0f | `%s` | `%s` | `%s` | %.2f:1 |" % (
-                key, n, (v["tag_hue"] + t["offsets"][k]) % 360, r["tag-%d-bg" % n], r["tag-%d-fg" % n],
+                key, n, (v["tag_hue"] + tag_offsets(d, v)[k]) % 360, r["tag-%d-bg" % n], r["tag-%d-fg" % n],
                 r["tag-%d-border" % n], contrast(r["tag-%d-fg" % n], r["tag-%d-bg" % n])))
     o += ["", "## Kolory - role programu (tych używaj)", "", "| Rola | Zmienna CSS | Wartość | Źródło |", "|---|---|---|---|"]
     for k, v in d["color"]["semantic"].items():
@@ -367,13 +383,35 @@ def tokens_md(d, flat, prim):
 # pary (tekst, tło, minimalny kontrast, opis)
 PAIRS = [("text", "bg", 4.5, "tekst na tle"), ("text", "surface", 4.5, "tekst na karcie"),
          ("text-muted", "bg", 4.5, "tekst pomocniczy na tle"), ("text-muted", "surface", 4.5, "tekst pomocniczy na karcie"),
-         ("label", "bg", 3.0, "etykieta (tylko >=14 px bold)"), ("label", "surface", 3.0, "etykieta na karcie"),
+         ("label", "surface-0", 4.5, "etykieta na tle (od 1.6.0 >= 4.5)"), ("label", "surface-1", 4.5, "etykieta na karcie (od 1.6.0 >= 4.5)"),
          ("brand", "bg", 4.5, "zielony tekst/link na tle"), ("brand", "brand-soft", 4.5, "zielony na jasnej zieleni"),
          ("on-brand", "brand", 4.5, "biały na zieleni"), ("on-cta", "cta", 4.5, "tekst na żółtym przycisku"),
          ("on-inverse", "inverse-bg", 4.5, "biały na brązie (toast)"), ("on-inverse", "danger", 4.5, "biały na czerwieni"),
          ("danger", "bg", 4.5, "czerwony tekst błędu na tle"), ("danger", "surface", 4.5, "czerwony tekst błędu na karcie"),
          ("warning-text", "warning-bg", 4.5, "ostrzeżenie"), ("field-border", "bg", 3.0, "ramka pola"),
-         ("switch-off", "bg", 3.0, "wyłączony przełącznik")]
+         # od 1.6.0 switch-off to tor (jasny), widoczność wyłączonego przełącznika niesie jego obrys (switch-off-border)
+         ("switch-off-border", "bg", 3.0, "obrys wyłączonego przełącznika"),
+         # --- 1.6.0 kontrolki i akcent (G1-G6)
+         ("check-mark", "check-bg", 4.5, "znak checkboxa/radio na jasnym wnętrzu"),
+         ("check-border", "check-bg", 3.0, "obrys checkboxa na wnętrzu"),
+         ("check-border", "surface-0", 3.0, "obrys checkboxa na tle"), ("check-border", "surface-1", 3.0, "obrys checkboxa na karcie"),
+         ("accent", "surface-0", 4.5, "akcent (link, tytuł) na L0"), ("accent", "surface-1", 4.5, "akcent na L1"),
+         ("accent", "surface-2", 4.5, "akcent na L2"), ("accent", "surface-3", 4.5, "akcent na L3"),
+         ("on-accent", "accent", 4.5, "tekst na akcencie"),
+         ("step-active-text", "step-active-bg", 4.5, "tekst aktywnego kroku"),
+         ("step-idle-text", "surface-0", 4.5, "tekst nieaktywnego kroku"),
+         ("btn2-text", "btn2-bg", 4.5, "tekst przycisku drugorzędnego"),
+         ("btn2-text", "btn2-hover-bg", 4.5, "tekst przycisku drugorzędnego (hover)"),
+         ("btn2-border", "btn2-bg", 3.0, "obrys przycisku drugorzędnego"),
+         ("slider-fill", "slider-track", 3.0, "wypełnienie suwaka na torze"),
+         ("slider-thumb-border", "slider-thumb", 3.0, "obrys uchwytu suwaka"),
+         ("switch-on", "surface-0", 3.0, "włączony przełącznik na tle"), ("switch-on", "surface-1", 3.0, "włączony przełącznik na karcie"),
+         ("switch-off-border", "surface-0", 3.0, "obrys wyłączonego przełącznika na tle"),
+         ("switch-knob", "switch-on", 3.0, "gałka na włączonym torze"),
+         ("icon", "icon-bg", 3.0, "ikona na kółku"), ("focus", "surface-0", 3.0, "obrys fokusa")]
+# 2.0.0: bez zieleni poza brand* zostaje tylko DK2 krem ciemny (decyzja usera 05.10); style jasne = sklep, zieleń jest akcentem
+NO_GREEN = ("krem-ciemny",)
+GREEN_CHROMA, GREEN_H = 0.04, (105.0, 200.0)
 # pary w motywie Photo Resizera (klucz tekstu, klucz tła, minimum)
 RESIZER_PAIRS = [("@FG_TEXT@", "@BG_WINDOW@", 4.5), ("@FG_TEXT@", "@BG_PANEL@", 4.5), ("@FG_TEXT@", "@BG_INPUT@", 4.5),
                  ("@FG_TEXT@", "@BG_HOVER@", 4.5), ("@FG_MUTED@", "@BG_WINDOW@", 4.5), ("@FG_MUTED@", "@BG_PANEL@", 4.5),
@@ -412,20 +450,44 @@ def check(d, flat, ref, quiet=False):
             rep(cb >= 4.5, "%5.2f:1 (min 4.5)  %-13s %s (link) na surface-%d" % (cb, tag, lk, i))
             cbs = contrast(bs, h)
             rep(cbs >= 1.12, "%5.3f:1 (min 1.12) %-13s border-subtle-%d widoczna na surface-%d" % (cbs, tag, i, i))
-            if dl is not None:
+            if dl is not None and "surfaces" in v:  # drabina jawna: poziomy sąsiednie muszą się różnić
+                rep(cr >= 1.03, "%5.3f:1 (min 1.03) %-13s surface-%d odróżnia się od surface-%d" % (cr, tag, i, i - 1))
+            elif dl is not None:
                 sgn = -1 if v["mode"] == "light" else 1
                 ok = LADDER_DL_MIN <= dl * sgn <= LADDER_DL_MAX
                 rep(ok, "dL %+.3f (%.3f..%.3f, kierunek %s)  %-13s surface-%d -> surface-%d, kontrast sąsiadów %.3f"
                     % (dl, LADDER_DL_MIN, LADDER_DL_MAX, "w dół" if sgn < 0 else "w górę", tag, i - 1, i, cr))
             if not v.get("white_ok"):
                 rep(h.upper() != "#FFFFFF", "%-13s surface-%d %s nie jest czystą bielą" % (tag, i, h))
-        span = abs(rows[-1][2] - rows[0][2])
-        rep(span >= LADDER_SPAN_MIN, "L4-L0 = %.3f (min %.2f)  %-13s nakładka nie zlewa się z tłem" % (span, LADDER_SPAN_MIN, tag))
+        if "surfaces" in v:  # 2.0.0 "sklep": biel jako tło, biała karta w panelu, tekst neutralny, akcent zielony
+            rep(r["surface-0"].upper() == "#FFFFFF", "%-13s tło okna (surface-0) %s jest białe" % (tag, r["surface-0"]))
+            rep(r["surface-2"].upper() == "#FFFFFF", "%-13s karta w panelu (surface-2) %s jest biała" % (tag, r["surface-2"]))
+            for name in ("text", "text-muted", "label", "heading"):
+                C = to_oklch(r[name])[1]
+                rep(C <= 0.02, "tekst neutralny  %-13s %-10s %s (C %.3f, max 0.02)" % (tag, name, r[name], C))
+            for name in ("brand", "accent", "heading-accent", "icon", "check-mark", "focus"):
+                _, C, H = to_oklch(r[name])
+                rep(C > GREEN_CHROMA and GREEN_H[0] <= H <= GREEN_H[1],
+                    "akcent zielony   %-13s %-14s %s (C %.3f, H %.0f)" % (tag, name, r[name], C, H))
+            for name in ("heading", "heading-accent"):
+                for i in range(d["ladder"]["levels"]):
+                    c = contrast(r[name], r["surface-%d" % i])
+                    rep(c >= 4.5, "%5.2f:1 (min 4.5)  %-13s %s na surface-%d" % (c, tag, name, i))
+        else:
+            span = abs(rows[-1][2] - rows[0][2])
+            rep(span >= LADDER_SPAN_MIN, "L4-L0 = %.3f (min %.2f)  %-13s nakładka nie zlewa się z tłem" % (span, LADDER_SPAN_MIN, tag))
         for k in range(d["tags"]["count"]):
             n = k + 1
             c = contrast(r["tag-%d-fg" % n], r["tag-%d-bg" % n])
             rep(c >= 4.5, "%5.2f:1 (min 4.5)  %-13s tag-%d tekst na tle tagu" % (c, tag, n))
-    rz = {k: ref(v) for k, v in d["themes"]["photo-resizer"]["tokens"].items()}
+        if key in NO_GREEN:  # G2/G3: poza brand* i on-brand żadna rola ani tag nie jest zielone
+            for name, val in r.items():
+                if name.startswith("brand") or name == "on-brand":
+                    continue
+                _, C, H = to_oklch(val)
+                green = C > GREEN_CHROMA and GREEN_H[0] <= H <= GREEN_H[1]
+                rep(not green, "bez zieleni  %-13s %-22s %s (C %.3f, H %.0f)" % (tag, name, val, C, H))
+    rz ={k: ref(v) for k, v in d["themes"]["photo-resizer"]["tokens"].items()}
     for fg, bg, need in RESIZER_PAIRS:
         a, b = rz.get(fg, fg), rz.get(bg, bg)
         c = contrast(a, b)
@@ -441,7 +503,7 @@ def check(d, flat, ref, quiet=False):
 
 def print_ladder(d):
     for key, v in d["ladder"]["variants"].items():
-        print("== %s (%s, L0 %.3f, dL %.3f)" % (key, v["mode"], v["L0"], v["dL"]))
+        print("== %s (%s, %s)" % (key, v["mode"], ladder_desc(v)))
         for i, h, L, ls, dl, cr, ct, cm, bs in ladder_rows(d, key):
             print("  L%d %s  L=%.1f L*=%.1f dL=%s  sasiad %s  tekst %.2f  pomocn %.2f  ramka %s"
                   % (i, h, L * 100, ls, "  -  " if dl is None else "%+.1f" % (dl * 100),

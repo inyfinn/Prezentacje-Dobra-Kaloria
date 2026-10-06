@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dobra Kaloria 2.0 - wzorzec „sklep”</title>
+<link rel="stylesheet" href="../tokens/tokens.css">
+<style>
+/* Wzorzec 2.0.0: przepisy komponentów odtworzone ze zrzutów sklepu (assets/sklep-2026-10-06). Kod przepisów = components.md, rozdz. 25. */
+@font-face { font-family: "Mindset"; src: url("../assets/fonts/Mindset.otf") format("opentype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Lato"; src: url("../assets/fonts/Lato-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Lato"; src: url("../assets/fonts/Lato-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+
+/* ==== 25. PRZEPISY 2.0 ==== */
+.dk-page { background: var(--dk-color-bg); color: var(--dk-color-text); font: 400 var(--dk-fs-base)/var(--dk-lh-base) var(--dk-font-text); }
+
+/* tytuły: Mindset wersalikami, prawie czarne; tytuł-akcent zielony */
+.dk-h1, .dk-h2, .dk-h3, .dk-h-accent { font-family: var(--dk-font-display); font-weight: 400; text-transform: uppercase;
+  letter-spacing: .01em; line-height: 1.05; color: var(--dk-color-heading); margin: 0; }
+.dk-h1 { font-size: var(--dk-fs-display-sm); }
+.dk-h2 { font-size: 30px; }
+.dk-h3 { font-size: 22px; }
+.dk-h-accent { font-size: 22px; color: var(--dk-color-heading-accent); }
+.dk-label { font: 700 14px/1.3 var(--dk-font-text); text-transform: uppercase; letter-spacing: .02em; color: var(--dk-color-label); }
+.dk-muted { color: var(--dk-color-text-muted); }
+.dk-link { color: var(--dk-color-text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.dk-link:hover { color: var(--dk-color-accent-hover); }
+
+/* poziomy: biel -> panel -> biała karta -> kafel ecru -> kafel w kaflu */
+.dk-panel { background: var(--dk-color-surface-1); border-radius: var(--dk-radius-md); padding: var(--dk-space-8); }
+.dk-card { background: var(--dk-color-surface-2); border-radius: var(--dk-radius-md); padding: var(--dk-space-6); }
+.dk-card--on-page { border: 1px solid var(--dk-color-border); }      /* biała karta bez panelu pod spodem */
+.dk-tile { background: var(--dk-color-surface-3); border-radius: var(--dk-radius-md); padding: var(--dk-space-5); }
+.dk-tile .dk-tile { background: var(--dk-color-surface-4); }
+.dk-divider { border: 0; border-top: 1px solid var(--dk-color-border); margin: var(--dk-space-4) 0; }
+
+/* przyciski: główny zielony, drugorzędny biały z ciemnym obrysem, wyróżniony żółty */
+.dk-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--dk-space-2); min-height: var(--dk-control-h);
+  padding: 0 var(--dk-space-6); border-radius: var(--dk-radius-btn); border: 1px solid transparent; cursor: pointer;
+  font: 700 15px/1 var(--dk-font-text); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap;
+  transition: background-color var(--dk-motion-fast) var(--dk-motion-ease), border-color var(--dk-motion-fast) var(--dk-motion-ease); }
+.dk-btn:focus-visible { outline: var(--dk-control-focus-width) solid var(--dk-color-focus); outline-offset: var(--dk-control-focus-offset); }
+.dk-btn--primary { background: var(--dk-color-brand); color: var(--dk-color-on-brand); }
+.dk-btn--primary:hover { background: var(--dk-color-brand-hover); }
+.dk-btn--secondary { background: var(--dk-color-btn2-bg); color: var(--dk-color-btn2-text); border-color: var(--dk-color-btn2-border); }
+.dk-btn--secondary:hover { background: var(--dk-color-btn2-hover-bg); }
+.dk-btn--cta { background: var(--dk-color-cta); color: var(--dk-color-on-cta); }
+.dk-btn--cta:hover { background: var(--dk-color-cta-hover); }
+.dk-btn--display { font: 400 20px/1 var(--dk-font-display); letter-spacing: .01em; }   /* jak „DO KOSZYKA” */
+.dk-btn:disabled { background: var(--dk-color-disabled-bg); color: var(--dk-color-text-muted); border-color: transparent; cursor: not-allowed; }
+.dk-btn--block { display: flex; width: 100%; }
+
+/* ikony: liniowe (Lucide), kreska 2, zieleń marki; przycisk-ikona kwadratowy */
+.dk-icon { width: 24px; height: 24px; fill: none; stroke: var(--dk-color-icon); stroke-width: var(--dk-control-stroke-icon);
+  stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.dk-iconbtn { display: inline-grid; place-items: center; width: var(--dk-control-h-min); height: var(--dk-control-h-min);
+  background: var(--dk-color-icon-bg); border: 0; border-radius: var(--dk-radius-btn); cursor: pointer; }
+.dk-iconbtn:hover { background: var(--dk-color-brand-soft); }
+.dk-iconlabel { display: inline-flex; flex-direction: column; align-items: center; gap: 4px;
+  font: 700 11px/1 var(--dk-font-text); text-transform: uppercase; letter-spacing: .03em; color: var(--dk-color-heading-accent); }
+.dk-feature { display: flex; gap: var(--dk-space-4); align-items: flex-start; }
+.dk-feature .dk-icon { width: 32px; height: 32px; margin-top: 2px; }
+.dk-feature b { display: block; font-size: 18px; }
+
+/* zakładki: Mindset, aktywna zielona, pod spodem linia 1 px */
+.dk-tabs { display: flex; gap: var(--dk-space-10); border-bottom: 1px solid var(--dk-color-text); padding-bottom: var(--dk-space-5); }
+.dk-tab { font: 400 20px/1 var(--dk-font-display); text-transform: uppercase; letter-spacing: .01em; color: var(--dk-color-heading);
+  background: none; border: 0; padding: 0; cursor: pointer; }
+.dk-tab[aria-selected="true"] { color: var(--dk-color-heading-accent); }
+/* pod-zakładki: Lato wersaliki, zielona kreska 2 px */
+.dk-subtabs { display: flex; border-bottom: 1px solid var(--dk-color-border); }
+.dk-subtab { font: 400 13px/1 var(--dk-font-text); text-transform: uppercase; letter-spacing: .02em; color: var(--dk-color-label);
+  padding: var(--dk-space-4); margin-bottom: -1px; border-bottom: 2px solid transparent; background: none; border-width: 0 0 2px; cursor: pointer; }
+.dk-subtab[aria-selected="true"] { border-bottom-color: var(--dk-color-brand); }
+
+/* kroki: pasek 5 px, aktywny jasnozielony */
+.dk-steps { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+.dk-step { text-align: center; padding-bottom: var(--dk-space-3); border-bottom: 5px solid var(--dk-color-switch-off);
+  color: var(--dk-color-step-idle-text); font-size: 15px; }
+.dk-step[aria-current="step"] { border-bottom-color: var(--dk-color-progress); color: var(--dk-color-text); }
+
+/* pola */
+.dk-input { min-height: var(--dk-control-h-min); padding: 0 var(--dk-space-3); background: var(--dk-color-check-bg);
+  border: 1px solid var(--dk-color-field-border); border-radius: var(--dk-radius-sm); color: var(--dk-color-text); font: inherit; }
+.dk-input:focus { outline: none; border-color: var(--dk-color-brand); box-shadow: var(--dk-shadow-focus-field); }
+.dk-search { display: flex; align-items: center; gap: var(--dk-space-3); padding: 4px 4px 4px var(--dk-space-4);
+  border: 1px solid var(--dk-color-brand); border-radius: var(--dk-radius-pill); background: var(--dk-color-check-bg); }
+.dk-search input { flex: 1; border: 0; outline: 0; background: none; font: inherit; color: var(--dk-color-text); min-width: 0; }
+.dk-search .dk-btn { min-height: 34px; border-radius: var(--dk-radius-pill); font-size: 12px; padding: 0 var(--dk-space-5); }
+.dk-qty { display: inline-grid; grid-template-columns: 32px 44px 32px; border: 1px solid var(--dk-color-border-strong); border-radius: var(--dk-radius-sm); }
+.dk-qty > * { height: var(--dk-control-h-min); display: grid; place-items: center; background: var(--dk-color-check-bg); border: 0; font: inherit; color: var(--dk-color-text); }
+.dk-qty > button { cursor: pointer; color: var(--dk-color-heading-accent); font-weight: 700; }
+.dk-qty > span { border-inline: 1px solid var(--dk-color-border-strong); font-weight: 700; }
+
+/* checkbox / radio: wnętrze białe, znak zielony */
+.dk-check, .dk-radio { appearance: none; -webkit-appearance: none; flex: none; margin: 0; display: inline-grid; place-content: center;
+  width: var(--dk-control-check-size); height: var(--dk-control-check-size); background: var(--dk-color-check-bg);
+  border: var(--dk-control-check-border-width) solid var(--dk-color-check-border); border-radius: var(--dk-control-check-radius);
+  color: var(--dk-color-check-mark); cursor: pointer; }
+.dk-radio { border-radius: 50%; }
+.dk-check::after { content: ""; width: 12px; height: 12px; background: currentColor; transform: scale(0);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); transition: transform var(--dk-motion-fast) var(--dk-motion-ease); }
+.dk-radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; transform: scale(0); }
+.dk-check:checked::after, .dk-radio:checked::after { transform: scale(1); }
+.dk-check:checked, .dk-radio:checked, .dk-check:hover, .dk-radio:hover { border-color: var(--dk-color-check-border-hover); }
+.dk-check:focus-visible, .dk-radio:focus-visible { outline: var(--dk-control-focus-width) solid var(--dk-color-focus); outline-offset: var(--dk-control-focus-offset); }
+.dk-check:disabled, .dk-radio:disabled { border-color: var(--dk-color-check-disabled-border); color: var(--dk-color-check-disabled-mark); cursor: not-allowed; }
+.dk-field { display: inline-flex; align-items: center; gap: var(--dk-space-3); min-height: var(--dk-control-h-min); cursor: pointer; }
+
+/* przełącznik i suwak */
+.dk-switch { position: relative; display: inline-block; width: 48px; height: 28px; flex: none; }
+.dk-switch input { appearance: none; -webkit-appearance: none; position: absolute; inset: 0; margin: 0; cursor: pointer; border-radius: var(--dk-radius-pill);
+  background: var(--dk-color-switch-off); border: 1px solid var(--dk-color-switch-off-border); }
+.dk-switch input:checked { background: var(--dk-color-switch-on); border-color: var(--dk-color-switch-on); }
+.dk-switch span { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 50%; background: var(--dk-color-switch-knob);
+  box-shadow: var(--dk-shadow-raised); pointer-events: none; transition: transform var(--dk-motion-fast) var(--dk-motion-ease); }
+.dk-switch input:checked + span { transform: translateX(20px); }
+.dk-slider { appearance: none; -webkit-appearance: none; width: 220px; height: 6px; border-radius: 3px; cursor: pointer;
+  background: linear-gradient(to right, var(--dk-color-slider-fill) var(--v, 50%), var(--dk-color-slider-track) var(--v, 50%)); }
+.dk-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; background: var(--dk-color-slider-thumb);
+  border: var(--dk-control-slider-thumb-border-width) solid var(--dk-color-slider-thumb-border); }
+.dk-progress { height: 8px; border-radius: 4px; background: var(--dk-color-slider-track); overflow: hidden; }
+.dk-progress i { display: block; height: 100%; background: var(--dk-color-progress); }
+
+/* metki: pełna zielona (cena, licznik) i odcieniowe (kategorie) */
+.dk-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 0 var(--dk-space-3); border-radius: var(--dk-radius-sm);
+  background: var(--dk-color-brand); color: var(--dk-color-on-brand); font: 700 13px/1 var(--dk-font-text); }
+.dk-tag { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--dk-space-3); border-radius: var(--dk-radius-pill);
+  font: 700 13px/1 var(--dk-font-text); border: 1px solid; }
+.dk-price { font: 400 28px/1 var(--dk-font-display); background: var(--dk-color-brand); color: var(--dk-color-on-brand); padding: 10px 16px 10px 24px;
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); display: inline-block; }
+
+/* lista z zielonymi kropkami, tabela w pasy */
+.dk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--dk-space-2); font-weight: 700; }
+.dk-list li { display: flex; gap: var(--dk-space-3); align-items: baseline; }
+.dk-list li::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--dk-color-brand); flex: none; }
+.dk-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.dk-table th { text-align: left; font-weight: 700; padding: var(--dk-space-3) var(--dk-space-5); color: var(--dk-color-label); }
+.dk-table td { padding: var(--dk-space-5); }
+.dk-table tbody tr:nth-child(odd) { background: var(--dk-color-zebra); }
+.dk-topbar { background: var(--dk-color-heading-accent); color: var(--dk-color-on-brand); font: 700 12px/1 var(--dk-font-text); text-transform: uppercase;
+  letter-spacing: .02em; padding: var(--dk-space-3) var(--dk-space-6); }
+.dk-strip { background: var(--dk-color-strip); display: flex; gap: var(--dk-space-10); padding: var(--dk-space-4) var(--dk-space-6);
+  font: 700 14px/1 var(--dk-font-text); text-transform: uppercase; letter-spacing: .01em; }
+
+/* ---- układ tej planszy (nie jest częścią systemu) ---- */
+body { margin: 0; }
+.wrap { max-width: 1320px; margin: 0 auto; padding: 32px; display: grid; gap: 40px; }
+.cols { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; align-items: start; }
+.row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.stack { display: grid; gap: 16px; }
+.note { font-size: 13px; color: var(--dk-color-text-muted); }
+.sw { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; border: 1px solid var(--dk-color-border); border-radius: 8px; overflow: hidden; }
+.sw div { padding: 14px 12px 12px; font-size: 12px; min-height: 76px; }
+.sw b { display: block; font-size: 13px; }
+.sum { display: flex; justify-content: space-between; }
+</style>
+</head>
+<body class="dk-page">
+<div class="dk-topbar">Darmowa dostawa od 150 zł · wysyłka kurierska w 24h</div>
+<div class="dk-strip"><span>Naturalne słodycze</span><span>Zdrowe posiłki</span><span>Zestawy</span><span>Promocje</span><span>Nowości</span></div>
+
+<div class="wrap">
+  <section class="stack" id="s-poziomy">
+    <div class="dk-h-accent">Design system 2.0 · wzorzec „sklep”</div>
+    <h1 class="dk-h1">Zawartość koszyka</h1>
+    <div class="sw">
+      <div style="background:var(--dk-color-surface-0)"><b>L0 tło okna</b>#FFFFFF biel</div>
+      <div style="background:var(--dk-color-surface-1)"><b>L1 panel</b>#F8F7F5 jasnoszary ciepły</div>
+      <div style="background:var(--dk-color-surface-2)"><b>L2 karta w panelu</b>#FFFFFF biel</div>
+      <div style="background:var(--dk-color-surface-3)"><b>L3 kafel w karcie</b>#FDF8EC ecru</div>
+      <div style="background:var(--dk-color-surface-4)"><b>L4 kafel w kaflu</b>#F5ECD8 beż</div>
+    </div>
+  </section>
+
+  <section class="cols" id="s-koszyk">
+    <div class="stack">
+      <div class="dk-steps"><div class="dk-step" aria-current="step">1. Twój koszyk</div><div class="dk-step">2. Twoje dane</div><div class="dk-step">3. Potwierdzenie</div></div>
+      <div class="dk-panel"><b>Darmowa wysyłka:</b>&nbsp; Gratulacje! Darmowa przesyłka dla „DPD Pickup”.</div>
+      <div class="row" style="justify-content:space-between">
+        <div><b style="font-size:17px">Baton nerkowce &amp; kokos - 35g</b><div class="dk-muted" style="font-size:14px">Dodaj do ulubionych</div></div>
+        <div class="dk-qty"><button aria-label="mniej">-</button><span>2</span><button aria-label="więcej">+</button></div>
+        <b style="font-size:18px">5.18 pln</b>
+      </div>
+      <hr class="dk-divider">
+      <div class="dk-tabs" role="tablist"><button class="dk-tab" role="tab" aria-selected="true">Skład i wartości odżywcze</button><button class="dk-tab" role="tab" aria-selected="false">Podobne produkty</button></div>
+      <div class="dk-subtabs"><button class="dk-subtab" aria-selected="true">Skład i wartości odżywcze</button><button class="dk-subtab" aria-selected="false">Podobne produkty</button></div>
+      <h2 class="dk-h2">Skład produktu</h2>
+      <p style="margin:0">Daktyle suszone (72 %), wiórki kokosowe (14 %), <a class="dk-link" href="#">orzechy nerkowca</a> (6 %), <a class="dk-link" href="#">orzeszki ziemne</a> prażone.</p>
+      <ul class="dk-list"><li>krótki skład</li><li>0% dodatku cukru</li><li>tylko 133 kcal</li></ul>
+      <table class="dk-table"><thead><tr><th>Wartość odżywcza</th><th>100g</th><th>porcja (35g)</th></tr></thead>
+        <tbody><tr><td><b>Wartość energetyczna</b></td><td>1594kJ/380 kcal</td><td>558kJ/133 kcal</td></tr><tr><td><b>Tłuszcz</b></td><td>13g</td><td>4,5g</td></tr><tr><td><b>Węglowodany</b></td><td>56g</td><td>20g</td></tr></tbody></table>
+    </div>
+
+    <div class="dk-panel stack">
+      <div class="row"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2M13 17v2M13 11v2"/></svg><span class="dk-label">Kody rabatowe i karty upominkowe</span></div>
+      <div class="dk-card stack">
+        <div class="sum"><b>Masz kod rabatowy?</b><svg class="dk-icon" style="stroke:var(--dk-color-text);width:18px;height:18px" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+        <hr class="dk-divider" style="margin:0">
+        <div class="dk-tile stack"><div class="sum"><span>Kod rabatowy - <b>SZPAKI15%</b></span><span>-76.48 pln</span></div>
+          <div class="dk-tile note" style="padding:10px 12px">Kafel w kaflu: kolejny poziom w głąb (beż), używany dopiero tutaj.</div></div>
+      </div>
+      <div class="dk-card stack">
+        <b style="font-size:17px">Podsumowanie zamówienia</b>
+        <div class="sum"><span>Wartość produktów:</span><span>309.86 pln</span></div>
+        <div class="sum"><span>Wysyłka:</span><span>Za darmo!</span></div>
+        <div class="sum"><b>Łącznie:</b><b style="font-size:18px">263.38 pln</b></div>
+        <button class="dk-btn dk-btn--primary dk-btn--block">Realizuj zamówienie</button>
+        <button class="dk-btn dk-btn--secondary dk-btn--block">Powrót do sklepu</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="cols" id="s-kontrolki">
+    <div class="stack">
+      <h3 class="dk-h3">Przyciski i pola</h3>
+      <div class="row"><button class="dk-btn dk-btn--primary dk-btn--display">Do koszyka</button><button class="dk-btn dk-btn--primary">Sprawdź</button>
+        <button class="dk-btn dk-btn--secondary">Powrót</button><button class="dk-btn dk-btn--cta">Zobacz więcej</button><button class="dk-btn" disabled>Niedostępne</button></div>
+      <div class="row"><div class="dk-search" style="width:360px"><svg class="dk-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Znajdź dobrą kalorię"><button class="dk-btn dk-btn--primary">Szukaj</button></div>
+        <input class="dk-input" value="Pole tekstowe" style="width:200px"></div>
+      <div class="row">
+        <span class="dk-iconlabel"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/></svg>Ulubione</span>
+        <span class="dk-iconlabel"><svg class="dk-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>Konto</span>
+        <span class="dk-iconlabel"><svg class="dk-icon" viewBox="0 0 24 24"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2 2h3l2.7 12.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>Koszyk</span>
+        <button class="dk-iconbtn" aria-label="wstecz"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+        <button class="dk-iconbtn" aria-label="dalej"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+        <span class="dk-price">2.59 PLN</span><span class="dk-chip">1 / 2</span>
+        <span class="dk-tag" style="background:var(--dk-color-tag-1-bg);color:var(--dk-color-tag-1-fg);border-color:var(--dk-color-tag-1-border)">Nowość</span>
+        <span class="dk-tag" style="background:var(--dk-color-tag-2-bg);color:var(--dk-color-tag-2-fg);border-color:var(--dk-color-tag-2-border)">Bio</span>
+        <span class="dk-tag" style="background:var(--dk-color-tag-3-bg);color:var(--dk-color-tag-3-fg);border-color:var(--dk-color-tag-3-border)">Wege</span>
+      </div>
+    </div>
+    <div class="dk-panel stack">
+      <h3 class="dk-h3">Kontrolki na panelu</h3>
+      <div class="dk-card stack">
+        <div class="row"><label class="dk-field"><input type="checkbox" class="dk-check" checked>Zaznaczony</label><label class="dk-field"><input type="checkbox" class="dk-check">Pusty</label>
+          <label class="dk-field"><input type="radio" name="r" class="dk-radio" checked>Radio</label><label class="dk-field"><input type="radio" name="r" class="dk-radio">Radio</label>
+          <label class="dk-field"><input type="checkbox" class="dk-check" checked disabled>Wyłączony</label></div>
+        <div class="row"><label class="dk-switch"><input type="checkbox" checked><span></span></label><label class="dk-switch"><input type="checkbox"><span></span></label>
+          <input type="range" class="dk-slider" style="--v:60%" value="60"></div>
+        <div class="dk-progress"><i style="width:45%"></i></div>
+        <div class="dk-feature"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M7 10v12M15 5.9 14 10h5.8a2 2 0 0 1 2 2.5l-2.4 8a2 2 0 0 1-1.9 1.5H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.8a2 2 0 0 0 1.8-1.1L12 2a3.1 3.1 0 0 1 3 3.9Z"/></svg>
+          <div><b>Prosty skład i maksimum korzyści</b><span>Ikona liniowa zielona, tytuł Lato pogrubiony, opis zwykły.</span></div></div>
+      </div>
+    </div>
+  </section>
+</div>
+<script>document.fonts.ready.then(function () { document.documentElement.setAttribute("data-ready", "1"); });</script>
+</body>
+</html>

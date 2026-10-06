@@ -1,0 +1,58 @@
+Design system Dobra Kaloria 1.6.0 - tokeny gotowe do użycia (2026-10-06, runda 3).
+Źródło: tokens/tokens.json -> scripts/build_tokens.py (tokens.css, tokens_qt.py, tokens.md); --check: 754 sprawdzenia, 0 błędów.
+Specyfikacja: RUNDA-3-2026-10-06.md (reguły G1-G9, słowa usera dosłownie). Kontrakt nazw: WORK/logs/runda3-TOKENY-1.6.0.md.
+
+REGUŁA NACZELNA: zieleń tylko: logo, plansza startowa (splash), kafle KPI (góra pulpitu DAM), kropka statusu "online".
+Plansza startowa programu zostaje z zielonym tłem: to zatwierdzony wyjątek (chwila marki jak logo, user: "jest pięknie"), nie błąd.
+Role brand, brand-hover, brand-soft, brand-soft-strong, on-brand zachowują zielone wartości (nic nie usunięto ani nie
+przemianowano), ale od 1.6.0 wolno ich użyć WYŁĄCZNIE do tych czterech rzeczy. Tekst, liczniki, etykiety, linki, tytuły,
+ikony, kółka pod ikonami, aktywny krok, suwaki, przełączniki, obrysy i napisy przycisków drugorzędnych = brąz (rola accent / text / icon).
+--check pilnuje tego: w program, krem-jasny, zielen-jasny i krem-ciemny żadna rola poza brand* (ani tag) nie ma
+chroma > 0.04 w odcieniu 105-200 stopni OKLCH.
+
+Co się zmieniło względem 1.5.x:
+- Nowe prymitywy: brown-800 #5A4232, brown-500 #85654A, sand-250 #E1DAC9, sand-225 #F2EBDA, wheat-200 #E6D3A0.
+- 29 nowych ról we wszystkich pięciu zestawach (program/:root, krem-jasny, zielen-jasny, krem-ciemny, zielen-ciemny):
+  accent, accent-hover, on-accent, accent-beige, icon, icon-bg, check-*, slider-*, switch-*, btn2-*, step-* (lista niżej).
+- Zmienione wartości istniejących ról (nazwy zostają): label (jasne: brąz #85654A, było #AD8767 / zielone w DK1 jasny),
+  focus (jasne: #3B2A20; krem ciemny: #E6D3A0; było zielone), switch-off (jasne: tor #E1DAC9; krem ciemny: tor #3F362A;
+  zieleń ciemny bez zmian) - obrys wyłączonego przełącznika to teraz switch-off-border.
+- DK1 jasny (zielen-jasny) ma brązowy tekst: text #3B2A20, text-muted #7D5E44, inverse-bg #3B2A20 (było sosnowe).
+  DK1 ciemny zostaje zielony; ma nowe role, checkbox wg G9 (wnętrze check-bg = L3, jaśniejsze od tła; znak i obrys w limonce).
+- shadow focus-field: 0 0 0 3px rgba(59,42,32,.18) (było zielone).
+- Tagi w zestawach beżowych tylko ciepłe (odcienie 98...62: żółć, beż, jasna brzoskwinia; przesunięcia [0, 8, -8, -12, -16, -20, -24, -28]): nowy opcjonalny klucz
+  tag_offsets w wariancie drabiny. Zieleń ciemny bez zmian.
+- Nowe tokeny control (CSS --dk-control-*, Qt T["control_*"]): check-size 20px, check-radius 4px,
+  check-border-width 1.5px, btn2-border-width 1px, slider-thumb-border-width 2px.
+- Szkic motywu Photo Resizera: @FG_ACCENT@, @ACCENT@, @BORDER_FOCUS@ = #3B2A20, @ACCENT_HOVER@ = #5A4232, @UPDATE_TOAST_BORDER@ = #9C8B72.
+- Odstępstwo od kontraktu: switch-knob w krem ciemny = #FFFFFF (kontrakt: ivory #F5F1E8, kontrast na torze #AD8767 = 2.89:1 < 3.0).
+
+Nowe role - wartości dla zestawu beżowego jasnego (program = :root, krem-jasny, zielen-jasny: identyczne):
+  accent #3B2A20 | accent-hover #5A4232 | on-accent #FFFFFF | accent-beige #AD8767 (dekoracja: ramka przerywana, punktory)
+  icon #85654A | icon-bg #F2EBDA (= surface-3)
+  check-bg #FFFFFF (= surface-0) | check-border #7D5E44 | check-border-hover #3B2A20 | check-mark #3B2A20
+  check-disabled-border #D9CFBB | check-disabled-mark #9C8B72
+  slider-track #E1DAC9 | slider-fill #7D5E44 | slider-thumb #FFFFFF | slider-thumb-border #3B2A20
+  switch-off #E1DAC9 | switch-off-border #9C8B72 | switch-on #7D5E44 | switch-knob #FFFFFF
+  btn2-bg #FFFFFF (= surface-0) | btn2-text #3B2A20 | btn2-border #9C8B72 | btn2-hover-bg #F8F1E0 (= surface-2)
+  step-active-bg #3B2A20 | step-active-text #FFFFFF | step-idle-border #D9CFBB | step-idle-text #7D5E44 | step-done #3B2A20
+  label #85654A | focus #3B2A20
+Krem ciemny i zieleń ciemny: wartości w tokens/tokens.css (bloki [data-theme]) i tokens_qt.py (T_KREM, T_DARK);
+tabela wszystkich wariantów w components.md sekcja 24.
+
+Migracja aplikacji Qt (klucze T[...] z tokens_qt.py; dla trybu/stylu użyj słownika wariantu, np. T_KREM_JASNY):
+- checkbox / radio: tło wnętrza color_check_bg, obrys 1,5 px color_check_border (hover color_check_border_hover),
+  znak color_check_mark (QSS nie rysuje ptaszka - image: url() z małego SVG/PNG w tym kolorze, zob. components.md 24);
+  wyłączony: color_check_disabled_border / color_check_disabled_mark. Rozmiar control_check_size, promień control_check_radius (radio: 10 px).
+- suwak: groove color_slider_track, sub-page color_slider_fill, handle tło color_slider_thumb + obrys 2 px color_slider_thumb_border.
+- przełącznik (QCheckBox): wyłączony tor color_switch_off + obrys color_switch_off_border, włączony tor color_switch_on, gałka color_switch_knob.
+- przycisk drugorzędny: tło color_btn2_bg, tekst color_btn2_text (bold), obrys 1 px color_btn2_border, hover tło color_btn2_hover_bg, promień 4 px.
+- krokomierz: aktywny color_step_active_bg + color_step_active_text; nieaktywny obrys color_step_idle_border + tekst color_step_idle_text;
+  ukończony ptaszek color_step_done.
+- linki, tytuły, liczniki, ikony: color_accent (hover color_accent_hover), ikona color_icon na kółku color_icon_bg; etykiety color_label;
+  dekoracja color_accent_beige; fokus color_focus + shadow_focus_field.
+- Zamiast brand/brand-soft w wariantach beżowych używaj accent / icon-bg. brand tylko dla logo, planszy startowej (splash), kafli KPI, kropki statusu.
+Link: pogrubiony, color_accent, BEZ podkreślenia w spoczynku; podkreślenie i color_accent_hover tylko na hover/focus (text-decoration:none w <a style>).
+- Web: te same nazwy jako --dk-color-<rola> i --dk-control-<nazwa>; style.css programu: --accent: var(--dk-color-accent) itd. (kontrakt, sekcja 5).
+
+Stary znacznik: tokens/READY-1.5.0.txt (zostaje).

@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kontrolki 1.6.0</title>
+<link rel="stylesheet" href="../tokens/tokens.css">
+<style>
+/* Test przepisów z components.md, rozdz. 24 (kod skopiowany bez zmian) + nagłówki kolumn tej strony */
+@font-face { font-family: "Mindset"; src: url("../assets/fonts/Mindset.otf") format("opentype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Lato"; src: url("../assets/fonts/Lato-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Lato"; src: url("../assets/fonts/Lato-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+
+/* ---- przepisy 24 ---- */
+.dk-tick { display: inline-block; width: 14px; height: 14px; background: currentColor;
+           clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); }
+.dk-check, .dk-radio {
+  appearance: none; -webkit-appearance: none; flex: none; margin: 0; display: inline-grid; place-content: center;
+  width: var(--dk-control-check-size); height: var(--dk-control-check-size);
+  background: var(--dk-color-check-bg);
+  border: var(--dk-control-check-border-width) solid var(--dk-color-check-border);
+  border-radius: var(--dk-control-check-radius);
+  color: var(--dk-color-check-mark); cursor: pointer;
+  transition: border-color var(--dk-motion-fast) var(--dk-motion-ease);
+}
+.dk-radio { border-radius: 50%; }
+.dk-check::after { content: ""; width: 12px; height: 12px; background: currentColor; transform: scale(0);
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); transition: transform var(--dk-motion-fast) var(--dk-motion-ease); }
+.dk-radio::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: currentColor; transform: scale(0);
+  transition: transform var(--dk-motion-fast) var(--dk-motion-ease); }
+.dk-check:checked::after, .dk-radio:checked::after { transform: scale(1); }
+.dk-check:hover, .dk-radio:hover { border-color: var(--dk-color-check-border-hover); }
+.dk-check:focus-visible, .dk-radio:focus-visible, .dk-switch input:focus-visible, .dk-slider:focus-visible, .dk-btn2:focus-visible, .dk-btn1:focus-visible {
+  outline: var(--dk-control-focus-width) solid var(--dk-color-focus); outline-offset: var(--dk-control-focus-offset); }
+.dk-check:disabled, .dk-radio:disabled { border-color: var(--dk-color-check-disabled-border); color: var(--dk-color-check-disabled-mark); cursor: not-allowed; }
+.dk-field { display: inline-flex; align-items: center; gap: var(--dk-space-3); min-height: var(--dk-control-h-min); cursor: pointer; color: var(--dk-color-text); }
+.dk-field:has(:disabled) { color: var(--dk-color-text-muted); cursor: not-allowed; }
+
+.dk-switch { position: relative; display: inline-block; width: 48px; height: 32px; flex: none; }
+.dk-switch input { appearance: none; -webkit-appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer;
+  background: var(--dk-color-switch-off); border: var(--dk-control-check-border-width) solid var(--dk-color-switch-off-border);
+  border-radius: var(--dk-radius-pill); transition: background var(--dk-motion-base) var(--dk-motion-ease), border-color var(--dk-motion-base) var(--dk-motion-ease); }
+.dk-switch input::before { content: ""; position: absolute; top: 50%; left: 3px; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+  background: var(--dk-color-switch-knob); box-shadow: var(--dk-shadow-raised);
+  transition: transform var(--dk-motion-base) var(--dk-motion-ease); }
+.dk-switch input:checked { background: var(--dk-color-switch-on); border-color: var(--dk-color-switch-on); }
+.dk-switch input:checked::before { transform: translateX(16px); }
+.dk-switch input:hover { border-color: var(--dk-color-check-border-hover); }
+.dk-switch input:checked:hover { background: var(--dk-color-accent-hover); border-color: var(--dk-color-accent-hover); }
+.dk-switch input:disabled { opacity: .45; cursor: not-allowed; }
+
+.dk-slider { -webkit-appearance: none; appearance: none; width: 100%; height: var(--dk-control-h-min); margin: 0; background: transparent; cursor: pointer; --pct: 50%; }
+.dk-slider::-webkit-slider-runnable-track { height: 8px; border-radius: var(--dk-radius-pill);
+  background: linear-gradient(to right, var(--dk-color-slider-fill) var(--pct), var(--dk-color-slider-track) var(--pct)); }
+.dk-slider::-webkit-slider-thumb { -webkit-appearance: none; box-sizing: border-box; width: 24px; height: 24px; margin-top: -8px; border-radius: 50%;
+  background: var(--dk-color-slider-thumb); border: var(--dk-control-slider-thumb-border-width) solid var(--dk-color-slider-thumb-border); box-shadow: var(--dk-shadow-thumb); }
+.dk-slider::-moz-range-track { height: 8px; border-radius: var(--dk-radius-pill); background: var(--dk-color-slider-track); }
+.dk-slider::-moz-range-progress { height: 8px; border-radius: var(--dk-radius-pill); background: var(--dk-color-slider-fill); }
+.dk-slider::-moz-range-thumb { box-sizing: border-box; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--dk-color-slider-thumb); border: var(--dk-control-slider-thumb-border-width) solid var(--dk-color-slider-thumb-border); box-shadow: var(--dk-shadow-thumb); }
+.dk-slider:hover::-webkit-slider-thumb { transform: scale(1.05); }
+
+.dk-btn1, .dk-btn2 { display: inline-flex; align-items: center; justify-content: center; gap: var(--dk-space-2); cursor: pointer;
+  border-radius: var(--dk-radius-btn); font: 700 var(--dk-fs-md)/1 var(--dk-font-text); transition: background var(--dk-motion-fast) var(--dk-motion-ease); }
+.dk-btn1 { min-height: var(--dk-control-h); padding: 0 var(--dk-space-8); background: var(--dk-color-cta); color: var(--dk-color-on-cta); border: 0; }
+.dk-btn1:hover { background: var(--dk-color-cta-hover); }
+.dk-btn2 { min-height: var(--dk-control-h); padding: 0 var(--dk-space-6); background: var(--dk-color-btn2-bg); color: var(--dk-color-btn2-text);
+  border: var(--dk-control-btn2-border-width) solid var(--dk-color-btn2-border); }
+.dk-btn2:hover { background: var(--dk-color-btn2-hover-bg); }
+.dk-btn1:active, .dk-btn2:active { transform: translateY(1px); }
+.dk-btn2:disabled { background: var(--dk-color-disabled-bg); color: var(--dk-color-text-muted); border-color: var(--dk-color-border-strong); cursor: not-allowed; }
+
+.dk-steps { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; padding: 0; list-style: none; }
+.dk-steps li { display: inline-flex; align-items: center; gap: var(--dk-space-2); min-height: 36px; padding: 0 var(--dk-space-4);
+  border: 1px solid var(--dk-color-step-idle-border); border-radius: var(--dk-radius-btn);
+  color: var(--dk-color-step-idle-text); font: 700 var(--dk-fs-sm)/1 var(--dk-font-text); }
+.dk-steps li.done { color: var(--dk-color-text); }
+.dk-steps li.done .dk-tick { color: var(--dk-color-step-done); }
+.dk-steps li[aria-current="step"] { background: var(--dk-color-step-active-bg); border-color: var(--dk-color-step-active-bg); color: var(--dk-color-step-active-text); }
+
+.dk-icon-circle { display: inline-grid; place-content: center; width: 48px; height: 48px; border-radius: 50%;
+  background: var(--dk-color-icon-bg); color: var(--dk-color-icon); }
+.dk-icon-circle .ic { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: var(--dk-control-stroke-icon); stroke-linecap: round; stroke-linejoin: round; }
+
+.dk-link { color: var(--dk-color-accent); font-weight: 700; text-decoration: none; text-underline-offset: 3px; }
+.dk-link:hover, .dk-link:focus-visible { color: var(--dk-color-accent-hover); text-decoration: underline; }
+.dk-link:focus-visible { outline: var(--dk-control-focus-width) solid var(--dk-color-focus); outline-offset: var(--dk-control-focus-offset); }
+
+/* tagi (components.md 22) */
+.tag { display: inline-flex; align-items: center; min-height: 24px; padding: 0 var(--dk-space-2); border-radius: var(--dk-radius-pill);
+       font: 700 13px/1 var(--dk-font-text); background: var(--tag-bg); color: var(--tag-fg); border: 1px solid var(--tag-bd); }
+.tag[data-k="1"] { --tag-bg: var(--dk-color-tag-1-bg); --tag-fg: var(--dk-color-tag-1-fg); --tag-bd: var(--dk-color-tag-1-border); }
+.tag[data-k="2"] { --tag-bg: var(--dk-color-tag-2-bg); --tag-fg: var(--dk-color-tag-2-fg); --tag-bd: var(--dk-color-tag-2-border); }
+.tag[data-k="3"] { --tag-bg: var(--dk-color-tag-3-bg); --tag-fg: var(--dk-color-tag-3-fg); --tag-bd: var(--dk-color-tag-3-border); }
+.tag[data-k="4"] { --tag-bg: var(--dk-color-tag-4-bg); --tag-fg: var(--dk-color-tag-4-fg); --tag-bd: var(--dk-color-tag-4-border); }
+.tag[data-k="5"] { --tag-bg: var(--dk-color-tag-5-bg); --tag-fg: var(--dk-color-tag-5-fg); --tag-bd: var(--dk-color-tag-5-border); }
+.tag[data-k="6"] { --tag-bg: var(--dk-color-tag-6-bg); --tag-fg: var(--dk-color-tag-6-fg); --tag-bd: var(--dk-color-tag-6-border); }
+.tag[data-k="7"] { --tag-bg: var(--dk-color-tag-7-bg); --tag-fg: var(--dk-color-tag-7-fg); --tag-bd: var(--dk-color-tag-7-border); }
+.tag[data-k="8"] { --tag-bg: var(--dk-color-tag-8-bg); --tag-fg: var(--dk-color-tag-8-fg); --tag-bd: var(--dk-color-tag-8-border); }
+
+/* ---- tylko ta strona: układ kolumn i wymuszone stany do dokumentacji ---- */
+*, *::before, *::after { box-sizing: border-box; }
+html { margin: 0; }
+body { margin: 0; font-family: var(--dk-font-text); font-size: var(--dk-fs-base); line-height: var(--dk-lh-base); background: #ddd; }
+.cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.col { background: var(--dk-color-bg); color: var(--dk-color-text); padding: var(--dk-space-6) var(--dk-space-6) var(--dk-space-8); min-width: 0; }
+.col h1 { font: 400 var(--dk-fs-xl)/1.1 var(--dk-font-display); text-transform: uppercase; letter-spacing: .06em; margin: 0 0 var(--dk-space-1); color: var(--dk-color-accent); }
+.col .sub { margin: 0 0 var(--dk-space-5); color: var(--dk-color-text-muted); font-size: var(--dk-fs-sm); }
+.card { background: var(--dk-color-surface-1); border: 1px solid var(--dk-color-border); border-radius: var(--dk-radius-md); padding: var(--dk-space-5); margin-bottom: var(--dk-space-4); }
+.eyebrow { margin: 0 0 var(--dk-space-2); font: 700 14px/1.2 var(--dk-font-text); text-transform: uppercase; letter-spacing: .1em; color: var(--dk-color-label); }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2) var(--dk-space-6); }
+.col-flow { display: flex; flex-direction: column; align-items: flex-start; }
+.slider-wrap { width: 100%; }
+.dk-btn2.is-hover { background: var(--dk-color-btn2-hover-bg); }
+.dk-link.is-hover { color: var(--dk-color-accent-hover); text-decoration: underline; }
+.is-focus { outline: var(--dk-control-focus-width) solid var(--dk-color-focus); outline-offset: var(--dk-control-focus-offset); }
+.cap { font-size: 13px; color: var(--dk-color-text-muted); margin: 0 0 var(--dk-space-1); }
+.tags { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+.kpi { display: inline-flex; align-items: center; gap: var(--dk-space-2); }
+.kpi i { width: 10px; height: 10px; border-radius: 50%; background: var(--dk-color-brand); }
+</style>
+</head>
+<body>
+<div role="note" style="padding:var(--dk-space-4) var(--dk-space-6);background:var(--dk-color-warning-bg);border-bottom:2px solid var(--dk-color-warning-border);color:var(--dk-color-warning-text);font:700 var(--dk-fs-md)/1.4 var(--dk-font-text);text-align:center">
+  Galeria sprzed 2.0.0 (kontrolki 1.6.0, kolory nieaktualne) &mdash; wzorzec „sklep” 2.0.0 zobacz w
+  <a href="sklep.html" style="color:var(--dk-color-warning-text);text-decoration:underline">sklep.html</a>.
+</div>
+<div class="cols" id="cols"></div>
+<script>
+(function () {
+  var variants = [
+    ["dobra-kaloria-krem-jasny", "DK2 krem, jasny"],
+    ["dobra-kaloria-zielen-jasny", "DK1 zieleń, jasny"],
+    ["dobra-kaloria-krem-ciemny", "DK2 krem, ciemny"],
+    ["dobra-kaloria-zielen-ciemny", "DK1 zieleń, ciemny"]
+  ];
+  var icon = '<svg class="ic" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>';
+  var tags = ["Smak", "Typ", "Opakowanie", "Autor", "Opis", "Podkategoria", "Marka", "Z folderu"];
+  var html = variants.map(function (v, i) {
+    var id = "v" + i;
+    return '<section class="col" data-theme="' + v[0] + '">' +
+      '<h1>' + v[1] + '</h1><p class="sub">' + v[0] + '</p>' +
+
+      '<div class="card"><p class="eyebrow">Checkbox i radio</p><div class="row">' +
+        '<label class="dk-field"><input type="checkbox" class="dk-check"> Wył.</label>' +
+        '<label class="dk-field"><input type="checkbox" class="dk-check" checked> Zazn.</label>' +
+        '<label class="dk-field"><input type="checkbox" class="dk-check" disabled> Niedost.</label>' +
+        '<label class="dk-field"><input type="checkbox" class="dk-check" checked disabled> Zazn. niedost.</label>' +
+        '<label class="dk-field"><input type="radio" name="r' + id + '" class="dk-radio"> Radio</label>' +
+        '<label class="dk-field"><input type="radio" name="r' + id + '" class="dk-radio" checked> Radio</label>' +
+        '<label class="dk-field"><input type="checkbox" class="dk-check is-focus" checked> Fokus</label>' +
+      '</div></div>' +
+
+      '<div class="card"><p class="eyebrow">Przełącznik i suwak</p><div class="row">' +
+        '<label class="dk-field"><span class="dk-switch"><input type="checkbox" role="switch" aria-label="Wył."></span> Wył.</label>' +
+        '<label class="dk-field"><span class="dk-switch"><input type="checkbox" role="switch" aria-label="Wł." checked></span> Wł.</label>' +
+      '</div><div class="slider-wrap"><input type="range" class="dk-slider" min="0" max="100" value="50" style="--pct:50%" aria-label="Długość"></div></div>' +
+
+      '<div class="card"><p class="eyebrow">Przyciski</p><div class="row">' +
+        '<button type="button" class="dk-btn1">Stwórz prezentację</button>' +
+        '<button type="button" class="dk-btn2">Wybierz folder</button>' +
+        '<button type="button" class="dk-btn2 is-hover">Hover</button>' +
+        '<button type="button" class="dk-btn2" disabled>Wył.</button>' +
+      '</div></div>' +
+
+      '<div class="card"><p class="eyebrow">Krokomierz</p>' +
+        '<ol class="dk-steps"><li class="done"><span class="dk-tick"></span>Folder</li><li aria-current="step">Ustawienia</li><li>Tworzenie</li></ol></div>' +
+
+      '<div class="card"><p class="eyebrow">Ikona i link</p><div class="row">' +
+        '<span class="dk-icon-circle">' + icon + '</span>' +
+        '<a href="#" class="dk-link">Link w tekście</a>' +
+        '<a href="#" class="dk-link is-hover">Link (hover)</a>' +
+      '</div></div>' +
+
+      '<div class="card"><p class="eyebrow">Tagi</p><div class="tags">' +
+        tags.map(function (t, k) { return '<span class="tag" data-k="' + (k + 1) + '">' + t + '</span>'; }).join("") +
+      '</div></div>' +
+    '</section>';
+  }).join("");
+  document.getElementById("cols").innerHTML = html;
+  document.querySelectorAll(".dk-slider").forEach(function (s) {
+    s.addEventListener("input", function () { s.style.setProperty("--pct", (s.value / s.max * 100) + "%"); });
+  });
+})();
+</script>
+</body>
+</html>

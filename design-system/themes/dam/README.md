@@ -1,3 +1,5 @@
+> **Stan 2.0.0 (06.10.2026):** ten plik opisuje szkic motywu sprzed 2.0.0. Wartości obowiązujące: `../../tokens/READY-2.0.0.txt` i wygenerowany plik motywu w tym katalogu (białe tło, szary panel, tekst #222222, zieleń #007936).
+
 # Motyw „Dobra Kaloria” w DAM
 
 Status: **szkic**. Wartości policzone i sprawdzone pod kątem kontrastu, ale motyw nie był jeszcze

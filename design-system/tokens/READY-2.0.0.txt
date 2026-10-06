@@ -1,0 +1,76 @@
+DESIGN SYSTEM DOBRA KALORIA 2.0.0 „SKLEP” - GOTOWY (06.10.2026)
+====================================================================
+Kontrola: python scripts/build_tokens.py --check  ->  556 sprawdzeń, błędów: 0
+Źródło wyglądu: 7 zrzutów sklepu dobrakaloria.pl od usera (assets/sklep-2026-10-06/sklep-20..26.png), kolory próbkowane
+pikselami (DOWODY-SKLEP.md). Wzorzec do porównania: preview/sklep.html, zrzuty preview/shots/70-sklep-*.png, 71-sklep-*.png.
+Słowa usera i zakres: RUNDA-4-SKLEP-2026-10-06.md. Kolory rundy 3 (1.6.0: „zero zieleni”, tekst brązowy, beż wszędzie) UCHYLONE.
+
+STYLE
+  program (:root, domyślny) = zielen-jasny = SKLEP: biel > szary panel > biała karta > kafel ecru > beż
+  krem-jasny                = kafle ecru na bieli (jak strona główna sklepu): biel > ecru > biała karta > beż > głębszy beż
+  zielen-ciemny, krem-ciemny = BEZ ZMIAN (zrzuty sklepu nie pokazują trybu ciemnego)
+
+DRABINA (style jasne; nazwy zmiennych bez zmian: --dk-color-surface-0..4, color_surface_0..4 w Qt)
+  poziom                         sklep/zieleń   krem      ramka (border-subtle-N)
+  L0 tło okna                    #FFFFFF        #FFFFFF   #DDDDDD
+  L1 panel / sekcja              #F8F7F5        #FDF8EC   #DDDDDD / #EADFC6
+  L2 karta lub pole W panelu     #FFFFFF        #FFFFFF   #DDDDDD
+  L3 kafel w karcie              #FDF8EC        #F5ECD8   #EADFC6 / #DDD0B4
+  L4 kafel w kaflu               #F5ECD8        #F0E6CF   #DDD0B4 / #D3C5A6
+  UWAGA: L2 jest JAŚNIEJSZY od L1 (biała karta na szarym panelu, jak w koszyku). L4 to już NIE nakładka.
+  Nakładki (menu, lista rozwijana, podpowiedź, modal) = rola overlay (#FFFFFF) + cień shadow-toast + ramka border.
+
+ROLE - style jasne (wszystkie trzy mają te same wartości ról; różni je tylko drabina)
+  text #222222 · text-muted #666666 · label #333333 · heading #222222 · heading-accent #00642E
+  bg = L0 · surface = L1 · surface-hover #F6F2EF · overlay #FFFFFF · strip #F8F4F1 (pasek menu) · zebra #F6F2EF (pasy tabeli, stopka)
+  border #DDDDDD (linie podziału) · border-strong #CED4DA · field-border #868E96 (obrys pola, 3:1)
+  brand #007936 · brand-hover #00642E · on-brand #FFFFFF · brand-soft #E9F2EC · brand-soft-strong #CFE0D4 · progress #47C33D
+  accent #007936 · accent-hover #00642E · on-accent #FFFFFF · focus #007936 · icon #007936 · icon-bg #F5F5F5
+  cta #FFD821 · cta-hover #F6C700 · on-cta #222222
+  check-bg #FFFFFF · check-border #868E96 · check-border-hover #007936 · check-mark #007936
+  check-disabled-border #CED4DA · check-disabled-mark #ADB5BD
+  slider-track #E9E9E9 · slider-fill #007936 · slider-thumb #FFFFFF · slider-thumb-border #007936
+  switch-off #E9E9E9 · switch-off-border #868E96 · switch-on #007936 · switch-knob #FFFFFF
+  btn2-bg #FFFFFF · btn2-text #222222 · btn2-border #222222 · btn2-hover-bg #F6F2EF
+  step-active-bg #007936 · step-active-text #FFFFFF · step-idle-border #CED4DA · step-idle-text #666666 · step-done #007936
+  disabled-bg #F5F5F5 · inverse-bg #222222 · on-inverse #FFFFFF · danger #C0262C · danger-soft #FCE8E9
+  tagi tag-1..8: odcienie zieleni (hue 120-184), tag-1 #D6F0DC / #28603A / #B2D7BB
+  NOWE role w 2.0.0 (są też w stylach ciemnych): heading, heading-accent, overlay, strip, zebra, progress
+
+KSZTAŁT, CIEŃ, IKONA
+  radius-btn 4 · radius-sm 4 (pole, metka pełna) · radius-md 8 (panel, karta, kafel) · radius-lg 12 · radius-pill (wyszukiwarka, tagi)
+  Qt: radius-card 8 · radius-field 4 · radius-btn 4 · radius-drop 12
+  cienie neutralne rgba(34,34,34,…) - tylko nakładki, toast, uchwyty; karty i panele BEZ cienia i bez obrysu
+  focus: obrys 2 px #007936, odstęp 2 px · ikony liniowe Lucide, kreska 2, kolor icon
+
+REGUŁY 2.0 (S1-S12) - obowiązują wszystkie trzy programy
+  S1  Tło okna jest BIAŁE. Bieli jest najwięcej. Beż, ecru ani szary nigdy jako tło okna.
+  S2  Sekcja = panel L1 (jasnoszary ciepły), bez obrysu i bez cienia. W panelu leżą BIAŁE karty i białe pola (L2).
+      Biała karta położona wprost na białym tle dostaje linię 1 px border, albo zamiast niej używasz panelu.
+  S3  Ecru/beż dopiero jako kolejny poziom kafla: L3 w białej karcie, L4 w kaflu ecru. Głębiej się nie schodzi.
+  S4  Tekst i tytuły prawie czarne (#222222), pomocniczy #666666. Brąz nie jest kolorem tekstu w stylach jasnych.
+  S5  Tytuły Mindset wersalikami (+0.01em). CIEMNA ZIELEŃ heading-accent (#00642E) - user: „miałeś zachować ten
+      ciemnozielony dla nagłówków” - dla: tytułu głównego widoku aplikacji (np. „NOWA PREZENTACJA”, tytuł strony DAM,
+      tytuł okna Resizera), nadtytułu sekcji, aktywnej zakładki, podpisu ikony. Prawie czarny heading (#222222) dla:
+      tytułów kart i sekcji z treścią, nazw (plików, produktów, zadań), tytułów okien dialogowych.
+  S6  Przycisk główny: zielony pełny (brand), biały tekst Lato 700 wersalikami, promień 4, hover brand-hover.
+      Przycisk drugorzędny: biały, obrys 1 px #222222, tekst #222222 wersalikami, hover #F6F2EF.
+      Żółty (cta) = jedna wyróżniona akcja widoku, tekst #222222 („Wybierz folder” w programie ZOSTAJE żółty).
+  S7  Ikony liniowe, kreska 2, zielone (icon). Przycisk-ikona kwadratowy 44 px, tło icon-bg #F5F5F5, promień 4.
+      Kółko tylko: awatar, kropka, gałka, radio. Podpis pod ikoną: Lato 700, 11 px, wersaliki, heading-accent.
+  S8  Checkbox i radio: wnętrze białe ZAWSZE, obrys 1,5 px #868E96; zaznaczony = zielony obrys i zielony znak.
+      Przełącznik włączony zielony, gałka biała. Suwak: tor #E9E9E9, wypełnienie zielone, uchwyt biały z zielonym obrysem 2 px.
+      Pasek postępu i aktywny krok: progress #47C33D na torze #E9E9E9.
+  S9  Pole: białe, obrys 1 px #868E96, promień 4; fokus = obrys brand + poświata shadow-focus-field. Bez grubych obrysów.
+  S10 Linie podziału 1 px #DDDDDD. Tabela w pasy zebra/biel, bez linii pionowych. Zakładki: pod spodem linia 1 px #222222.
+  S11 Metka pełna (licznik, cena, znaczek) = brand + biały tekst, promień 4. Tagi kategorii = tag-N (zielone odcienie), pigułki.
+  S12 Linki w treści: #222222, pogrubione, podkreślone. Linki nawigacji: bez podkreślenia, aktywny lub hover zielony.
+  ZOSTAJE z wcześniejszych rund: Mindset także w nazwach (+10), duży tekst (>= 14-15 px), jeden język kształtów,
+      okno nigdy większe niż ekran i nigdy przycięte, żadnych zbędnych linijek-podpowiedzi.
+
+CO ROBI APLIKACJA
+  web (program, DAM): weź tokens/tokens.css; przepisy komponentów .dk-* skopiuj z preview/sklep.html (= components.md rozdz. 25).
+  Qt (Resizer): from tokens_qt import T, T_ZIELEN_JASNY, T_KREM_JASNY, T_DARK, T_KREM - nazwy ról jak wyżej z podkreśleniami.
+  Każde tło dobierasz z drabiny wg głębokości (rodzic + 1). Jeśli gdzieś L4 służył za tło menu/modala - zamień na overlay.
+  Odstępstwa od zrzutów (świadome): panele sklepu mają rogi proste, system ujednolica panel/kartę/kafel na 8 px (jeden język
+  kształtów); obrys checkboxa w sklepie to #ADB5BD (2,1:1), system daje #868E96, żeby kontrolka miała 3:1.
