@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.6
+# Tokeny Dobra Kaloria 2.0.7
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -68,7 +68,7 @@ L = jasność OKLCH (0-100), L* = CIELAB. dL = zmiana L względem poziomu niżej
 
 ## Tagi (od 1.4.0)
 
-Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32]` (stopnie OKLCH; od 1.6.0 wariant może mieć własne `tag_offsets` - zestawy beżowe mają tylko ciepłe odcienie, zob. kolumnę Hue). Tło L 0.930 C 0.060 / ramka L 0.860 C 0.075 / tekst L 0.400 C 0.110 w jasnym; w ciemnym tło L 0.360 C 0.048 / ramka L 0.470 C 0.062 / tekst L 0.870 C 0.070. Tekst dociągany o 0.01 L do kontrastu >= 4.6.
+Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32]` (stopnie OKLCH; od 1.6.0 wariant może mieć własne `tag_offsets` - zestawy beżowe mają tylko ciepłe odcienie, zob. kolumnę Hue). Tło L 0.930 C 0.060 / ramka L 0.860 C 0.075 / tekst L 0.400 C 0.110 w jasnym; w ciemnym tło L 0.360 C 0.075 / ramka L 0.470 C 0.085 / tekst L 0.880 C 0.090. Tekst dociągany o 0.01 L do kontrastu >= 4.6.
 
 | Wariant | Tag | Hue | Tło | Tekst | Ramka | Kontrast |
 |---|---|---|---|---|---|---|
@@ -96,22 +96,22 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | zielen-jasny | tag-6 | 355 | `#FFDEE9` | `#73294B` | `#FABDD3` | 7.86:1 |
 | zielen-jasny | tag-7 | 190 | `#BAF5F1` | `#005350` | `#96E1DC` | 7.40:1 |
 | zielen-jasny | tag-8 | 240 | `#D3ECFF` | `#014D73` | `#A4D8FE` | 7.45:1 |
-| zielen-ciemny | tag-1 | 146 | `#2C442E` | `#B7E1B9` | `#446446` | 7.34:1 |
-| zielen-ciemny | tag-2 | 154 | `#284531` | `#B1E2C0` | `#3E654B` | 7.31:1 |
-| zielen-ciemny | tag-3 | 138 | `#31432A` | `#BEE0B3` | `#496341` | 7.37:1 |
-| zielen-ciemny | tag-4 | 162 | `#244535` | `#ABE3C6` | `#386650` | 7.35:1 |
-| zielen-ciemny | tag-5 | 130 | `#354227` | `#C5DEAE` | `#4F623C` | 7.36:1 |
-| zielen-ciemny | tag-6 | 170 | `#204539` | `#A6E4CD` | `#336655` | 7.40:1 |
-| zielen-ciemny | tag-7 | 122 | `#394124` | `#CCDCA9` | `#556038` | 7.35:1 |
-| zielen-ciemny | tag-8 | 178 | `#1D453D` | `#A2E4D4` | `#2F665B` | 7.40:1 |
-| krem-ciemny | tag-1 | 90 | `#3A2F11` | `#E6D3A0` | `#5A4B22` | 8.90:1 |
-| krem-ciemny | tag-2 | 98 | `#373011` | `#E0D5A0` | `#564D23` | 8.91:1 |
-| krem-ciemny | tag-3 | 82 | `#3C2E11` | `#EBD0A0` | `#5E4A22` | 8.84:1 |
-| krem-ciemny | tag-4 | 78 | `#3E2D12` | `#EECFA1` | `#604923` | 8.86:1 |
-| krem-ciemny | tag-5 | 74 | `#3F2C12` | `#F0CEA1` | `#614824` | 8.89:1 |
-| krem-ciemny | tag-6 | 70 | `#402C13` | `#F3CDA3` | `#634725` | 8.86:1 |
-| krem-ciemny | tag-7 | 66 | `#412B14` | `#F5CCA4` | `#644626` | 8.89:1 |
-| krem-ciemny | tag-8 | 62 | `#422A15` | `#F6CBA5` | `#654528` | 8.90:1 |
+| zielen-ciemny | tag-1 | 152 | `#184829` | `#ABE9BB` | `#316843` | 7.56:1 |
+| zielen-ciemny | tag-2 | 125 | `#344412` | `#CAE2A1` | `#50632A` | 7.52:1 |
+| zielen-ciemny | tag-3 | 95 | `#493C00` | `#EAD793` | `#6A5A18` | 7.59:1 |
+| zielen-ciemny | tag-4 | 60 | `#59320C` | `#FFCCA4` | `#7D4E24` | 7.65:1 |
+| zielen-ciemny | tag-5 | 25 | `#5F2C29` | `#FFC8C3` | `#844642` | 7.61:1 |
+| zielen-ciemny | tag-6 | 355 | `#5B2B3F` | `#FFC5DA` | `#80455D` | 7.65:1 |
+| zielen-ciemny | tag-7 | 190 | `#004744` | `#8DEBE5` | `#016965` | 7.63:1 |
+| zielen-ciemny | tag-8 | 240 | `#0C4160` | `#B1DEFF` | `#266186` | 7.61:1 |
+| krem-ciemny | tag-1 | 95 | `#3A2F01` | `#EAD793` | `#5C4C02` | 9.23:1 |
+| krem-ciemny | tag-2 | 60 | `#4A2600` | `#FFCCA4` | `#6E4015` | 9.20:1 |
+| krem-ciemny | tag-3 | 25 | `#501E1C` | `#FFC8C3` | `#753935` | 9.27:1 |
+| krem-ciemny | tag-4 | 355 | `#4C1E32` | `#FFC5DA` | `#70384F` | 9.26:1 |
+| krem-ciemny | tag-5 | 240 | `#003450` | `#B1DEFF` | `#155276` | 9.19:1 |
+| krem-ciemny | tag-6 | 215 | `#013741` | `#8FE7FD` | `#015766` | 9.25:1 |
+| krem-ciemny | tag-7 | 75 | `#432B00` | `#FBD094` | `#684507` | 9.19:1 |
+| krem-ciemny | tag-8 | 45 | `#4E220B` | `#FFCAB3` | `#723C23` | 9.21:1 |
 
 ## Kolory - role programu (tych używaj)
 
