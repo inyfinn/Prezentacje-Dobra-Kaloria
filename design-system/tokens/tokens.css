@@ -1,4 +1,4 @@
-/* Design system Dobra Kaloria 2.0.3 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+/* Design system Dobra Kaloria 2.0.4 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
 /* Drabina powierzchni: --dk-color-surface-0 (tło okna) ... -4 (nakładka); tagi: --dk-color-tag-N-bg/-fg/-border. */
 :root, [data-theme="dobra-kaloria"] {
   color-scheme: light;
@@ -172,7 +172,7 @@
   --dk-color-switch-off: var(--dk-grey-200);
   --dk-color-danger: var(--dk-red-700);
   --dk-color-danger-soft: var(--dk-red-50);
-  --dk-color-warning-text: var(--dk-amber-950);
+  --dk-color-warning-text: var(--dk-ink-900);
   --dk-color-warning-border: var(--dk-amber-300);
   --dk-color-warning-bg: var(--dk-amber-50);
   --dk-color-inverse-bg: var(--dk-green-900);
@@ -373,7 +373,7 @@
   --dk-color-switch-off: var(--dk-grey-200);
   --dk-color-danger: var(--dk-red-700);
   --dk-color-danger-soft: var(--dk-red-50);
-  --dk-color-warning-text: var(--dk-amber-950);
+  --dk-color-warning-text: var(--dk-ink-900);
   --dk-color-warning-border: var(--dk-amber-300);
   --dk-color-warning-bg: var(--dk-amber-50);
   --dk-color-inverse-bg: var(--dk-green-900);
@@ -478,7 +478,7 @@
   --dk-color-switch-off: var(--dk-grey-200);
   --dk-color-danger: var(--dk-red-700);
   --dk-color-danger-soft: var(--dk-red-50);
-  --dk-color-warning-text: var(--dk-amber-950);
+  --dk-color-warning-text: var(--dk-ink-900);
   --dk-color-warning-border: var(--dk-amber-300);
   --dk-color-warning-bg: var(--dk-amber-50);
   --dk-color-inverse-bg: var(--dk-green-900);

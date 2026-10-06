@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.3
+# Tokeny Dobra Kaloria 2.0.4
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -144,7 +144,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | switch-off | `--dk-color-switch-off` | `#E9E9E9` | grey-200 |
 | danger | `--dk-color-danger` | `#C0262C` | red-700 |
 | danger-soft | `--dk-color-danger-soft` | `#FCE8E9` | red-50 |
-| warning-text | `--dk-color-warning-text` | `#6F4A00` | amber-950 |
+| warning-text | `--dk-color-warning-text` | `#222222` | ink-900 |
 | warning-border | `--dk-color-warning-border` | `#EBCB6B` | amber-300 |
 | warning-bg | `--dk-color-warning-bg` | `#FFF4D6` | amber-50 |
 | inverse-bg | `--dk-color-inverse-bg` | `#00642E` | green-900 |
@@ -303,7 +303,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | on-inverse | danger | 5.91:1 | 4.5:1 | biały na czerwieni |
 | danger | bg | 5.91:1 | 4.5:1 | czerwony tekst błędu na tle |
 | danger | surface | 5.52:1 | 4.5:1 | czerwony tekst błędu na karcie |
-| warning-text | warning-bg | 7.22:1 | 4.5:1 | ostrzeżenie |
+| warning-text | warning-bg | 14.52:1 | 4.5:1 | ostrzeżenie |
 | field-border | bg | 3.32:1 | 3.0:1 | ramka pola |
 | switch-off-border | bg | 3.32:1 | 3.0:1 | obrys wyłączonego przełącznika |
 | check-mark | check-bg | 5.54:1 | 4.5:1 | znak checkboxa/radio na jasnym wnętrzu |

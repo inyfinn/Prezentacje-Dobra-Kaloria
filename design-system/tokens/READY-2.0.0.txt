@@ -84,6 +84,9 @@ REGUŁY 2.0 (S1-S15; S13 dodana w 2.0.1, S14-S15 w 2.0.2) - obowiązują wszystk
       podpowiedź, toast, pasek górny) mają tło inverse-bg = #00642E z białym tekstem - nie brąz i nie czerń.
       Fokus pola: obrys 1 px brand + poświata shadow-focus-field (3 px, przezroczysta zieleń); nigdy gruby ciemny
       pierścień. Aktywny segment, aktywny filtr, zaznaczony tag: zielone wypełnienie brand z białym tekstem.
+  S16 OSTRZEŻENIE BEZ BRĄZU (2.0.4): tekst i tytuł ostrzeżenia w text (#222222), nie w bursztynowym brązie
+      (warning-text = #222222). Znak ostrzeżenia = żółty kwadrat cta (#FFD821, promień 4) z ciemnym symbolem #222222.
+      Tło warning-bg (#FFF4D6) wolno dać tylko samemu komunikatowi, bez obrysu. Błąd: danger (#C0262C).
   ZOSTAJE z wcześniejszych rund: Mindset także w nazwach (+10), duży tekst (>= 14-15 px), jeden język kształtów,
       okno nigdy większe niż ekran i nigdy przycięte, żadnych zbędnych linijek-podpowiedzi.
 
