@@ -1204,6 +1204,8 @@ Główny: zielony pełny, biały tekst Lato 700 wersalikami, promień 4, hover `
 .dk-btn--block { display: flex; width: 100%; }
 /* S13: przycisk cichy (trzeciorzędny) - samo wypełnienie, bez obrysu; w grupie najwyżej 1 główny i 1 z obrysem, reszta cicha */
 .dk-btn--quiet { background: var(--dk-color-icon-bg); color: var(--dk-color-text); }
+/* S18: wersaliki tylko na przycisku głównym i jednym drugorzędnym z obrysem; cichy i żółty w zwykłej wielkości liter (wzorzec: program 1.1.5) */
+.dk-btn--quiet, .dk-btn--cta { text-transform: none; letter-spacing: 0; font-size: 16px; }
 .dk-panel .dk-btn--quiet, .dk-panel .dk-iconbtn { background: var(--dk-color-surface-2); }
 .dk-card .dk-btn--quiet, .dk-card .dk-iconbtn, .dk-tile .dk-btn--quiet { background: var(--dk-color-icon-bg); }
 .dk-btn--quiet:hover, .dk-panel .dk-btn--quiet:hover, .dk-card .dk-btn--quiet:hover { background: var(--dk-color-brand-soft); }

@@ -92,6 +92,10 @@ REGUŁY 2.0 (S1-S15; S13 dodana w 2.0.1, S14-S15 w 2.0.2) - obowiązują wszystk
       opis limonkowy, podkategoria czerwona) - w filtrach i na kartach ta sama grupa ma tę samą barwę.
       Zaznaczony tag: pełna zieleń brand z białym tekstem. Licznik „+16”: #F5F5F5.
       Przyciemnienie tła pod oknem dialogowym: shadow-scrim rgba(59,42,32,.55) (ciepły brąz) - zostaje.
+  S18 WIELKOŚĆ LITER PRZYCISKÓW (2.0.6; z zatwierdzonego wzorca - okno programu 1.1.5). WERSALIKI tylko na przycisku
+      głównym (zielonym) i na jednym drugorzędnym z obrysem. Przycisk cichy, żółty przycisk wyróżnionej akcji
+      („Wybierz folder”, „Konwertuj”) i linki: zwykła wielkość liter, Lato 700. Mniej krzyku, lżejszy ekran.
+      (Odstępstwo od sklepu: tam żółty „ZOBACZ WIĘCEJ” jest wersalikami; w aplikacjach wygrywa wzorzec programu.)
   S16 OSTRZEŻENIE BEZ BRĄZU (2.0.4): tekst i tytuł ostrzeżenia w text (#222222), nie w bursztynowym brązie
       (warning-text = #222222). Znak ostrzeżenia = żółty kwadrat cta (#FFD821, promień 4) z ciemnym symbolem #222222.
       Tło warning-bg (#FFF4D6) wolno dać tylko samemu komunikatowi, bez obrysu. Błąd: danger (#C0262C).

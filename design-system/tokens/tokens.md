@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.5
+# Tokeny Dobra Kaloria 2.0.6
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
