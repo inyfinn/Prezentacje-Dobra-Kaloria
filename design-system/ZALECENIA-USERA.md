@@ -147,3 +147,20 @@ i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bi
   karcie na białym tle i fokusie. Tagi, metki, pigułki filtrów, liczniki, panele, kafle, przyciski-ikony: bez obrysu.
 - **Żadnej sepii:** beż nie jest kolorem obrysu, metki ani tekstu w stylach jasnych; występuje tylko jako kafel L3/L4.
 - Przepisy: `.dk-tag` (samo wypełnienie), `.dk-btn--quiet`, `.dk-seg` w `components.md` rozdz. 25 i `preview/sklep.html`.
+
+## 06.10.2026 — szczegółowa krytyka DAM 2.5.4 (7 zrzutów): za ciężko, za dużo teł i obrysów
+
+> „To jest zbyt ponure, zbyt ciężkie. Za duże obrysy na przyciskach. Kompletnie brzydkie. Niepotrzebne zagnieżdżenie
+> teł w środku, po co beżowe, jak może być białe, rozumiesz? Niepotrzebne tła dla »tło«. Tagi są okropnie brzydkie.
+> Powiadomienia mają tło kafelków, a nie muszą, dopiero kafelki wewnątrz, jak »projekty po dopracowaniu«, powinny
+> mieć szarość. Tak jak w DOBRA KALORIA. A cały SZUKAJ, za grube i za ciężkie obrysy, coś okropnego. Tak samo
+> w eksplorerze, wszystko nie wygląda żywo i ładnie, jak w dobrakaloria.pl, tylko staro, jak SEPIA. I gdzieniegdzie
+> kolory się nie zgadzają, dalej są jeszcze jakieś fiolety, albo jakieś paseczki dziwne. Wlej tu więcej życia
+> i koloru. Specjalnie pokazałem Ci tamte screenshoty, żebyś wiedział, że raczej przeważa biały kolor, NIE MA aż tak
+> dużo BEŻOWYCH kolorów. Są tak ciemne zielone, że niemalże czarne. NIE MA takich cholernie grubych obrysów.”
+
+- **S14 minimum poziomów** (DS 2.0.2): kontener bez tła, jeśli wystarczy biel; w liście szare są dopiero pozycje;
+  szary panel tylko dla grupy różnych białych kart lub pól; metadane bez tła; beż dopiero na 3. poziomie; zero fioletów.
+- **S15 ciemne = ciemna zieleń, fokus cienki:** ciemne elementy `#00642E` zamiast brązu i czerni; fokus pola = 1 px
+  zieleni + miękka poświata, nigdy gruby ciemny pierścień; aktywny segment i zaznaczony tag zielone.
+- Przepis listy: `.dk-item` w `components.md` rozdz. 25 i `preview/sklep.html`.

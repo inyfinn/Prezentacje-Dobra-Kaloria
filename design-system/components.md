@@ -1134,6 +1134,9 @@ białym tle (`.dk-card--on-page`) dostaje linię 1 px. Jasne style: L2 jaśniejs
 .dk-card--on-page { border: 1px solid var(--dk-color-border); }      /* biała karta bez panelu pod spodem */
 .dk-tile { background: var(--dk-color-surface-3); border-radius: var(--dk-radius-md); padding: var(--dk-space-5); }
 .dk-tile .dk-tile { background: var(--dk-color-surface-4); }
+/* S14: lista pozycji na bieli - kontener BEZ tła, szare są dopiero pozycje (kafle listy) */
+.dk-item { background: var(--dk-color-surface-1); border-radius: var(--dk-radius-md); padding: var(--dk-space-4) var(--dk-space-5); }
+.dk-panel .dk-item { background: var(--dk-color-surface-2); }
 .dk-divider { border: 0; border-top: 1px solid var(--dk-color-border); margin: var(--dk-space-4) 0; }
 ```
 

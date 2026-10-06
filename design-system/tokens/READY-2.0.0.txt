@@ -33,7 +33,7 @@ ROLE - style jasne (wszystkie trzy mają te same wartości ról; różni je tylk
   switch-off #E9E9E9 · switch-off-border #868E96 · switch-on #007936 · switch-knob #FFFFFF
   btn2-bg #FFFFFF · btn2-text #222222 · btn2-border #222222 · btn2-hover-bg #F6F2EF
   step-active-bg #007936 · step-active-text #FFFFFF · step-idle-border #CED4DA · step-idle-text #666666 · step-done #007936
-  disabled-bg #F5F5F5 · inverse-bg #222222 · on-inverse #FFFFFF · danger #C0262C · danger-soft #FCE8E9
+  disabled-bg #F5F5F5 · inverse-bg #00642E · on-inverse #FFFFFF · danger #C0262C · danger-soft #FCE8E9
   tagi tag-1..8: odcienie zieleni (hue 120-184), tag-1 #D6F0DC / #28603A / #B2D7BB
   NOWE role w 2.0.0 (są też w stylach ciemnych): heading, heading-accent, overlay, strip, zebra, progress
 
@@ -43,7 +43,7 @@ KSZTAŁT, CIEŃ, IKONA
   cienie neutralne rgba(34,34,34,…) - tylko nakładki, toast, uchwyty; karty i panele BEZ cienia i bez obrysu
   focus: obrys 2 px #007936, odstęp 2 px · ikony liniowe Lucide, kreska 2, kolor icon
 
-REGUŁY 2.0 (S1-S13; S13 dodana w 2.0.1) - obowiązują wszystkie trzy programy
+REGUŁY 2.0 (S1-S15; S13 dodana w 2.0.1, S14-S15 w 2.0.2) - obowiązują wszystkie trzy programy
   S1  Tło okna jest BIAŁE. Bieli jest najwięcej. Beż, ecru ani szary nigdy jako tło okna.
   S2  Sekcja = panel L1 (jasnoszary ciepły), bez obrysu i bez cienia. W panelu leżą BIAŁE karty i białe pola (L2).
       Biała karta położona wprost na białym tle dostaje linię 1 px border, albo zamiast niej używasz panelu.
@@ -72,6 +72,18 @@ REGUŁY 2.0 (S1-S13; S13 dodana w 2.0.1) - obowiązują wszystkie trzy programy
       Przycisk cichy (trzeciorzędny): wypełnienie #F5F5F5 na bieli / #FFFFFF na panelu, bez obrysu, tekst #222222,
       hover brand-soft. Przełącznik segmentowy: aktywny zielony z białym tekstem, nieaktywny jak przycisk cichy.
       Żadnej sepii: beż tylko jako L3/L4, nigdy jako kolor obrysu, metki czy tekstu w stylach jasnych.
+  S14 MINIMUM POZIOMÓW (2.0.2; user 06.10 o DAM: „niepotrzebne zagnieżdżenie teł w środku, po co beżowe, jak może być
+      białe… powiadomienia mają tło kafelków, a nie muszą, dopiero kafelki wewnątrz powinny mieć szarość”).
+      Kontener nie dostaje tła, jeśli wystarczy biel. Lista pozycji (powiadomienia, kategorie, wyniki, materiały):
+      kontener BIAŁY bez tła, szare (L1) są dopiero pozycje. Szary panel tylko wtedy, gdy grupuje kilka różnych
+      białych kart lub pól (formularz, podsumowanie - jak w koszyku). Etykiety i wartości metadanych bez tła.
+      Beż/ecru wolno dopiero na prawdziwym 3. poziomie (kafel w białej karcie w szarym panelu) - w większości
+      widoków nie występuje wcale. Żadnych fioletów ani obcych kolorów z motywu bazowego.
+  S15 CIEMNE = CIEMNA ZIELEŃ, FOKUS CIENKI (2.0.2; user: „są tak ciemne zielone, że niemalże czarne… NIE MA takich
+      cholernie grubych obrysów… więcej życia i koloru”). Elementy ciemne (pływający przycisk pomocy, licznik,
+      podpowiedź, toast, pasek górny) mają tło inverse-bg = #00642E z białym tekstem - nie brąz i nie czerń.
+      Fokus pola: obrys 1 px brand + poświata shadow-focus-field (3 px, przezroczysta zieleń); nigdy gruby ciemny
+      pierścień. Aktywny segment, aktywny filtr, zaznaczony tag: zielone wypełnienie brand z białym tekstem.
   ZOSTAJE z wcześniejszych rund: Mindset także w nazwach (+10), duży tekst (>= 14-15 px), jeden język kształtów,
       okno nigdy większe niż ekran i nigdy przycięte, żadnych zbędnych linijek-podpowiedzi.
 

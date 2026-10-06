@@ -32,6 +32,9 @@
 .dk-card--on-page { border: 1px solid var(--dk-color-border); }      /* biała karta bez panelu pod spodem */
 .dk-tile { background: var(--dk-color-surface-3); border-radius: var(--dk-radius-md); padding: var(--dk-space-5); }
 .dk-tile .dk-tile { background: var(--dk-color-surface-4); }
+/* S14: lista pozycji na bieli - kontener BEZ tła, szare są dopiero pozycje (kafle listy) */
+.dk-item { background: var(--dk-color-surface-1); border-radius: var(--dk-radius-md); padding: var(--dk-space-4) var(--dk-space-5); }
+.dk-panel .dk-item { background: var(--dk-color-surface-2); }
 .dk-divider { border: 0; border-top: 1px solid var(--dk-color-border); margin: var(--dk-space-4) 0; }
 
 /* przyciski: główny zielony, drugorzędny biały z ciemnym obrysem, wyróżniony żółty */
@@ -231,6 +234,7 @@ body { margin: 0; }
       <div class="row"><div class="dk-seg"><button aria-pressed="true">Wszystko</button><button aria-pressed="false">Produkty</button><button aria-pressed="false">Warianty</button></div></div>
       <div class="row"><div class="dk-search" style="width:360px"><svg class="dk-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Znajdź dobrą kalorię"><button class="dk-btn dk-btn--primary">Szukaj</button></div>
         <input class="dk-input" value="Pole tekstowe" style="width:200px"></div>
+      <div class="stack" style="max-width:360px"><h3 class="dk-h3">Powiadomienia</h3><div class="dk-item"><b class="dk-h3" style="font-size:18px">Projekty po dopracowaniu</b><div class="row" style="gap:8px;margin-top:6px"><span class="dk-tag" style="background:var(--dk-color-tag-1-bg);color:var(--dk-color-tag-1-fg)">Marketing</span><span class="dk-muted">31.10.2025</span></div></div><div class="dk-item"><b class="dk-h3" style="font-size:18px">Akceptacja</b><div class="row" style="gap:8px;margin-top:6px"><span class="dk-tag" style="background:var(--dk-color-tag-2-bg);color:var(--dk-color-tag-2-fg)">Miksy</span><span class="dk-muted">06.11.2025</span></div></div></div>
       <div class="row">
         <span class="dk-iconlabel"><svg class="dk-icon" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/></svg>Ulubione</span>
         <span class="dk-iconlabel"><svg class="dk-icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>Konto</span>

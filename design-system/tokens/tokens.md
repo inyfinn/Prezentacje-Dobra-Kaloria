@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.1
+# Tokeny Dobra Kaloria 2.0.2
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -147,7 +147,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | warning-text | `--dk-color-warning-text` | `#6F4A00` | amber-950 |
 | warning-border | `--dk-color-warning-border` | `#EBCB6B` | amber-300 |
 | warning-bg | `--dk-color-warning-bg` | `#FFF4D6` | amber-50 |
-| inverse-bg | `--dk-color-inverse-bg` | `#222222` | ink-900 |
+| inverse-bg | `--dk-color-inverse-bg` | `#00642E` | green-900 |
 | on-inverse | `--dk-color-on-inverse` | `#FFFFFF` | white |
 | focus | `--dk-color-focus` | `#007936` | green-750 |
 | accent | `--dk-color-accent` | `#007936` | green-750 |
@@ -299,7 +299,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | brand | brand-soft | 4.85:1 | 4.5:1 | zielony na jasnej zieleni |
 | on-brand | brand | 5.54:1 | 4.5:1 | biały na zieleni |
 | on-cta | cta | 11.44:1 | 4.5:1 | tekst na żółtym przycisku |
-| on-inverse | inverse-bg | 15.91:1 | 4.5:1 | biały na brązie (toast) |
+| on-inverse | inverse-bg | 7.34:1 | 4.5:1 | biały na brązie (toast) |
 | on-inverse | danger | 5.91:1 | 4.5:1 | biały na czerwieni |
 | danger | bg | 5.91:1 | 4.5:1 | czerwony tekst błędu na tle |
 | danger | surface | 5.52:1 | 4.5:1 | czerwony tekst błędu na karcie |
