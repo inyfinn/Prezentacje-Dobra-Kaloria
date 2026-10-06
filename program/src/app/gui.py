@@ -183,12 +183,62 @@ class Api:
             self._js("App.onError", "Nie udało się odczytać upuszczonego pliku - użyj przycisku „Wybierz folder”.")
 
 
+WIN_W, WIN_H = 1160, 820        # docelowy rozmiar okna (piksele logiczne), gdy ekran pozwala
+MIN_W, MIN_H = 980, 700
+
+
+def _work_area():
+    """Obszar roboczy monitora z kursorem (ekran bez paska zadań) w pikselach LOGICZNYCH: (x, y, szer, wys, skala).
+    pywebview mnoży szerokość/wysokość/x/y przez skalę DPI okna (winforms.py: Size = initial_width * _scale,
+    Location = initial_x * _scale; skala = GetDpiForWindow/96 = systemowy DPI, bo proces jest 'system DPI aware'),
+    więc tu liczymy to samo: piksele fizyczne / skala systemowa. Wyjątek = błąd wykrycia (wywołujący wraca do 1160x820)."""
+    from ctypes import wintypes
+    u32 = ctypes.windll.user32
+    u32.SetProcessDPIAware()  # to samo wywołuje pywebview przy starcie; bez tego rcWork bywa już przeskalowany
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("rcMonitor", wintypes.RECT), ("rcWork", wintypes.RECT), ("dwFlags", wintypes.DWORD)]
+    pt = wintypes.POINT()
+    u32.GetCursorPos(ctypes.byref(pt))
+    u32.MonitorFromPoint.restype = ctypes.c_void_p
+    u32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+    hmon = u32.MonitorFromPoint(pt, 1)  # MONITOR_DEFAULTTOPRIMARY
+    mi = MONITORINFO()
+    mi.cbSize = ctypes.sizeof(MONITORINFO)
+    u32.GetMonitorInfoW.argtypes = [ctypes.c_void_p, ctypes.POINTER(MONITORINFO)]
+    if not u32.GetMonitorInfoW(hmon, ctypes.byref(mi)):
+        raise OSError("GetMonitorInfoW")
+    scale = u32.GetDpiForSystem() / 96.0
+    rc = mi.rcWork
+    return (rc.left / scale, rc.top / scale, int((rc.right - rc.left) / scale), int((rc.bottom - rc.top) / scale), scale)
+
+
+def _window_geometry():
+    """(x, y, szer, wys, min_szer, min_wys) w pikselach logicznych: nigdy większe niż obszar roboczy, wyśrodkowane.
+    DK_TEST_WORKAREA=1366x720 podmienia wymiary obszaru (test małych ekranów); błąd wykrycia = stare 1160x820."""
+    try:
+        x, y, ww, wh, scale = _work_area()
+        zrodlo = "wykryty"
+        t = os.environ.get("DK_TEST_WORKAREA", "")
+        if t:
+            ww, wh = [int(v) for v in t.lower().split("x")]
+            zrodlo = "wymuszony DK_TEST_WORKAREA"
+        w, h = min(WIN_W, ww), min(WIN_H, wh)
+        px, py = int(x + (ww - w) / 2), int(y + (wh - h) / 2)
+        engine._log_file("okno: obszar roboczy %dx%d od (%d,%d) [%s], skala %.2f, rozmiar okna %dx%d, pozycja (%d,%d)"
+                         % (ww, wh, x, y, zrodlo, scale, w, h, px, py))
+        return px, py, w, h, min(MIN_W, w), min(MIN_H, h)
+    except Exception:
+        engine._log_file("okno: nie wykryto obszaru roboczego, zostaje %dx%d\n%s" % (WIN_W, WIN_H, traceback.format_exc()))
+        return None, None, WIN_W, WIN_H, MIN_W, MIN_H
+
+
 def run():
     if os.environ.get("DK_DEBUG_PORT"):  # test automatyczny (WORK\logs\e2e_gui.py): Playwright łączy się przez CDP
         webview.settings["REMOTE_DEBUGGING_PORT"] = int(os.environ["DK_DEBUG_PORT"])
     api = Api()
+    gx, gy, gw, gh, gminw, gminh = _window_geometry()
     window = webview.create_window("Stwórz prezentację - Dobra Kaloria", url=os.path.join(paths.UI_DIR, "index.html"),
-                                   js_api=api, width=1160, height=820, min_size=(980, 700), text_select=False,
+                                   js_api=api, width=gw, height=gh, x=gx, y=gy, min_size=(gminw, gminh), text_select=False,
                                    background_color="#FFFFFF")
     api._window = window  # PRYWATNE: pywebview przegląda publiczne pola API w głąb - publiczne 'window' wieszało start (29.09)
 

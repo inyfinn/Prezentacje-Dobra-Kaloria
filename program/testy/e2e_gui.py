@@ -63,9 +63,14 @@ try:
         page.click("#btn-build")
         t0 = time.time()
         last = ""
+
+        def document_screen(pg):
+            return pg.evaluate("document.body.dataset.screen")
+
         while time.time() - t0 < 240:
             txt = page.evaluate("document.body.innerText")
-            if "GOTOWE" in txt.upper() and "Otwórz prezentację" in txt:
+            # od 1.1.5 przyciski główne są wersalikami (CSS), a innerText zwraca tekst tak, jak go widać - porównanie bez wielkości liter
+            if document_screen(page) == "wynik" and "OTWÓRZ PREZENTACJĘ" in txt.upper():
                 break
             cur = [l for l in txt.splitlines() if "%" in l or "jeszcze" in l][:2]
             if cur != last:
