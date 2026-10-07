@@ -43,7 +43,7 @@ KSZTAŁT, CIEŃ, IKONA
   cienie neutralne rgba(34,34,34,…) - tylko nakładki, toast, uchwyty; karty i panele BEZ cienia i bez obrysu
   focus: obrys 2 px #007936, odstęp 2 px · ikony liniowe Lucide, kreska 2, kolor icon
 
-REGUŁY 2.0 (S1-S19; S13 w 2.0.1, S14-S15 w 2.0.2, S16-S18 w 2.0.4-2.0.6, S19 w 2.0.8) - obowiązują wszystkie trzy programy
+REGUŁY 2.0 (S1-S20; S13 w 2.0.1, S14-S15 w 2.0.2, S16-S18 w 2.0.4-2.0.6, S19 w 2.0.8, S20 w 2.0.9) - obowiązują wszystkie trzy programy
   S1  Tło okna jest BIAŁE. Bieli jest najwięcej. Beż, ecru ani szary nigdy jako tło okna.
   S2  Sekcja = panel L1 (jasnoszary ciepły), bez obrysu i bez cienia. W panelu leżą BIAŁE karty i białe pola (L2).
       Biała karta położona wprost na białym tle dostaje linię 1 px border, albo zamiast niej używasz panelu.
@@ -104,6 +104,11 @@ REGUŁY 2.0 (S1-S19; S13 w 2.0.1, S14-S15 w 2.0.2, S16-S18 w 2.0.4-2.0.6, S19 w 
       Geometria, odstępy, rozmiary, liczba i układ kontenerów są identyczne w stylu jasnym i ciemnym. Reguły zależne
       od motywu (np. `:not([data-theme="dark"])`) mogą zmieniać WYŁĄCZNIE kolory: tło, tekst, obramowanie, wypełnienie
       ikon, kolor cienia. Kontrola: prostokąt każdego elementu z tłem w jasnym = w ciemnym (różnica 0 px).
+  S20 PEŁNY KAFEL I PASY W CIEMNYM (2.0.9). Pełne ciemne wypełnienia z białym tekstem (kafel KPI, „Suma”, pastylka
+      LIVE, okrągły przycisk pomocy, licznik) biorą rolę `solid` / `on-solid`, nie `inverse-bg`: jasne #00642E,
+      DK1 ciemny #007936, DK2 krem ciemny #6E5F3C, tekst zawsze #FFFFFF. `inverse-bg` zostaje dla toastów i podpowiedzi
+      (w ciemnym jest jasny - odwrócony). Pasy tabel w ciemnym: `zebra` = surface-2 (wcześniej surface-1, niewidoczne).
+      Przycisk cichy na panelu L1: tło #FFFFFF (na bieli #F5F5F5) - nigdy #F5F5F5 na #F8F7F5.
   ZOSTAJE z wcześniejszych rund: Mindset także w nazwach (+10), duży tekst (>= 14-15 px), jeden język kształtów,
       okno nigdy większe niż ekran i nigdy przycięte, żadnych zbędnych linijek-podpowiedzi.
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tokeny Dobra Kaloria 2.0.8 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
+"""Tokeny Dobra Kaloria 2.0.9 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
 
 T              program (biała kartka) - pełny zestaw: kolory, odstępy, czcionki, drabina, tagi
 T_KREM_JASNY   Dobra Kaloria 2 · krem, jasny   (role + drabina + tagi; nazwy jak w T)
@@ -259,6 +259,8 @@ T = {
     "color_step_idle_border": '#CED4DA',
     "color_step_idle_text": '#666666',
     "color_step_done": '#007936',
+    "color_solid": '#00642E',
+    "color_on_solid": '#FFFFFF',
     "color_surface_0": '#FFFFFF',
     "color_border_subtle_0": '#DDDDDD',
     "color_surface_1": '#F8F7F5',
@@ -361,6 +363,8 @@ T_KREM_JASNY = {  # krem-jasny (semantic-krem-jasny): role kolorów, drabina, ta
     "color_step_idle_border": '#CED4DA',
     "color_step_idle_text": '#666666',
     "color_step_done": '#007936',
+    "color_solid": '#00642E',
+    "color_on_solid": '#FFFFFF',
     "color_surface_0": '#FFFFFF',
     "color_border_subtle_0": '#DDDDDD',
     "color_surface_1": '#FDF8EC',
@@ -463,6 +467,8 @@ T_ZIELEN_JASNY = {  # zielen-jasny (semantic-zielen-jasny): role kolorów, drabi
     "color_step_idle_border": '#CED4DA',
     "color_step_idle_text": '#666666',
     "color_step_done": '#007936',
+    "color_solid": '#00642E',
+    "color_on_solid": '#FFFFFF',
     "color_surface_0": '#FFFFFF',
     "color_border_subtle_0": '#DDDDDD',
     "color_surface_1": '#F8F7F5',
@@ -563,8 +569,10 @@ T_DARK = {  # zielen-ciemny (semantic-dark): role kolorów, drabina, tagi (nazwy
     "color_heading_accent": '#A2D686',
     "color_overlay": '#3D4427',
     "color_strip": '#192C18',
-    "color_zebra": '#192C18',
+    "color_zebra": '#24341C',
     "color_progress": '#A2D686',
+    "color_solid": '#007936',
+    "color_on_solid": '#FFFFFF',
     "color_surface_0": '#0F2315',
     "color_border_subtle_0": '#213B28',
     "color_surface_1": '#192C18',
@@ -665,8 +673,10 @@ T_KREM = {  # krem-ciemny (semantic-krem): role kolorów, drabina, tagi (nazwy j
     "color_heading_accent": '#E6D3A0',
     "color_overlay": '#352E25',
     "color_strip": '#1A1611',
-    "color_zebra": '#1A1611',
+    "color_zebra": '#231E17',
     "color_progress": '#E6D3A0',
+    "color_solid": '#6E5F3C',
+    "color_on_solid": '#FFFFFF',
     "color_surface_0": '#120F0A',
     "color_border_subtle_0": '#28231B',
     "color_surface_1": '#1A1611',

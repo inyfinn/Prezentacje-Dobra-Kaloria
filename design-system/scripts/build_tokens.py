@@ -408,7 +408,8 @@ PAIRS = [("text", "bg", 4.5, "tekst na tle"), ("text", "surface", 4.5, "tekst na
          ("switch-on", "surface-0", 3.0, "włączony przełącznik na tle"), ("switch-on", "surface-1", 3.0, "włączony przełącznik na karcie"),
          ("switch-off-border", "surface-0", 3.0, "obrys wyłączonego przełącznika na tle"),
          ("switch-knob", "switch-on", 3.0, "gałka na włączonym torze"),
-         ("icon", "icon-bg", 3.0, "ikona na kółku"), ("focus", "surface-0", 3.0, "obrys fokusa")]
+         ("icon", "icon-bg", 3.0, "ikona na kółku"), ("focus", "surface-0", 3.0, "obrys fokusa"),
+         ("on-solid", "solid", 4.5, "tekst na pełnym kaflu (KPI, suma, LIVE, przycisk pomocy) - 2.0.9")]
 # 2.0.0: bez zieleni poza brand* zostaje tylko DK2 krem ciemny (decyzja usera 05.10); style jasne = sklep, zieleń jest akcentem
 NO_GREEN = ("krem-ciemny",)
 GREEN_CHROMA, GREEN_H = 0.04, (105.0, 200.0)

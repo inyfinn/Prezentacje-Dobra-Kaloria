@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.8
+# Tokeny Dobra Kaloria 2.0.9
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -178,6 +178,8 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | step-idle-border | `--dk-color-step-idle-border` | `#CED4DA` | grey-300 |
 | step-idle-text | `--dk-color-step-idle-text` | `#666666` | ink-600 |
 | step-done | `--dk-color-step-done` | `#007936` | green-750 |
+| solid | `--dk-color-solid` | `#00642E` | green-900 |
+| on-solid | `--dk-color-on-solid` | `#FFFFFF` | white |
 
 ## Kolory - prymitywy
 
@@ -328,6 +330,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | switch-knob | switch-on | 5.54:1 | 3.0:1 | gałka na włączonym torze |
 | icon | icon-bg | 5.08:1 | 3.0:1 | ikona na kółku |
 | focus | surface-0 | 5.54:1 | 3.0:1 | obrys fokusa |
+| on-solid | solid | 7.34:1 | 4.5:1 | tekst na pełnym kaflu (KPI, suma, LIVE, przycisk pomocy) - 2.0.9 |
 
 ## Czcionki
 

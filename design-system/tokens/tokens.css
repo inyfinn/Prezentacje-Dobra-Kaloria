@@ -1,4 +1,4 @@
-/* Design system Dobra Kaloria 2.0.8 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+/* Design system Dobra Kaloria 2.0.9 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
 /* Drabina powierzchni: --dk-color-surface-0 (tło okna) ... -4 (nakładka); tagi: --dk-color-tag-N-bg/-fg/-border. */
 :root, [data-theme="dobra-kaloria"] {
   color-scheme: light;
@@ -206,6 +206,8 @@
   --dk-color-step-idle-border: var(--dk-grey-300);
   --dk-color-step-idle-text: var(--dk-ink-600);
   --dk-color-step-done: var(--dk-green-750);
+  --dk-color-solid: var(--dk-green-900);
+  --dk-color-on-solid: var(--dk-white);
   /* czcionki */
   --dk-font-display: "Mindset", "Arial Narrow", Impact, sans-serif;
   --dk-font-text: "Lato", "Segoe UI", Arial, sans-serif;
@@ -408,6 +410,8 @@
   --dk-color-step-idle-border: var(--dk-grey-300);
   --dk-color-step-idle-text: var(--dk-ink-600);
   --dk-color-step-done: var(--dk-green-750);
+  --dk-color-solid: var(--dk-green-900);
+  --dk-color-on-solid: var(--dk-white);
 }
 [data-theme="dobra-kaloria-zielen-jasny"] {
   color-scheme: light;
@@ -513,6 +517,8 @@
   --dk-color-step-idle-border: var(--dk-grey-300);
   --dk-color-step-idle-text: var(--dk-ink-600);
   --dk-color-step-done: var(--dk-green-750);
+  --dk-color-solid: var(--dk-green-900);
+  --dk-color-on-solid: var(--dk-white);
 }
 [data-theme="dobra-kaloria-zielen-ciemny"], [data-theme="dobra-kaloria-ciemny"] {
   color-scheme: dark;
@@ -616,8 +622,10 @@
   --dk-color-heading-accent: var(--dk-lime-300);
   --dk-color-overlay: var(--dk-color-surface-4);
   --dk-color-strip: var(--dk-color-surface-1);
-  --dk-color-zebra: var(--dk-color-surface-1);
+  --dk-color-zebra: var(--dk-color-surface-2);
   --dk-color-progress: var(--dk-lime-300);
+  --dk-color-solid: var(--dk-green-750);
+  --dk-color-on-solid: var(--dk-white);
 }
 [data-theme="dobra-kaloria-krem-ciemny"], [data-theme="dobra-kaloria-krem"] {
   color-scheme: dark;
@@ -721,6 +729,8 @@
   --dk-color-heading-accent: var(--dk-wheat-200);
   --dk-color-overlay: var(--dk-color-surface-4);
   --dk-color-strip: var(--dk-color-surface-1);
-  --dk-color-zebra: var(--dk-color-surface-1);
+  --dk-color-zebra: var(--dk-color-surface-2);
   --dk-color-progress: var(--dk-wheat-200);
+  --dk-color-solid: var(--dk-tan-650);
+  --dk-color-on-solid: var(--dk-white);
 }
