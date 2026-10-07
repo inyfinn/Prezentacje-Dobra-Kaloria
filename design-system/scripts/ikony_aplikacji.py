@@ -13,7 +13,7 @@ BASE = os.path.dirname(HERE)
 FONT = os.path.join(BASE, "assets", "fonts", "Mindset.otf")
 OUT = os.path.join(BASE, "assets", "icons")
 GREEN, WHITE = (15, 118, 62, 255), (255, 255, 255, 255)
-APPS = {"prezentacje": "PR", "photo-resizer": "RE", "dam": "DAM"}
+APPS = {"prezentacje": "PR", "photo-resizer": "RE", "dam": "DAM", "packaging-checker": "PC"}
 SIZES = [256, 128, 64, 48, 40, 32, 24, 20, 16]
 
 

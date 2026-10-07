@@ -56,6 +56,8 @@ Wzorzec do porównania: `preview/sklep.html` (zrzuty `preview/shots/70-sklep-*.p
 ## Pliki
 
 ```text
+DESIGN-SYSTEM-DOBRA-KALORIA.md  JEDEN PLIK dla usera i innych agentów (07.10): skąd wiadomo, czym jest DS (źródła prawdy), zasady S1-S18,
+                            tokeny 2.0.7, komponenty, cztery aplikacje, otwarte sprawy. Opis, nie źródło wartości (źródłem jest tokens.json)
 IDENTYFIKACJA-WIZUALNA.md   START: jeden język wizualny, krok po kroku, zrzuty trzech aplikacji
 DOWODY-SKLEP.md             pomiary ze zrzutów sklepu (tabele element / wartość / rola), wzorce, świadome odstępstwa
 RUNDA-4-SKLEP-2026-10-06.md słowa usera dosłownie i zakres rundy 4 (2.0.0); NADPISUJE kolory rundy 3
