@@ -71,8 +71,19 @@ class Api:
         return {"wersja": paths.version(), "powerpoint": engine.powerpoint_available(), "szablony": ["nowy", "stary"],
                 "root": paths.ROOT}
 
+    def _start_dir(self):
+        """Katalog startowy okien wyboru: ostatni folder (przy konwersji - folder pliku .pptx)."""
+        f = self.folder or ""
+        return os.path.dirname(f) if os.path.isfile(f) else f
+
     def pick_folder(self):
-        r = self._window.create_file_dialog(webview.FileDialog.FOLDER, directory=self.folder or "")
+        r = self._window.create_file_dialog(webview.FileDialog.FOLDER, directory=self._start_dir())
+        return r[0] if r else None
+
+    def pick_pptx(self):
+        """Gotowa prezentacja do przełożenia na styl DK (tryb konwersji): zwraca ścieżkę pliku albo None."""
+        r = self._window.create_file_dialog(webview.FileDialog.OPEN, directory=self._start_dir(), allow_multiple=False,
+                                            file_types=("Prezentacje (*.pptx;*.ppsx)",))
         return r[0] if r else None
 
     def analyze(self, path):
@@ -80,7 +91,7 @@ class Api:
             t = time.time()
             res = engine.analyze(path)
             engine._log_file("analiza folderu: %.1f s (%s)" % (time.time() - t, res["folder"]))
-            self.folder = res["folder"]
+            self.folder = res.get("plik") or res["folder"]  # konwersja: ścieżką jest plik .pptx
             self._last_est = res["szacowany_czas_s"]
             return res
         except Exception as e:

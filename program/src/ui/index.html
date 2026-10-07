@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
-<title>Stwórz prezentację — Dobra Kaloria</title>
+<title>Stwórz prezentację - Dobra Kaloria</title>
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="style.css">
@@ -35,6 +35,8 @@
     <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
     <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
     <symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
   </defs>
 </svg>
@@ -44,12 +46,8 @@
 <header class="top">
   <div class="wrap top-in">
     <img class="logo" src="assets/logo_green_box.png" alt="Dobra Kaloria" width="112" height="83">
-    <ol class="steps" id="steps" aria-label="Postęp: cztery kroki">
-      <li data-step="1"><span class="n" aria-hidden="true">1</span><span class="lbl">Folder</span></li>
-      <li data-step="2"><span class="n" aria-hidden="true">2</span><span class="lbl">Ustawienia</span></li>
-      <li data-step="3"><span class="n" aria-hidden="true">3</span><span class="lbl">Tworzenie</span></li>
-      <li data-step="4"><span class="n" aria-hidden="true">4</span><span class="lbl">Gotowe</span></li>
-    </ol>
+    <!-- Kroki buduje app.js (renderSteps): inne dla folderu produktu, inne dla gotowej prezentacji. Na starcie ukryte. -->
+    <ol class="steps" id="steps" aria-label="Postęp" hidden></ol>
   </div>
 </header>
 
@@ -59,28 +57,38 @@
   <section class="screen" id="screen-start" aria-labelledby="h-start">
     <div class="wrap">
       <h1 class="display h-done" id="h-start" tabindex="-1" data-focus>Nowa prezentacja</h1>
-      <p class="start-lead">Wskaż folder produktu. Program sam przeczyta karty, copy i grafiki, a potem ułoży slajdy.</p>
+      <p class="start-lead">Wybierz, z czego ją zrobić.</p>
 
-      <div class="start-cols">
-        <div id="dropzone" class="drop">
-          <span class="drop-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span>
-          <h2 class="drop-title">Upuść tu folder z&nbsp;produktem</h2>
-          <p class="drop-sub"><span class="when-idle">…albo dowolny plik z tego folderu</span><span class="when-over">Puść teraz — wczytam ten folder</span></p>
+      <!-- #dropzone: Python rejestruje na nim upuszczenie pliku (gui.py), dlatego obejmuje oba kafle i pasek upuszczania -->
+      <div id="dropzone" class="choices">
+        <div class="choice" id="choice-folder">
+          <span class="choice-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span>
+          <h2 class="choice-title">Z folderu produktu</h2>
+          <p class="choice-text">Program przeczyta karty, teksty i&nbsp;grafiki, a&nbsp;potem ułoży slajdy.</p>
           <button type="button" class="btn btn-primary" id="btn-pick">
             <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>Wybierz folder
           </button>
         </div>
-
-        <div class="hints">
-          <p class="eyebrow">W folderze powinny być</p>
-          <ul class="hint-list">
-            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-sheet"/></svg></span><span><strong>Karty wprowadzenia</strong><span class="hint-sub">Excel, nazwa zaczyna się od „Karta wprowadzenia”</span></span></li>
-            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-doc"/></svg></span><span><strong>Teksty o produkcie</strong><span class="hint-sub">Word, nazwa zaczyna się od „Copy” albo „Tekst”</span></span></li>
-            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-shield"/></svg></span><span><strong>Badania, dane, analizy</strong><span class="hint-sub">nazwa zaczyna się od „Badanie”, „Dane” albo „Analiza”</span></span></li>
-            <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-image"/></svg></span><span><strong>Wizualizacje i Elementy</strong><span class="hint-sub">dwa foldery: zdjęcia opakowań i owoców</span></span></li>
-          </ul>
+        <div class="choice" id="choice-pptx">
+          <span class="choice-ic" aria-hidden="true"><svg class="ic"><use href="#i-present"/></svg></span>
+          <h2 class="choice-title">Z gotowej prezentacji</h2>
+          <p class="choice-text">Przełożę plik .pptx na styl Dobra Kaloria. Niczego nie pominę.</p>
+          <button type="button" class="btn btn-secondary" id="btn-pick-pptx">
+            <svg class="ic" aria-hidden="true"><use href="#i-present"/></svg>Wybierz plik .pptx
+          </button>
         </div>
+        <p class="drop-strip"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span class="when-idle">Możesz też upuścić tutaj folder albo plik .pptx</span><span class="when-over">Puść teraz, wczytam to</span></p>
       </div>
+
+      <details class="start-help" id="start-help">
+        <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Co powinno być w folderze produktu?</summary>
+        <ul class="hint-list">
+          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-sheet"/></svg></span><span><strong>Karty wprowadzenia</strong><span class="hint-sub">Excel, nazwa zaczyna się od „Karta wprowadzenia”</span></span></li>
+          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-doc"/></svg></span><span><strong>Teksty o produkcie</strong><span class="hint-sub">Word, nazwa zaczyna się od „Copy” albo „Tekst”</span></span></li>
+          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-shield"/></svg></span><span><strong>Badania, dane, analizy</strong><span class="hint-sub">nazwa zaczyna się od „Badanie”, „Dane” albo „Analiza”</span></span></li>
+          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-image"/></svg></span><span><strong>Wizualizacje i Elementy</strong><span class="hint-sub">dwa foldery: zdjęcia opakowań i owoców</span></span></li>
+        </ul>
+      </details>
 
       <div class="update" id="update" role="status" hidden>
         <span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-refresh"/></svg></span>
@@ -101,32 +109,36 @@
     </div>
   </section>
 
-  <!-- 3. OPCJE ------------------------------------------------------------ -->
+  <!-- 3. USTAWIENIA: osobne kroki (07.10.2026) --------------------------------
+       Jeden temat na ekran. Widać tylko krok z body[data-pane]. Folder produktu: materialy, styl, dodatki, slajdy.
+       Gotowa prezentacja: materialy, cel, slajdy. Kolejność i przechodzenie: app.js (PANES, gotoPane). -->
   <form id="opcje-form" novalidate autocomplete="off">
-    <section class="screen" id="screen-opcje" aria-labelledby="h-opcje">
-      <div class="wrap cols">
+    <section class="screen" id="screen-opcje">
+      <div class="wrap">
 
-        <!-- lewa: co znalazłem -->
-        <div class="col-left">
-          <div class="found">
-            <p class="eyebrow">Znalazłem w folderze</p>
-            <h1 class="display h-product" id="h-opcje" tabindex="-1" data-focus></h1>
-            <ul class="found-list" id="found-list"></ul>
-            <div class="notes" id="notes" hidden>
-              <p class="eyebrow">Uwagi</p>
-              <ul id="notes-list"></ul>
-            </div>
+        <!-- krok: co znalazłem -->
+        <section class="pane" data-pane="materialy" aria-labelledby="h-opcje">
+          <header class="pane-head">
+            <p class="eyebrow" id="l-found">Znalazłem w folderze</p>
+            <h1 class="display h-pane" id="h-opcje" tabindex="-1" data-focus></h1>
+          </header>
+          <!-- uwagi stoją nad listą: przy wielu smakach nie mogą schować się pod paskiem -->
+          <div class="notes" id="notes" hidden>
+            <p class="eyebrow">Uwagi</p>
+            <ul id="notes-list"></ul>
           </div>
-          <button type="button" class="link-btn" id="btn-other-folder">
-            <svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Wybierz inny folder
-          </button>
-        </div>
+          <div class="found">
+            <ul class="found-list" id="found-list"></ul>
+          </div>
+        </section>
 
-        <!-- prawa: ustawienia -->
-        <div class="col-right">
-
-          <div class="block" id="fs-styl" role="radiogroup" aria-labelledby="l-styl">
-            <p class="eyebrow" id="l-styl">Styl</p>
+        <!-- krok: styl i ilość tekstu (tylko folder produktu) -->
+        <section class="pane" data-pane="styl" aria-labelledby="h-styl">
+          <header class="pane-head">
+            <p class="eyebrow pane-ctx"></p>
+            <h1 class="display h-pane" id="h-styl" tabindex="-1" data-focus>Wybierz styl</h1>
+          </header>
+          <div class="block" id="fs-styl" role="radiogroup" aria-labelledby="h-styl">
             <div class="styles">
               <label class="style-card">
                 <input type="radio" name="styl" value="nowy" checked>
@@ -140,10 +152,51 @@
               </label>
             </div>
           </div>
+          <div class="block" id="blk-tekst">
+            <div class="slider" id="sl-tekst">
+              <div class="slider-head">
+                <label class="slider-name" for="in-tekst">Ilość tekstu na slajdach</label>
+                <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
+              </div>
+              <div class="slider-body">
+                <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div>
+                <input type="range" id="in-tekst" name="tekst" min="0" max="2" step="1" value="1">
+              </div>
+              <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Mniej</button><button type="button" tabindex="-1" data-v="1">Standardowo</button><button type="button" tabindex="-1" data-v="2">Więcej</button></div>
+              <p class="slider-effect" id="tekst-effect" aria-live="polite"></p>
+            </div>
+          </div>
+        </section>
 
-          <div class="block">
-            <p class="eyebrow">Ustawienia</p>
+        <!-- krok: cel (tylko gotowa prezentacja) -->
+        <section class="pane" data-pane="cel" aria-labelledby="h-cel">
+          <header class="pane-head">
+            <p class="eyebrow pane-ctx"></p>
+            <h1 class="display h-pane" id="h-cel" tabindex="-1" data-focus>Co zrobić z prezentacją</h1>
+            <p class="pane-lead">Każdy slajd z oryginału zostaje, zmienia się wygląd.</p>
+          </header>
+          <div class="block" id="blk-cel" role="radiogroup" aria-labelledby="h-cel">
+            <div class="cels" id="cels"></div>
+          </div>
+          <div class="block" id="blk-wiz">
+            <label class="sec sec-noimg cel-wiz" id="wiz-row" hidden>
+              <span class="sec-txt">
+                <span class="sec-name" id="wiz-name">Wizualizacje produktów</span>
+                <span class="sec-desc" id="wiz-desc">Wstawia paczki tam, gdzie nazwa linii na slajdzie zgadza się z biblioteką produktów. Listę zobaczysz na końcu.</span>
+              </span>
+              <span class="switch"><input type="checkbox" role="switch" id="in-wiz" name="wizualizacje" aria-labelledby="wiz-name" aria-describedby="wiz-desc" checked><i class="track"></i><i class="knob"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i></span>
+            </label>
+          </div>
+        </section>
 
+        <!-- krok: slajdy (folder) albo rozdziały (gotowa prezentacja) -->
+        <section class="pane" data-pane="slajdy" aria-labelledby="h-slajdy">
+          <header class="pane-head">
+            <p class="eyebrow pane-ctx"></p>
+            <h1 class="display h-pane" id="h-slajdy" tabindex="-1" data-focus>Ile slajdów</h1>
+            <p class="pane-lead" id="slajdy-lead"></p>
+          </header>
+          <div class="block" id="blk-dlugosc">
             <div class="slider" id="sl-dlugosc">
               <div class="slider-head">
                 <label class="slider-name" for="in-dlugosc">Długość prezentacji</label>
@@ -156,50 +209,58 @@
               <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Krótka</button><button type="button" tabindex="-1" data-v="1">Standardowa</button><button type="button" tabindex="-1" data-v="2">Pełna</button></div>
               <p class="slider-effect" id="dlugosc-effect" aria-live="polite">Zmienia, które slajdy z danymi z folderu wejdą do prezentacji.</p>
             </div>
-
-            <div class="slider" id="sl-tekst">
-              <div class="slider-head">
-                <label class="slider-name" for="in-tekst">Ilość tekstu</label>
-                <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
-              </div>
-              <div class="slider-body">
-                <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:50%"></i><i class="dot" style="left:100%"></i></div>
-                <input type="range" id="in-tekst" name="tekst" min="0" max="2" step="1" value="1">
-              </div>
-              <div class="stops" aria-hidden="true"><button type="button" tabindex="-1" data-v="0">Mniej</button><button type="button" tabindex="-1" data-v="1">Standardowo</button><button type="button" tabindex="-1" data-v="2">Więcej</button></div>
-              <p class="slider-effect" id="tekst-effect" aria-live="polite"></p>
+          </div>
+          <div class="block" id="blk-cel-slajdy" hidden>
+            <div class="field cel-field" id="cel-slajdy-field">
+              <label for="in-cel-slajdy">Ile slajdów ma zostać w pokazie</label>
+              <input type="number" id="in-cel-slajdy" name="cel_slajdy" inputmode="numeric" min="3" step="1" aria-describedby="cel-slajdy-hint">
+              <p class="field-hint" id="cel-slajdy-hint" aria-live="polite"></p>
             </div>
           </div>
-
           <div class="block" id="fs-sekcje" role="group" aria-labelledby="l-sekcje">
-            <p class="eyebrow" id="l-sekcje">Slajdy</p>
-            <p class="block-lead">Slajdy <span class="chip chip-auto">z folderu</span> program wypełni danymi. Pozostałe to slajdy z szablonu z podpowiedziami w [nawiasach] do uzupełnienia.</p>
+            <p class="eyebrow" id="l-sekcje">Wybierz slajdy samodzielnie</p>
+            <p class="block-lead" id="sec-lead">Slajdy <span class="chip chip-auto">z folderu</span> program wypełni sam, pozostałe mają podpowiedzi w [nawiasach] do uzupełnienia.</p>
             <div class="grps" id="secs"></div>
           </div>
+        </section>
 
-          <div class="block">
-            <p class="eyebrow">Dodatki</p>
+        <!-- krok: dodatki (tylko folder produktu) -->
+        <section class="pane" data-pane="dodatki" aria-labelledby="h-dodatki">
+          <header class="pane-head">
+            <p class="eyebrow pane-ctx"></p>
+            <h1 class="display h-pane" id="h-dodatki" tabindex="-1" data-focus>Chcesz coś dodać?</h1>
+            <p class="pane-lead">Oba pola są opcjonalne, możesz je zostawić puste.</p>
+          </header>
+          <div class="block" id="blk-dodatki">
             <div class="field">
-              <label for="in-film">Link do filmu (YouTube) — opcjonalnie</label>
-              <input type="text" id="in-film" name="film" inputmode="url" placeholder="np. https://www.youtube.com/watch?v=…" spellcheck="false">
+              <label for="in-film">Link do filmu (YouTube)</label>
+              <input type="text" id="in-film" name="film" inputmode="url" placeholder="np. https://www.youtube.com/watch?v=…" spellcheck="false" aria-describedby="film-hint">
               <p class="field-hint" id="film-hint">Wklej link, a dodam slajd z filmem.</p>
             </div>
             <div class="field">
-              <label for="in-claimy">Claimy produktowe (po jednym w linii) — opcjonalnie</label>
-              <textarea id="in-claimy" name="claimy" rows="3" placeholder="np. Bez dodatku cukru&#10;Źródło białka"></textarea>
+              <label for="in-claimy">Claimy produktowe (po jednym w linii)</label>
+              <textarea id="in-claimy" name="claimy" rows="4" placeholder="np. Bez dodatku cukru&#10;Źródło białka" aria-describedby="claimy-hint"></textarea>
+              <p class="field-hint" id="claimy-hint">Trafią na slajd „Co wyróżnia produkt”.</p>
             </div>
           </div>
+        </section>
 
-        </div>
       </div>
     </section>
 
+    <!-- Pasek kroku: Wstecz z lewej, licznik i przycisk główny z prawej. Na ostatnim kroku „Dalej” zmienia się w „Stwórz prezentację”. -->
     <div class="bar" id="bar">
       <div class="wrap bar-in">
-        <button type="submit" class="btn btn-primary btn-brand" id="btn-build">
+        <button type="button" class="btn btn-secondary" id="btn-back">
+          <svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg><span id="back-lbl">Wstecz</span>
+        </button>
+        <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="bar-count"></strong><span class="bar-sep" aria-hidden="true">·</span><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="bar-eta">zwykle ok. 30 sekund</span></p>
+        <button type="button" class="btn btn-primary btn-brand" id="btn-next">
+          Dalej<svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+        </button>
+        <button type="submit" class="btn btn-primary btn-brand" id="btn-build" hidden>
           <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz prezentację
         </button>
-        <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="bar-count">—</strong><span class="bar-sep" aria-hidden="true">·</span><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="bar-eta">zwykle ok. 30 sekund</span></p>
       </div>
     </div>
   </form>
@@ -260,18 +321,19 @@
 
       <div class="done-grid">
         <div class="done-main">
-          <section class="done-sec" aria-labelledby="l-podglad">
+          <section class="done-sec" id="sec-podglad" aria-labelledby="l-podglad">
             <p class="eyebrow" id="l-podglad">Podgląd slajdów</p>
             <ul class="strip" id="strip" tabindex="0" aria-label="Podgląd slajdów (przewiń w bok)"></ul>
           </section>
+          <!-- Sprawdzenie: krótkie wiersze (wynik kontroli), pod nimi najwyżej trzy wskazówki z danych programu.
+               Pełna lista uwag jest zwinięta; otwiera się sama tylko wtedy, gdy kontrola coś znalazła. -->
           <section class="done-sec" aria-labelledby="l-spr">
             <p class="eyebrow" id="l-spr">Sprawdzenie</p>
-            <p class="qa" id="res-qa"></p>
-            <ul class="qa-details" id="res-qa-list" hidden></ul>
-            <div class="todo" id="res-todo" hidden>
-              <p class="todo-title">Do dopracowania</p>
+            <ul class="checks" id="res-checks"></ul>
+            <details class="todo" id="res-todo" hidden>
+              <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg><span id="res-todo-label">Wszystkie uwagi</span></summary>
               <ul id="res-todo-list"></ul>
-            </div>
+            </details>
           </section>
         </div>
 
@@ -290,6 +352,7 @@
       </div>
     </div>
   </section>
+
 
 </main>
 

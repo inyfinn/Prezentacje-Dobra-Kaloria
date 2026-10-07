@@ -13,9 +13,24 @@ Plik o innej nazwie też zostanie odczytany: program oceni po treści, czy to te
 3. Wybierz styl, długość i ilość tekstu, kliknij "Stwórz prezentację".
 4. Po ok. 30-60 sekundach gotowy plik .pptx leży w folderze produktu.
 
+Masz tylko gotową prezentację? Upuść plik .pptx do okna programu - przełoży ją na styl Dobra Kaloria slajd w slajd:
+ten sam slajd, te same teksty i kolejność, nowy wygląd. Nic z niej nie zginie.
+W oknie wybierasz, co zrobić z prezentacją:
+  Zachowaj układ     ten sam slajd w nowym wyglądzie (zwykle to wystarczy)
+  Rozwiń / dokończ   program dołoży puste slajdy z podpowiedziami w [nawiasach]; treść dopiszesz Ty albo AI
+  Skróć              rozdziały, które wyłączysz, zostają w pliku jako slajdy ukryte; dalszy skrót zrobi AI
+Rozdział wyłączony przełącznikiem nie znika: jego slajdy są ukryte (nie widać ich w pokazie). Zanim wyślesz plik poza
+firmę, usuń ukryte slajdy w PowerPoincie albo zapisz PDF.
+Na slajdach z liniami produktów program sam dokłada paczki z biblioteki produktów i wypisuje na końcu, które wstawił -
+sprawdź, czy to te, o które chodziło.
+
+Pracujesz z AI? Wrzuć do agenta (czatu) plik CLAUDE.md / AGENTS.md / GEMINI.md / GROK.md z tego folderu - agent sam
+sprawdzi, czy ma skill /prezentacje, zainstaluje go z tego folderu (jeśli trzeba) i poprowadzi Cię dalej: podasz mu
+folder produktu albo plik .pptx, a on zrobi prezentację. Ręcznie skill instaluje plik zainstaluj-skill.cmd.
+
 Chcesz, żeby AI dopracowało treść? Na ekranie "Gotowe" kliknij Claude, ChatGPT albo Gemini.
 Program skopiuje polecenie i otworzy czat. Wklej je tam (Ctrl+V) i naciśnij Enter.
 Najlepiej działa aplikacja Claude na komputerze w trybie Cowork albo Code, bo widzi pliki.
 
 Program sam sprawdza, czy jest nowsza wersja, i pokazuje przycisk "Zaktualizuj".
-Instrukcja dla AI: AGENTS.md w tym folderze.
+Instrukcje dla AI w tym folderze: CLAUDE.md (Claude), AGENTS.md (ChatGPT / Codex), GEMINI.md (Gemini), GROK.md (Grok).

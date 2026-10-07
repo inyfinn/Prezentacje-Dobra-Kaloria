@@ -513,7 +513,7 @@ def frame(deck, sp, bg="paper"):
     """Rama slajdu treści: kicker, tytuł (Mindset), małe logo, stopka ze źródłem, numer strony."""
     s = deck.slide(bg)
     if sp.get("kicker"):
-        kicker(s, MX, cm(1.5), sp["kicker"])
+        kicker(s, MX, cm(1.2), sp["kicker"])  # 08.10: wyżej o 0,3 cm - ogonki wersalików tytułu (Ś, Ó, Ż) nie dotykają etykiety
     if sp.get("title"):
         tw = cm(sp.get("title_w", 26))
         size = title_size(sp["title"], sp.get("title_size", 40), 26, tw)
@@ -640,8 +640,12 @@ def s_cover_text(deck, sp):
         y = text_block(s, x, cm(5.2), w, dict(sp, subtitle=None), max_pt=58, kicker_style="label")
         rect(s, x, y + cm(0.1), cm(3.2), cm(0.22), "brand")
         if sp.get("subtitle"):
-            txt(s, x, y + cm(0.9), w, cm(4), sp["subtitle"], 20, color="muted", line=28)
-        if sp.get("meta"):
+            spt = sp.get("subtitle_pt", 20)  # konwersja: długi podtytuł mniejszym pismem (16 / 14), nigdy ucięty
+            txt(s, x, y + cm(0.9), w, cm(4), sp["subtitle"], spt, color="muted", line=spt * 1.4)
+        if sp.get("meta") and sp.get("meta_big") and not sp.get("subtitle"):
+            # 08.10 (konwersja): data / autor to nie drobny druk - pod kreską, Mindset w zieleni marki jak w oryginale
+            txt(s, x, y + cm(1.0), w, cm(1.6), sp["meta"], 28, color="brand", font="display", name="!!meta")
+        elif sp.get("meta"):
             txt(s, x, H - cm(2.4), w, cm(0.8), sp["meta"], 13, color="muted", font="bold")
     elif v == 2:
         s = deck.slide("brand")
@@ -708,7 +712,11 @@ def s_section(deck, sp):
     s = deck.slide("brand" if dark else "paper")
     num = sp.get("number", "01")
     if dark:  # 29.09 wersja usera: etykieta białym Mindsetem 32 pt, logo w lewym górnym rogu, źródło drobno
-        txt(s, MX, cm(4.9), cm(14), cm(1.4), num, 32, color="white", font="display")
+        if sp.get("label"):  # 07.10: zamiast numeru - nagłówek ze starej belki (konwersja 1:1, bez dopisanych numerów)
+            txt(s, MX, cm(5.25), cm(26), cm(0.8), sp["label"], 16, color="on_brand", font="bold", caps=True,
+                spacing=150)
+        elif num:  # "number": "" = bez numeru (konwersja nie dopisuje numerów rozdziałów, których nie było)
+            txt(s, MX, cm(4.9), cm(14), cm(1.4), num, 32, color="white", font="display")
         w = cm(20)
         size = title_size(sp["title"], 66, 36, w)
         ls = display_lines(sp["title"], size, w)
@@ -755,7 +763,7 @@ def s_statement(deck, sp):
     """Tekst krótki: jedno zdanie-hasło na środku (Mindset), mały kicker i podpis."""
     s = deck.slide(sp.get("bg", "card"))
     w = cm(26)
-    size = title_size(sp["text"], 60, 34, w)
+    size = title_size(sp["text"], sp.get("max_pt", 60), 34, w)  # max_pt: konwerter zmniejsza przy wielu liniach
     ls = display_lines(sp["text"], size, w)
     th = len(ls) * size * 12700
     y = (H - th) / 2 - cm(0.4)
@@ -1340,14 +1348,19 @@ def s_contact(deck, sp):
 
 
 def s_end(deck, sp):
-    """Zakończenie: variant brand (zieleń, logo, #zawszedobra) albo light (dziękujemy + kontakt)."""
+    """Zakończenie: variant brand (zieleń, logo, #zawszedobra) albo light (dziękujemy + kontakt).
+    valign "m" (konwersja): blok logo + hasztag (+ kontakt) wyśrodkowany w pionie; bez niego pozycje jak w szablonie."""
     if sp.get("variant", "brand") == "brand":
         s = deck.slide("brand")
         lw = cm(8.2)
-        logo(s, (W - lw) / 2, cm(4.2), lw, "white_box", "!!logo")
-        txt(s, 0, cm(11.0), W, cm(1.8), sp.get("hashtag", "#zawszedobra"), 40, color="white", font="display", align="c")
+        y0 = cm(4.2)
+        if sp.get("valign") == "m":  # konwersja: blok logo + hasztag (+ kontakt) wysrodkowany w pionie (09.10)
+            blok = cm(6.8) + cm(1.8) + (cm(2.2) if sp.get("contact") else 0)  # logo 6.0 + odstep 0.8; hasztag 1.8
+            y0 = (H - blok) / 2
+        logo(s, (W - lw) / 2, y0, lw, "white_box", "!!logo")
+        txt(s, 0, y0 + cm(6.8), W, cm(1.8), sp.get("hashtag", "#zawszedobra"), 40, color="white", font="display", align="c")
         if sp.get("contact"):
-            txt(s, 0, cm(13.2), W, cm(1), sp["contact"], 15, color="on_brand", align="c")
+            txt(s, 0, y0 + cm(9.0), W, cm(1), sp["contact"], 15, color="on_brand", align="c")
     else:
         s = deck.slide("paper")
         rect(s, 0, H - cm(5.2), W, cm(5.2), "brand", name="!!panel")
@@ -1881,6 +1894,675 @@ def s_next_steps(deck, sp):
         txt(s, cols[2][0], y, cols[2][1], rh, it.get("when", ""), 15, anchor="m", font="bold", color="brand")
 
 
+# --- konwersja cudzych prezentacji (pptx_convert.py): typy bez limitów treści -----------------------------------
+# Teksty przeniesione ze starej prezentacji nigdy nie są skracane, więc potrzebują typów, które same dobierają
+# rozmiar pisma (20 -> 13 pt) i podają, czy treść się mieści (flow_layout / text_cols_layout) - konwerter dzieli
+# slajdy PRZED budową, nie ucina po niej.
+FLOW_SIZES = (20, 19, 18, 17, 16, 15, 14, 13)
+FLOW_LH = 1.38  # interlinia (krotność rozmiaru pisma)
+
+
+def _flow_style(k, size):
+    """(font, pt, kolor, wcięcie EMU, odstęp przed w pt) dla rodzaju bloku: p akapit, li punkt, h podtytuł,
+    small / url drobny tekst (źródła, adresy)."""
+    if k == "h":
+        return "bold", size + 1, "ink", 0, size * 0.9
+    if k == "li":
+        return "body", size, "ink", cm(0.75), size * 0.45
+    if k in ("small", "url"):
+        return "body", max(11, size - 3), "muted", 0, size * 0.5
+    return "body", size, "ink", 0, size * 0.65
+
+
+def _nlines(text, size, w, font):
+    """Liczba linii z uwzględnieniem słów dłuższych niż szerokość (adresy URL zawija dopiero PowerPoint)."""
+    def n(ln):
+        tw = bd.text_w_emu(ln, size, FONT_REF[font][1])
+        return 1 if tw <= w else math.ceil(tw * 1.2 / max(w, 1))  # 20% zapasu: PowerPoint łamie adres na ukośnikach
+    return sum(n(ln) for ln in lines_for(text, size, w, font))
+
+
+def _flow_h(blocks, size, w):
+    """Wysokość (EMU) bloków tekstu przy danym rozmiarze i szerokości - ta sama miara, której używa budowa."""
+    tot = 0
+    for i, b in enumerate(blocks):
+        font, sz, _c, ind, sp = _flow_style(b.get("k", "p"), size)
+        n = _nlines(b["t"], sz, w - ind, font)
+        tot += n * sz * FLOW_LH * 12700 + (sp * 12700 if i else 0)
+    return tot * 1.03
+
+
+def flow_layout(blocks, w, h, sizes=FLOW_SIZES):
+    """Największy rozmiar pisma, przy którym bloki mieszczą się w (w x h) EMU; None = nie mieszczą się."""
+    for size in sizes:
+        if _flow_h(blocks, size, w) <= h:
+            return size
+    return None
+
+
+def _flow_write(s, x, y, w, blocks, size, name="Tekst"):
+    """Jedno pole tekstowe: akapit źródła = jeden akapit PowerPointa (łamie sam; twarde spacje pilnują typografii PL),
+    punkty to prawdziwe wypunktowania, adresy - prawdziwe hiperłącza."""
+    tb = s.shapes.add_textbox(Emu(int(x)), Emu(int(y)), Emu(int(w)), Emu(int(_flow_h(blocks, size, w))))
+    tf = tb.text_frame
+    tf.word_wrap = True
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+    for i, b in enumerate(blocks):
+        k = b.get("k", "p")
+        font, sz, color, ind, sp = _flow_style(k, size)
+        p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
+        p.line_spacing = Pt(sz * FLOW_LH)
+        if i:
+            p.space_before = Pt(sp)
+        if k == "li":  # kolejność w pPr: spacing, buClr, buFont, buChar
+            pPr = p._p.get_or_add_pPr()
+            pPr.set("marL", str(int(ind)))
+            pPr.set("indent", str(-int(ind)))
+            clr = etree.SubElement(pPr, qn("a:buClr"))
+            etree.SubElement(clr, qn("a:schemeClr")).set("val", "accent1")
+            etree.SubElement(pPr, qn("a:buFont")).set("typeface", "Arial")
+            etree.SubElement(pPr, qn("a:buChar")).set("char", "•")
+        for j, seg in enumerate(b["t"].split("\n")):  # "\n" w bloku = łamanie wiersza w tym samym akapicie
+            if j:
+                p.add_line_break()
+            r = p.add_run()
+            r.text = bd.typo_nbsp(seg)
+            r.font.size = Pt(sz)
+            r.font.name = FONT_REF[font][0]
+            r.font.bold = FONT_REF[font][2]
+            paint(r.font.color, color)
+            if b.get("url"):
+                r.hyperlink.address = b["url"]
+    tb.name = name
+    return tb
+
+
+def _bialy_brzeg(path):
+    """Obraz ma biały brzeg (rogi i środki krawędzi >= 240) - na białym slajdzie zlewa się z tłem."""
+    try:
+        im = Image.open(path).convert("RGB")
+    except Exception:
+        return False
+    w, h = im.size
+    pts = [(2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3), (w // 2, 2), (w // 2, h - 3), (2, h // 2), (w - 3, h // 2)]
+    return all(min(im.getpixel(p)) >= 240 for p in pts if 0 <= p[0] < w and 0 <= p[1] < h)
+
+
+def _contain_pic(s, path, x, y, w, h, caption="", cap_pt=12):
+    """Obraz w całości (bez przycinania) w ramce x,y,w,h; opcjonalny podpis pod obrazem. Zwraca zajętą wysokość."""
+    cl = lines_for(caption, cap_pt, w, "bold") if caption else []
+    ch = len(cl) * (cap_pt + 5) * 12700 + (cm(0.25) if cl else 0)
+    r = img_ratio(path)
+    bw, bh = (w, w / r) if r > w / max(1, h - ch) else ((h - ch) * r, h - ch)
+    yy = y + (h - ch - bh) / 2
+    pic = s.shapes.add_picture(path, Emu(int(x + (w - bw) / 2)), Emu(int(yy)), Emu(int(bw)), Emu(int(bh)))
+    pic.name = "Zdjęcie - prawy klik: Zmień obraz"
+    round_picture(pic, cm(0.3))
+    if _bialy_brzeg(path):  # 10.10: biała grafika na białym slajdzie (s34) - ramka 1 px border #DDDDDD (DS)
+        paint(pic.line.color, "DDDDDD")
+        pic.line.width = Pt(0.75)
+    if cl:  # pole podpisu na całą szerokość komórki (wiersze liczone dla w); pod węższym obrazem - wyśrodkowane
+        txt(s, x, yy + bh + cm(0.25), w, len(cl) * (cap_pt + 5) * 12700, cl, cap_pt, color="muted",
+            font="bold", line=cap_pt + 5, align="c" if bw < 0.98 * w else "l")
+    return bh + ch
+
+
+def s_flow(deck, sp):
+    """Tekst bez limitu długości: akapity (p), punkty (li), podtytuły (h), drobny tekst (small, url) - sam dobiera
+    rozmiar 20-13 pt; opcjonalnie 1-2 obrazy (całe, z podpisami) z prawej. Spec: kicker, title, blocks[{k, t, url}],
+    images[{image, caption}], source."""
+    s = frame(deck, sp)
+    y0 = CT if sp.get("title") else cm(3.6)
+    imgs = sp.get("images") or []
+    tw = cm(16.6) if imgs else cm(24)
+    size = flow_layout(sp["blocks"], tw, CB - y0 - cm(0.4)) or FLOW_SIZES[-1]
+    _flow_write(s, MX, y0, tw, sp["blocks"], size)
+    if imgs:
+        x = MX + tw + cm(1.6)
+        gap = cm(0.7)
+        ih = ((CB - y0) - gap * (len(imgs) - 1)) / len(imgs)
+        for i, it in enumerate(imgs):
+            _contain_pic(s, it["image"], x, y0 + i * (ih + gap), W - MX - x, ih, it.get("caption", ""))
+
+
+def text_cols_layout(columns, has_title=True):
+    """Układ kolumn z nagłówkami: dict(size, hz, hh, card_h, y0, cw) albo None, gdy treść się nie mieści."""
+    n = len(columns)
+    y0 = CT if has_title else cm(3.6)
+    cw = (W - 2 * MX - GAP * (n - 1)) / n
+    pad = cm(1.0)
+    iw = cw - 2 * pad
+    hz = min([title_size(c["title"], 28, 18, iw) for c in columns if c.get("title")] or [28])
+    hh = 0
+    if any(c.get("title") for c in columns):
+        hh = max(len(display_lines(c["title"], hz, iw)) for c in columns if c.get("title")) * hz * 12700 + cm(0.7)
+    avail = (CB - y0) - 2 * pad - hh
+    size = None
+    heads_ok = all(bd.text_w_emu(max(c["title"].split(), key=len), hz, "Mindset") <= iw for c in columns if c.get("title"))
+    for sz in FLOW_SIZES[2:]:  # kolumny: 18 -> 13 pt; żadne słowo nie może być szersze niż kolumna
+        if heads_ok and all(_flow_h(c["blocks"], sz, iw) <= avail and
+                            all(bd.text_w_emu(w, sz, "Lato") <= iw for b in c["blocks"] for w in b["t"].split())
+                            for c in columns):
+            size = sz
+            break
+    need = max(_flow_h(c["blocks"], size or FLOW_SIZES[-1], iw) for c in columns)
+    return dict(size=size, hz=hz, hh=hh, y0=y0, cw=cw, pad=pad, iw=iw,
+                card_h=min(CB - y0, max(cm(7.5), hh + need + 2 * pad)))
+
+
+def s_text_cols(deck, sp):
+    """2-4 kolumny w kartach: nagłówek (Mindset) + akapity / punkty (jak w s_flow). Spec: kicker, title,
+    columns[{title, blocks[{k, t, url}]}], source."""
+    s = frame(deck, sp)
+    cols = sp["columns"]
+    L = text_cols_layout(cols, bool(sp.get("title")))
+    size = L["size"] or FLOW_SIZES[-1]
+    for i, c in enumerate(cols):
+        x = MX + i * (L["cw"] + GAP)
+        card(s, x, L["y0"], L["cw"], L["card_h"], "card")
+        if c.get("title"):
+            ls = display_lines(c["title"], L["hz"], L["iw"])
+            txt(s, x + L["pad"], L["y0"] + L["pad"], L["iw"], len(ls) * L["hz"] * 12700, ls, L["hz"], color="brand",
+                font="display", line=L["hz"])
+        if c["blocks"]:
+            _flow_write(s, x + L["pad"], L["y0"] + L["pad"] + L["hh"], L["iw"], c["blocks"], size)
+
+
+def s_pics(deck, sp):
+    """Zdjęcia / zrzuty w całości (bez przycinania), 1-6, z podpisami; opcjonalnie wspólny podpis (note) pod spodem.
+    Spec: kicker, title, items[{image, caption}], note, source."""
+    s = frame(deck, sp)
+    items = sp["items"]
+    y0 = CT if sp.get("title") else cm(3.6)
+    nl = lines_for(sp["note"], 15, W - 2 * MX) if sp.get("note") else []
+    nh = len(nl) * 21 * 12700 + cm(0.5) if nl else 0
+    n = len(items)
+    cols = {1: 1, 2: 2, 3: 3, 4: 2, 5: 3, 6: 3}[n]
+    rows = math.ceil(n / cols)
+    area = CB - y0 - nh
+    cw = (W - 2 * MX - GAP * (cols - 1)) / cols
+    ch = (area - GAP * (rows - 1)) / rows
+    for i, it in enumerate(items):
+        c, r = i % cols, i // cols
+        _contain_pic(s, it["image"], MX + c * (cw + GAP), y0 + r * (ch + GAP), cw, ch, it.get("caption", ""))
+    if nl:
+        txt(s, MX, CB - nh + cm(0.3), W - 2 * MX, nh - cm(0.3), nl, 15, color="muted", line=21, align="c")
+
+
+# --- układ 1:1 ze starej prezentacji (07.10.2026) ---------------------------------------------------------------
+# User 07.10: "Nie trzymałeś się tekstów w slajdzie i kolejności", "Staraj się trzymać układu ze starej prezentacji",
+# "Segment 1 i 3 (...) musi być osobno". Typ `uklad` odtwarza stary slajd wiersz po wierszu (góra-dół) w nowym stylu:
+# hasła (Mindset), akapity (Lato), kolumny-karty (obraz, nagłówek, linie, znacznik i metka przypięte na dole), kafle
+# haseł, obrazy w całości. Sam zmniejsza pismo, aż wszystko mieści się w polu treści: nic nie ucina i nic nie dopisuje.
+UK_KIND = {  # rodzaj wiersza: (czcionka, pt, kolor, interlinia, wyrównanie)
+    "big": ("display", 64, "brand", 1.0, "c"), "h": ("display", 36, "brand", 1.06, "c"),
+    "lead": ("display", 36, "ink", 1.06, "c"), "sub": ("display", 26, "brand", 1.08, "c"),
+    "p": ("body", 25, "ink", 1.36, "l"), "b": ("bold", 25, "ink", 1.36, "l"),
+    "small": ("body", 15, "muted", 1.4, "l"),
+}
+UK_COL = {"h": ("display", 30, "brand", 1.04), "lead": ("display", 26, "ink", 1.08), "p": ("body", 17, "ink", 1.36),
+          "b": ("bold", 17, "ink", 1.36), "small": ("body", 13, "muted", 1.4)}  # bloki wewnątrz kolumny
+
+
+def _uk_wrap(font, t, pt, w):
+    """Linie tekstu (ręczne łamanie zostaje); None = jakieś słowo jest szersze niż pole, trzeba zmniejszyć pismo."""
+    meas = FONT_REF[font][1]
+    if any(bd.text_w_emu(wd, pt, meas) > w * 0.96 for wd in t.replace("\n", " ").split()):
+        return None
+    return display_lines(t, pt, w) if font == "display" else lines_for(t, pt, w, font)
+
+
+QUOTE_PT, AUTHOR_PT = 30, 16  # cytat i autor jak w s20 szablonu (make_template: s_quote 30 pt kursywa, autor 16 pt bold)
+F_WIERSZ = 1.3  # wiersze poza kartami rosną najwyżej 1,3 x; karty-pojemniki (kont) do 1,6 x - pismo ma wypełnić kartę
+KONT_PT = {"p": 26, "b": 26, "lead": 40, "h": 36, "small": 16}  # górna granica pisma w karcie-pojemniku (08.10)
+
+
+def _uk_text(row, f, width):
+    font, pt0, color, lh, align = UK_KIND[row["k"]]
+    pt = max(11, round(row.get("pt", pt0) * min(f, F_WIERSZ) * 2) / 2)
+    if row.get("max_pt"):  # komentarz pod kartami: nie większy niż tekst kart
+        pt = min(pt, row["max_pt"])
+    ind = cm(0.85) * min(1, f) if row.get("li") else 0
+    w = min(cm(row["w"]) if row.get("w") else (cm(27.5) if font == "display" else cm(26)), width) - ind
+    ls = _uk_wrap(font, row["t"], pt, w)
+    if ls is None:
+        return None
+    return dict(kind="text", h=len(ls) * pt * lh * 12700, lines=ls, pt=pt, font=font, color=row.get("color", color),
+                lh=lh, align=row.get("align", align), w=w, ind=ind, wyr=row.get("wyr"))
+
+
+def _rwane(ls, pt, iw, font, waska=False):
+    """Akapit Lato w karcie wygląda na „rwany”: średnie wypełnienie wierszy (bez ostatniego) < 82% szerokości pola albo
+    któryś wiersz < 60% („Nadwaga nie / wyklucza / niedożywienia”, „Format miękki, łatwy / do przegryzienia.”).
+    waska (3-4 karty obok siebie): także średnio < 3,5 słowa w wierszu przy akapicie >= 6 słów."""
+    if len(ls) < 2:
+        return False
+    meas = FONT_REF[font][1]
+    ws = [bd.text_w_emu(x, pt, meas) / iw for x in ls[:-1]]
+    if sum(ws) / len(ws) < 0.82 or min(ws) < 0.6:
+        return True
+    slow = sum(len(x.split()) for x in ls)
+    return waska and slow >= 6 and slow / len(ls) < 3.5
+
+
+def _uk_cols(row, f, width):
+    items = row["items"]
+    n = len(items)
+    wts = [it.get("w", 1) for it in items]
+    cws = [(width - GAP * (n - 1)) * wt / sum(wts) for wt in wts]
+    cards = row.get("card", True)
+    kont = bool(row.get("kont"))
+    # 10.10 (runda 4): pad karty-pojemnika nie rosnie z pismem (f > 1 dawal 1,4-1,9 cm, tekst zawijal sie na ~60% karty)
+    pad = cm(row.get("pad", 0.75)) * min(max(f, 0.8), 1.0 if kont else 1.2) if cards else 0
+    gp = cm(row.get("bgap", 0.5)) if kont else cm(0.24)  # karta-pojemnik (08.10): akapity z wiekszym odstepem
+    if not kont:
+        f = min(f, F_WIERSZ)
+    hmax_pt = KONT_PT["h"] if kont else 99
+    heads = [(b["t"], cws[i] - 2 * pad, b.get("one_line")) for i, it in enumerate(items) for b in it.get("blocks", [])
+             if b["k"] == "h" and "pt" not in b]
+    # one_line (naglowki kart-pojemnikow): jedna linia w karcie; inaczej tylko najdluzsze slowo musi sie zmiescic
+    hz = min((fit(t, max(15, min(hmax_pt, round(UK_COL["h"][1] * f))), 15, iw) if ol else
+              title_size(t, max(15, min(hmax_pt, round(UK_COL["h"][1] * f))), 15, iw)) for t, iw, ol in heads) if heads else 0
+    cols, hmax, chs, rwane = [], 0, [], False
+    for i, it in enumerate(items):
+        iw, parts, y = cws[i] - 2 * pad, [], 0
+        for b in it.get("blocks", []):
+            k = b["k"]
+            if k == "img":
+                ih = cm(b.get("h", 4.4)) * f
+                parts.append(("img", y, ih, b))
+                y += ih + cm(0.4) * f
+                continue
+            font, pt0, color, lh = UK_COL[k]
+            pt = hz if (k == "h" and "pt" not in b) else max(10.5, round(b.get("pt", pt0) * f * 2) / 2)
+            if kont and k in KONT_PT and not (k == "h" and "pt" not in b):
+                pt = min(pt, KONT_PT[k])
+            if b.get("max_pt"):
+                pt = min(pt, b["max_pt"])
+            ls = _uk_wrap(font, b["t"], pt, iw)
+            if ls is None:
+                return None
+            bh = len(ls) * pt * lh * 12700
+            if kont and font != "display" and _rwane(ls, pt, iw, font, n >= 3):
+                rwane = True
+            parts.append(("txt", y, bh, dict(lines=ls, pt=pt, font=font, color=b.get("color", color), lh=lh,
+                                             wyr=b.get("wyr"), align=b.get("align", "l"))))
+            y += bh + (cm(0.32) if k == "h" else gp) * f
+        cols.append((parts, iw))
+        chs.append(parts[-1][1] + parts[-1][2] if parts else 0)  # wysokosc tresci kolumny bez odstepu na koncu
+        hmax = max(hmax, y)
+    tag_h = cm(1.1) if any(it.get("tag") for it in items) else 0
+    meta_h = cm(1.3) if any(it.get("meta") for it in items) else 0
+    h = hmax + tag_h + meta_h + 2 * pad
+    if row.get("min_h"):  # karta-pojemnik: najnizsza wysokosc (jak karta-artykul z szablonu), maleje razem z pismem
+        h = max(h, cm(row["min_h"]) * min(1, f))
+    hs = [h] * n  # 10.10: karty obok siebie zawsze rowne (s22); krotsza tresc stoi od gory (valign t)
+    return dict(kind="cols", h=h, cols=cols, cws=cws, pad=pad, cards=cards, items=items, tag_h=tag_h, meta_h=meta_h,
+                grow=row.get("grow", False), valign=row.get("valign", "t"), chs=chs, hs=hs, rwane=rwane)
+
+
+def _uk_chips(row, f, width):
+    f = min(f, F_WIERSZ)
+    pt = max(14, round(row.get("pt", 26) * f))
+    items, per, g, padx = row["items"], row.get("per_row", 3), cm(0.5), cm(0.9)
+    ws = [bd.text_w_emu(t, pt, "Mindset") + 2 * padx for t in items]
+    lines = [list(range(i, min(i + per, len(items)))) for i in range(0, len(items), per)]
+    if any(sum(ws[i] for i in ln) + g * (len(ln) - 1) > width for ln in lines):
+        return None
+    # 10.10: rowna siatka - kafle jednej kolumny maja te sama szerokosc (najszerszy z kolumny), wiec rzedy o tej samej
+    # liczbie kafli zaczynaja sie w tym samym miejscu (s09: drugi rzad byl przesuniety o ~20 px); wszystkie rowne, gdy sie mieszcza
+    wm = max(ws)
+    kol = [max(ws[ln[c]] for ln in lines if c < len(ln)) for c in range(max(len(ln) for ln in lines))]
+    if all(wm * len(ln) + g * (len(ln) - 1) <= width for ln in lines):
+        ws = [wm] * len(ws)
+    elif all(sum(kol[:len(ln)]) + g * (len(ln) - 1) <= width for ln in lines):
+        ws = [kol[c] for ln in lines for c in range(len(ln))]
+    ch = pt * 2.3 * 12700
+    return dict(kind="chips", h=len(lines) * ch + g * (len(lines) - 1), items=items, ws=ws, lines=lines, ch=ch, pt=pt,
+                g=g, fill=row.get("fill", "brand"))
+
+
+def _uk_quote(row, f, width):
+    """Cytat jak slajd s20 szablonu: duzy cudzyslow (sage), tekst Lato kursywa, linia marki, autor pogrubiony."""
+    f = min(f, 1.0)  # 10.10 (runda 4): cytat jak w s20 szablonu (30 pt, nie wiekszy); maleje tylko, gdy slajd jest ciasny
+    pt = max(14, round(row.get("pt", QUOTE_PT) * f * 2) / 2)
+    lh = 1.4
+    off = cm(3.2) * min(1, f)
+    w = width - off
+    ls = _uk_wrap("body", row["t"], pt, w)
+    if ls is None:
+        return None
+    th = len(ls) * pt * lh * 12700
+    ah = AUTHOR_PT * 1.4 * 12700 if row.get("author") else 0
+    h = max(th + (cm(0.5) + cm(0.1) + cm(0.35) + ah if ah else 0), cm(3.4) * min(1, f))
+    return dict(kind="quote", h=h, lines=ls, pt=pt, lh=lh, w=w, off=off, th=th, author=row.get("author", ""),
+                wyr=row.get("wyr"), color=row.get("color", "ink"), f=f)
+
+
+def _uk_pics(row, f, width):
+    return dict(kind="pics", flex=True, h=0, want=cm(row.get("h", 8.5)), min=cm(row.get("min_h", 5.5)), row=row)
+
+
+def _wyroznij(tb, flags, size, font, color, italic=False):
+    """Pojedyncze słowa w kolorze, jak w oryginale. flags: jeden znak na słowo całego pola, w kolejności czytania
+    ('a' = akcent, 'i' = zieleń marki, inny znak = kolor pola). Łamanie wierszy nie zmienia kolejności słów."""
+    ref, _, bold = FONT_REF[font]
+    k = 0
+    for p in tb.text_frame.paragraphs:
+        if not p.runs:
+            continue
+        segs = []
+        for part in re.split(r"(\s+)", p.runs[0].text):
+            if not part:
+                continue
+            if part.isspace():
+                fl = segs[-1][1] if segs else "-"
+            else:
+                fl = flags[k] if k < len(flags) else "-"
+                k += 1
+            if segs and segs[-1][1] == fl:
+                segs[-1][0] += part
+            else:
+                segs.append([part, fl])
+        for i, (t, fl) in enumerate(segs):
+            r = p.runs[0] if i == 0 else p.add_run()
+            r.text = t
+            r.font.size = Pt(size)
+            r.font.name = ref
+            r.font.bold = bold
+            r.font.italic = italic
+            paint(r.font.color, {"a": "accent", "i": "brand"}.get(fl, color))
+
+
+def _pics_rzad(items, width, h, y):
+    """Obrazy jeden obok drugiego: wspólna wysokość (największa, która mieści się w szerokości i wysokości wiersza),
+    wspólna górna krawędź; rząd rozpięty od lewego do prawego brzegu (odstęp do 4 cm), poza tym wyśrodkowany.
+    Zwraca [(item, x, szerokość, wysokość, y)]."""
+    rs = [img_ratio(it["image"]) for it in items]
+    n, g = len(rs), GAP * 0.6
+    hh = min(h, (width - g * (n - 1)) / sum(rs))
+    tot = hh * sum(rs)
+    gap = min((width - tot) / (n - 1), cm(6))  # 09.10: pierwszy obraz przy lewym brzegu kart, ostatni przy prawym
+    x = MX + (width - tot - gap * (n - 1)) / 2
+    out = []
+    for it, r in zip(items, rs):
+        out.append((it, x, hh * r, hh, y + (h - hh) / 2))
+        x += hh * r + gap
+    return out
+
+
+def _pics_prawa(rs, idx, wr, h, g2, pos=None):
+    """Kandydaci ułożenia obrazów idx w polu wr x h: rzędy po 1-2 obrazy (ostatni nieparzysty na całą szerokość) albo
+    dwa stosy obok siebie (jak w oryginale: jeden obraz nad drugim i wysoki obok). Zwraca [(pole, [(i, x, y, w, h)])]."""
+    def rzedy(grupy):
+        hn = [max(((wr - g2 * (len(g) - 1)) / len(g)) / rs[i] for i in g) for g in grupy]
+        sc = min(1.0, (h - g2 * (len(grupy) - 1)) / sum(hn))
+        yy = (h - (sum(hn) * sc + g2 * (len(grupy) - 1))) / 2
+        pole, pl = 0, []
+        for g, hr in zip(grupy, hn):
+            cw = (wr - g2 * (len(g) - 1)) / len(g)
+            for k, i in enumerate(g):
+                pl.append((i, k * (cw + g2), yy, cw, hr * sc))
+                pole += min(cw, hr * sc * rs[i]) / rs[i] ** 0.5  # pierwiastek z pola: małe obrazy też się liczą
+            yy += hr * sc + g2
+        return pole, pl
+
+    def stosy(k1, k2, ratio):
+        pole, pl, x = 0, [], 0
+        if pos:  # stosy w kolejności z oryginału: lewy stos = ten, który stał bardziej na lewo; w stosie góra-dół
+            k1, k2 = sorted((k1, k2), key=lambda g: sum(pos[i][0] for i in g) / len(g))
+            k1, k2 = sorted(k1, key=lambda i: pos[i][1]), sorted(k2, key=lambda i: pos[i][1])
+        for g, cw in ((k1, (wr - g2) * ratio), (k2, (wr - g2) * (1 - ratio))):
+            hn = [cw / rs[i] for i in g]
+            sc = min(1.0, (h - g2 * (len(g) - 1)) / sum(hn))
+            yy = (h - (sum(hn) * sc + g2 * (len(g) - 1))) / 2
+            for i, hr in zip(g, hn):
+                pl.append((i, x, yy, cw, hr * sc))
+                pole += sc * (cw * hr) ** 0.5
+                yy += hr * sc + g2
+            x += cw + g2
+        return pole, pl
+    out, n = [], len(idx)
+
+    def podzialy(m):
+        if m == 0:
+            yield []
+            return
+        for k in (1, 2):
+            if k <= m:
+                for t in podzialy(m - k):
+                    yield [k] + t
+    for comp in podzialy(n):
+        grupy, a = [], 0
+        for k in comp:
+            grupy.append(idx[a:a + k])
+            a += k
+        out.append(rzedy(grupy))
+    for mask in range(1, 2 ** n - 1):
+        k1 = [idx[j] for j in range(n) if mask >> j & 1]
+        k2 = [idx[j] for j in range(n) if not mask >> j & 1]
+        if len(k1) > 1 or len(k2) > 1:
+            out += [stosy(k1, k2, r / 100) for r in range(35, 66, 5)]
+    return out
+
+
+def _pics_siatka(items, width, h, y):
+    """Duży obraz z lewej + reszta z prawej (rzędy po 2 albo dwa stosy). Udział lewej kolumny i ułożenie prawej dobieram
+    tak, żeby obrazy razem zajęły jak najwięcej pola. Zwraca [(item, x, y, szerokość, wysokość)] - pola, w które obraz
+    wpisuje się w całości (_contain_pic)."""
+    rs = [img_ratio(it["image"]) for it in items]
+    g, g2 = GAP, GAP * 0.6
+    pos = [it["box"][:2] for it in items] if all(it.get("box") for it in items) else None
+    best = None
+    for pct in range(30, 68, 2):
+        wl = (width - g) * pct / 100
+        wr = width - wl - g
+        al = min(wl, h * rs[0]) / rs[0] ** 0.5
+        for pole, pl in _pics_prawa(rs, list(range(1, len(items))), wr, h, g2, pos):
+            if best is None or al + pole > best[0]:
+                best = (al + pole, wl, pl)
+    _a, wl, pl = best
+    out = [(items[0], MX, y, wl, h)]
+    for i, x, yy, w_, h_ in pl:
+        out.append((items[i], MX + wl + g + x, y + yy, w_, h_))
+    return out
+
+
+def _uk_draw(s, m, y, width, card_fill, cx=None):
+    """Rysuje jeden wiersz. Zwraca (lewy, prawy brzeg) obrazów dla wiersza `pics` (do wyśrodkowania podpisu pod rzędem);
+    cx = środek, względem którego ustawiamy wyśrodkowany tekst (domyślnie środek slajdu)."""
+    n0 = len(s.shapes)
+    if m["kind"] == "text":
+        x = MX if m["align"] == "l" else (W / 2 if cx is None else cx) - (m["w"] + m["ind"]) / 2
+        if cx is not None:
+            x = max(MX, min(x, W - MX - m["w"] - m["ind"]))
+        if m["ind"]:
+            dot(s, x + cm(0.22), y + m["pt"] * m["lh"] * 12700 * 0.5, cm(0.3), "brand")
+        tb = txt(s, x + m["ind"], y, m["w"], m["h"], m["lines"], m["pt"], color=m["color"], font=m["font"],
+                 align=m["align"], line=m["pt"] * m["lh"])
+        if m.get("wyr"):
+            _wyroznij(tb, m["wyr"], m["pt"], m["font"], m["color"])
+    elif m["kind"] == "quote":
+        gz = max(60, round(120 * min(1, m["f"])))  # cudzyslow sage przy lewym marginesie
+        txt(s, MX, y - gz * 12700 * 0.34, cm(3.0), gz * 1.3 * 12700, "\u201e", gz, color="brand_soft", font="display")
+        x = MX + m["off"]
+        tb = txt(s, x, y, m["w"], m["th"], m["lines"], m["pt"], color=m["color"], line=m["pt"] * m["lh"], italic=True)
+        if m.get("wyr"):
+            _wyroznij(tb, m["wyr"], m["pt"], "body", m["color"], italic=True)
+        if m["author"]:
+            yy = y + m["th"] + cm(0.5)
+            rect(s, x, yy, cm(2.4), cm(0.1), "brand")
+            txt(s, x, yy + cm(0.35), m["w"], cm(0.8), m["author"], AUTHOR_PT, color="ink", font="bold")
+    elif m["kind"] == "chips":
+        for li, ln in enumerate(m["lines"]):
+            x = (W - sum(m["ws"][i] for i in ln) - m["g"] * (len(ln) - 1)) / 2
+            yy = y + li * (m["ch"] + m["g"])
+            for i in ln:
+                shape(s, MSO_SHAPE.ROUNDED_RECTANGLE, x, yy, m["ws"][i], m["ch"], m["fill"], radius=0.28)
+                txt(s, x, yy, m["ws"][i], m["ch"], [m["items"][i]], m["pt"], color="white", font="display", align="c",
+                    anchor="m")
+                x += m["ws"][i] + m["g"]
+    elif m["kind"] == "pics":
+        row, h = m["row"], m["h"]
+        items = row["items"]
+        bez_podpisow = not any(it.get("caption") for it in items)
+        if bez_podpisow and not row.get("ws") and not row.get("layout") and len(items) >= 2:
+            # 08.10: obrazy w jednym rzędzie - ta sama wysokość i górna krawędź, rząd rozpięty między brzegami kart
+            for it, x, w_, h_, yy in _pics_rzad(items, width, h, y):
+                _contain_pic(s, it["image"], x, yy, w_, h_)
+        elif bez_podpisow and row.get("layout") == "1+siatka" and len(items) > 2:
+            for it, x, yy, w_, h_ in _pics_siatka(items, width, h, y):
+                _contain_pic(s, it["image"], x, yy, w_, h_)
+        elif row.get("layout") == "1+siatka" and len(items) > 2:  # duży obraz z lewej, reszta w siatce 2 x n z prawej
+            wl = (width - GAP) * row.get("split", 0.5)
+            _contain_pic(s, items[0]["image"], MX, y, wl, h, items[0].get("caption", ""))
+            rest = items[1:]
+            rws = math.ceil(len(rest) / 2)
+            g2 = GAP * 0.6
+            cw = (width - wl - GAP - g2) / 2
+            parts = row.get("rows_h") or [1] * rws  # udziały wysokości wierszy siatki (np. [0.62, 0.38])
+            hs = [(h - g2 * (rws - 1)) * p / sum(parts) for p in parts]
+            for i, it in enumerate(rest):
+                r = i // 2
+                _contain_pic(s, it["image"], MX + wl + GAP + (i % 2) * (cw + g2), y + sum(hs[:r]) + g2 * r, cw, hs[r],
+                             it.get("caption", ""))
+        else:
+            n = len(items)
+            ws = row["ws"] if len(row.get("ws") or []) == n else [1] * n  # udziały szerokości (mały obraz zostaje mały)
+            x = MX
+            for it, wt in zip(items, ws):
+                cw = (width - GAP * (n - 1)) * wt / sum(ws)
+                _contain_pic(s, it["image"], x, y, cw, h, it.get("caption", ""))
+                x += cw + GAP
+    else:  # kolumny
+        x, H_ = MX, m["h"]
+        grow = m.get("grow")
+        for (parts, iw), cw, it, ch, hi in zip(m["cols"], m["cws"], m["items"], m["chs"], m.get("hs") or [H_] * len(m["cws"])):
+            pad = m["pad"]
+            hi = H_ if grow else hi
+            if m["cards"]:
+                card(s, x, y, cw, hi, it.get("fill", card_fill))
+            vo = max(0, (hi - 2 * pad - m["tag_h"] - m["meta_h"] - ch) / 2) if m["valign"] == "m" else 0
+            for kind, py, ph, d in parts:
+                py = py + vo
+                if kind == "img":
+                    r = img_ratio(d["image"])
+                    bw, bh = (iw, iw / r) if r > iw / ph else (ph * r, ph)
+                    ox = (iw - bw) / 2 if m["cards"] else 0  # 09.10: bez kart obraz stoi przy lewej krawedzi kolumny (jak naglowek)
+                    pic = s.shapes.add_picture(d["image"], Emu(int(x + pad + ox)),
+                                               Emu(int(y + pad + py + (ph - bh) / 2)), Emu(int(bw)), Emu(int(bh)))
+                    pic.name = d.get("name") or "Wizualizacja - prawy klik: Zmień obraz"
+                    if d.get("round"):
+                        round_picture(pic, cm(0.3))
+                else:
+                    tb = txt(s, x + pad, y + pad + py, iw, ph, d["lines"], d["pt"], color=d["color"], font=d["font"],
+                             line=d["pt"] * d["lh"], align=d.get("align", "l"))
+                    if d.get("wyr"):
+                        _wyroznij(tb, d["wyr"], d["pt"], d["font"], d["color"])
+            if it.get("tag"):  # osobny znacznik (np. "Zmiana nazwy") - nad metką, na dole karty
+                tag(s, x + pad, y + hi - pad - m["meta_h"] - cm(0.8), it["tag"], fill=it.get("tag_fill", "accent"),
+                    size=11, h=cm(0.8), style="badge")
+            if it.get("meta"):  # osobna metka (np. "Segment 1 & 3") - przypięta do dołu karty
+                tag(s, x + pad, y + hi - pad - cm(0.95), it["meta"], fill="brand", size=13, h=cm(0.95), style="price")
+            x += cw + GAP
+    if m["kind"] == "pics":
+        pic = [sh for sh in list(s.shapes)[n0:] if sh.shape_type == 13]
+        return (min(p.left for p in pic), max(p.left + p.width for p in pic)) if pic else None
+    return None
+
+
+def uklad_layout(sp):
+    """Miary wierszy slajdu `uklad` bez rysowania: (lista miar, współczynnik pisma) albo (None, None), gdy treść się
+    nie mieści nawet małym pismem. Jedno źródło dla s_uklad i dla automatu konwersji (pptx_convert), który przed
+    budową sprawdza, czy stary slajd wejdzie na jeden nowy."""
+    y0 = CT if sp.get("title") else cm(3.3)
+    avail = CB - y0 - (cm(0.25) if sp.get("source") else 0)
+    width = W - 2 * MX
+    fn = {"cols": _uk_cols, "chips": _uk_chips, "pics": _uk_pics, "quote": _uk_quote}
+    first = None  # pierwszy (największy) pasujący współczynnik; dalej szukamy układu bez „rwanych” kart
+    for f in [x / 100 for x in range(int(sp.get("max_f", 1.0) * 100), 44, -5)]:
+        if first and f < 0.7 * first[1]:  # „rwane” karty: do 30% mniejsze pismo, byle linie były pełne
+            break
+        ms, kart_pt = [], 0
+        for r in sp["rows"]:
+            if r.get("po_kartach") and kart_pt:  # komentarz pod kartami: hierarchia - nie większy niż tekst kart + 2 pt
+                r = dict(r, max_pt=min(r.get("max_pt", 99), kart_pt + 2))
+            m = fn.get(r["k"], _uk_text)(r, f, width)
+            if m is None:
+                break
+            if m["kind"] == "cols":
+                kart_pt = max([kart_pt] + [d["pt"] for parts, _iw in m["cols"] for (k_, _y, _h, d) in parts
+                                           if k_ == "txt" and d["font"] != "display"])
+            m["gap"] = cm(r.get("gap", 0.8 if r["k"] in ("cols", "pics", "chips", "big", "h", "quote") else 0.5)) * min(1, f)
+            ms.append(m)
+        else:
+            fixed = sum(m["h"] for m in ms if not m.get("flex")) + sum(m["gap"] for m in ms[1:])
+            flex = [m for m in ms if m.get("flex")]
+            left = avail - fixed
+            ok = False
+            if flex:
+                if left >= sum(m["want"] for m in flex) or (f <= 0.6 and left >= sum(m["min"] for m in flex)):
+                    for m in flex:
+                        m["h"] = left / len(flex)
+                    ok = True
+            elif left >= 0:
+                grow = [m for m in ms if m.get("grow")]
+                for m in grow:
+                    m["h"] += left / len(grow)
+                ok = True
+            if ok:
+                if not any(m.get("rwane") for m in ms):
+                    return ms, f
+                first = first or (ms, f)
+    return first if first else (None, None)
+
+
+def uklad_fit(sp):
+    """Współczynnik pisma, przy którym slajd `uklad` się mieści (1.0 = rozmiary bazowe), albo None."""
+    return uklad_layout(sp)[1]
+
+
+def s_uklad(deck, sp):
+    """Układ 1:1 ze starego slajdu (konwersja): kicker / tytuł jak w ramie, pod nimi wiersze w kolejności góra-dół.
+    Spec: kicker, title, bg (paper|card), valign (m|t), max_f, source, rows[]:
+      {"k": "big|h|lead|sub|p|b|small", "t": tekst, "align": "c|l", "color": token, "pt": n, "w": cm, "li": true,
+       "wyr": "a--i-"}  - wyr: kolor słowo po słowie (a = akcent, i = zieleń marki, - = kolor wiersza)
+      {"k": "cols", "items": [{"blocks": [{"k": "img", "image": p, "h": cm} | {"k": "h|lead|p|b|small", "t": ...,
+                                "align": "l|c", "color": token, "wyr": "a--i-"}],
+                               "tag": "Zmiana nazwy", "meta": "Segment 1 & 3", "w": waga}], "card": true, "grow": true,
+       "pad": cm (domyslnie 0.75), "min_h": cm (najnizsza karta), "valign": "t|m" (tresc w karcie), "kont": true}
+      {"k": "quote", "t": cytat, "author": "Autor, firma", "wyr": "a--i-", "color": token}  - jak slajd s20 szablonu
+      {"k": "chips", "items": [hasła], "per_row": 3}
+      {"k": "pics", "items": [{"image": p, "caption": "", "box": [x, y, w, h cm w oryginale]}], "h": cm, "min_h": cm,
+       "ws": [udziały szerokości], "layout": "1+siatka"}  - obrazy zawsze w całości; bez podpisów: wspólna wysokość i
+       górna krawędź, rząd rozpięty między brzegami kart; 1+siatka: ułożenie dobierane do pola (box = kolejność L-P)
+    wiersz tekstu / blok karty: "max_pt" - górna granica pisma (komentarz pod kartą nie większy niż tekst karty);
+    "po_kartach": true - komentarz pod kartami: pismo najwyżej o 2 pt większe niż tekst kart (dyn. w uklad_layout);
+    karty kont (pojemniki): pismo rośnie do 1,6 x (granice KONT_PT), wiersze poza kartami do 1,3 x; dwie karty bez obrazów,
+    z których krótsza ma < 70% treści dłuższej: każda ma wysokość swojej treści + pad (górne krawędzie równe);
+    kolumny bez kart (card false): obraz przy lewej krawędzi kolumny; rząd obrazów (pics) rozpięty od brzegu do brzegu.
+    slajd: "links": [{"t": "Byron Sharp", "url": "https://..."}] - hiperłącze na tych słowach (bez dopisanego tekstu)"""
+    bg = sp.get("bg", "paper")
+    s = frame(deck, sp, bg)
+    y0 = CT if sp.get("title") else cm(3.3)
+    avail = CB - y0 - (cm(0.25) if sp.get("source") else 0)
+    width = W - 2 * MX
+    rows = sp["rows"]
+    best, _f = uklad_layout(sp)
+    if best is None:
+        raise ValueError("uklad: treść nie mieści się na slajdzie (%s) - podziel go" % (sp.get("title") or sp.get("kicker")))
+    total = sum(m["h"] for m in best) + sum(m["gap"] for m in best[1:])
+    valign = sp.get("valign") or ("t" if all(r["k"] in ("p", "b", "small") for r in rows) else "m")
+    y = y0 + ((avail - total) / 2 if valign == "m" else 0)
+    rzad = None  # brzegi ostatniego wiersza obrazów: podpis-wniosek (sub) tuż pod nim stoi na jego środku
+    for i, m in enumerate(best):
+        if i:
+            y += m["gap"]
+        cx = (rzad[0] + rzad[1]) / 2 if rzad and rows[i]["k"] == "sub" else None
+        rzad = _uk_draw(s, m, y, width, "white" if bg == "card" else "card", cx)
+        y += m["h"]
+
+
 BUILDERS = {
     "cover": s_cover, "cover_text": s_cover_text, "agenda": s_agenda, "section": s_section, "lead": s_lead,
     "statement": s_statement, "longtext": s_longtext, "bullets": s_bullets, "steps": s_steps, "quote": s_quote,
@@ -1893,7 +2575,54 @@ BUILDERS = {
     "video": s_video, "before_after": s_before_after, "donut": s_donut, "columns": s_columns, "price": s_price,
     "compare_table": s_compare_table, "occasions": s_occasions, "social": s_social, "next_steps": s_next_steps,
     "media": s_media, "article": s_article,
+    "flow": s_flow, "text_cols": s_text_cols, "pics": s_pics,
+    "uklad": s_uklad,
 }
+
+
+def link_w_tekscie(s, fragment, url):
+    """Hiperłącze na fragmencie tekstu slajdu (np. nazwisko autora cytatu), tak jak w oryginale: widoczny tekst się nie
+    zmienia, nie dochodzi żaden napis. Fragment może się zawijać na kilka akapitów-linii; przebiegi dzielimy na granicach
+    fragmentu (kolory słów zostają). Zwraca True, gdy fragment znaleziono."""
+    from copy import deepcopy
+    want = " ".join(fragment.replace(" ", " ").split()).lower()
+    if not want:
+        return False
+    for sh in s.shapes:
+        if not sh.has_text_frame:
+            continue
+        flat, pos, runs = "", [], {}
+        for pi, p in enumerate(sh.text_frame.paragraphs):
+            if pi:
+                flat, pos = flat + " ", pos + [None]
+            for ri, r in enumerate(p.runs):
+                runs[(pi, ri)] = r
+                flat += r.text
+                pos += [(pi, ri, ci) for ci in range(len(r.text))]
+        hay = flat.replace(" ", " ").lower()
+        i = hay.find(want)
+        if i < 0:
+            continue
+        span = {}
+        for pp in pos[i:i + len(want)]:
+            if pp:
+                a, b = span.get(pp[:2], (pp[2], pp[2]))
+                span[pp[:2]] = (min(a, pp[2]), max(b, pp[2]))
+        for key, (a, b) in span.items():
+            r, t0 = runs[key], runs[key].text
+            b += 1
+            if a > 0:
+                el = deepcopy(r._r)
+                el.find(qn("a:t")).text = t0[:a]
+                r._r.addprevious(el)
+            if b < len(t0):
+                el = deepcopy(r._r)
+                el.find(qn("a:t")).text = t0[b:]
+                r._r.addnext(el)
+            r.text = t0[a:b]
+            r.hyperlink.address = url
+        return True
+    return False
 
 
 def add_label(s, text, number):
@@ -1923,6 +2652,11 @@ def build(spec, out):
         s = deck.prs.slides[n0]
         if sl.get("morph") is True:  # Morph tylko tam, gdzie ma sens (np. kolejne karty smaków) - 28.09
             morph(s)
+        if sl.get("notes"):  # notatki prelegenta (konwersja cudzej prezentacji)
+            s.notes_slide.notes_text_frame.text = sl["notes"]
+        for lk in sl.get("links", []):  # hiperłącza z oryginału na tych samych słowach (bez dopisanego tekstu)
+            if not link_w_tekscie(s, lk["t"], lk["url"]):
+                print("UWAGA: hiperłącza '%s' nie położono (nie znaleziono tekstu)" % lk["t"])
         if sl.get("label_slide"):  # opis "do czego sluzy" (szablon)
             add_label(s, sl["label_slide"], deck.page)
         if sl.get("hidden"):

@@ -9,14 +9,16 @@ import os
 import sys
 import zipfile
 
-TOP = ["Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "CZYTAJ - jak zrobić prezentację.txt",
-       "DK - szablon prezentacji.pptx"]
+TOP = ["Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "zainstaluj-skill.ps1",
+       "zainstaluj-skill.cmd", "CZYTAJ - jak zrobić prezentację.txt", "DK - szablon prezentacji.pptx"]
+DIRS = ["pliki programu", "skill-prezentacje", "skill-ds-dobra-kaloria"]  # 06-07.10: kopie skilli dla agentów AI obok programu
 
 
 def main(root, out):
     files = []
-    for dp, _dn, fn in os.walk(os.path.join(root, "pliki programu")):
-        files += [os.path.join(dp, f) for f in fn]
+    for d in DIRS:
+        for dp, _dn, fn in os.walk(os.path.join(root, d)):
+            files += [os.path.join(dp, f) for f in fn]
     files += [os.path.join(root, f) for f in TOP]
     missing = [f for f in files if not os.path.isfile(f)]
     if missing:

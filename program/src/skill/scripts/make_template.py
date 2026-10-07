@@ -318,6 +318,43 @@ def spec(theme):
         "zrobione (skopiuj ikonę z pierwszego wiersza).", type="next_steps", kicker="[Ustalenia]",
         title="Następne kroki",
         items=[{"task": "[Zadanie %d]" % i, "who": "[Osoba]", "when": "[Termin]", "done": i == 1} for i in range(1, 6)])
+    # --- Pojemniki konwersji (08.10): te same karty, których używa automat przy przekładaniu cudzej prezentacji
+    add("Karty z konwersji", "DWIE KARTY: dobra / zła wiadomość (albo dwie strony jednej sprawy). Każda karta: nagłówek "
+        "(zieleń albo czerwień) i jedno zdanie pod nim. Automat używa tego wzoru, gdy stary slajd ma dwie krótkie "
+        "myśli typu 'Dobra wiadomość - ... / Zła wiadomość - ...'.", type="uklad", kicker="[Wstęp]",
+        title="[Tytuł: dwie strony tej samej sprawy]", valign="t",
+        rows=[{"k": "cols", "card": True, "kont": True, "pad": 1.2, "min_h": 5.0, "items": [
+            {"blocks": [{"k": "h", "t": "[Dobra wiadomość]", "one_line": True},
+                        {"k": "lead", "t": "[jedno zdanie: co rośnie]"}]},
+            {"blocks": [{"k": "h", "t": "[Zła wiadomość]", "color": "accent", "one_line": True},
+                        {"k": "lead", "t": "[jedno zdanie: co nas hamuje]"}]}]}])
+    add(None, "CYTAT + WNIOSEK: cytat z autorem (kursywa, linia marki), pod nim karta z 2-3 wyśrodkowanymi hasłami. "
+        "Słowa w kolorze zostają kolorem także w cytacie.", type="uklad", kicker="[Wstęp]",
+        title="[Tytuł: skąd ta teza]", valign="t",
+        rows=[{"k": "quote", "t": "[Cytat w jednym zdaniu, np. z badania albo od eksperta]",
+               "author": "[Imię Nazwisko, firma]", "wyr": "--aa------"},
+              {"k": "cols", "card": True, "kont": True, "pad": 1.6, "min_h": 0, "valign": "m", "items": [{"blocks": [
+                  {"k": "lead", "t": "[Hasło 1]", "align": "c", "pt": 26},
+                  {"k": "lead", "t": "[Hasło 2 - najważniejsze]", "align": "c", "pt": 34},
+                  {"k": "lead", "t": "= [Wniosek]", "align": "c", "pt": 26, "color": "accent"}]}]}])
+    add(None, "AKAPIT W KARCIE Z WYRÓŻNIENIEM: 1-3 akapity Lato w kremowej karcie; 2-3 najważniejsze słowa w kolorze "
+        "(czerwień = akcent, zieleń = marka). Dla tekstu, który musi zostać zdaniami, nie hasłami.", type="uklad",
+        title="[Tytuł: wniosek, nie temat]", valign="t",
+        rows=[{"k": "cols", "card": True, "kont": True, "pad": 1.6, "min_h": 8.0, "valign": "m", "items": [{"blocks": [
+            {"k": "p", "t": "[Akapit 1: 2-3 zdania z liczbą i jej źródłem w stopce.]", "wyr": "-----a-----"},
+            {"k": "p", "t": "[Akapit 2: dopowiedzenie albo skutek dla marki.]"}]}]}], source=SRC)
+    add(None, "TRZY FAKTY W KARTACH: trzy równe karty, w każdej jedno zdanie Lato z liczbą w środku zdania (liczba "
+        "nie wychodzi do osobnego kafla). Pod kartami wniosek jednym hasłem.", type="uklad",
+        title="[Tytuł: wniosek z trzech faktów]", valign="t",
+        rows=[{"k": "cols", "card": True, "kont": True, "pad": 1.2, "min_h": 5.0, "valign": "t", "items": [
+            {"blocks": [{"k": "p", "t": "[Fakt %d: zdanie z liczbą, np. 7,7 mln osób to 20,6%% ludności.]" % i}]}
+            for i in (1, 2, 3)]},
+              {"k": "lead", "t": "[Wniosek jednym hasłem]", "gap": 0.9}], source=SRC)
+    add(None, "ZRZUTY W CAŁOŚCI + WNIOSEK: dwa obrazy bez kadrowania (zrzuty ekranu, wykresy) i pod nimi jedno zdanie "
+        "Mindsetem w zieleni. Źródło zostaje drobnym drukiem w stopce.", type="uklad",
+        title="[Tytuł: co pokazują zrzuty]",
+        rows=[{"k": "pics", "min_h": 4.0, "h": 6.5, "items": [{"image": PACK, "caption": ""}, {"image": PACK, "caption": ""}]},
+              {"k": "sub", "t": "[Wniosek pod zrzutami jednym zdaniem]", "color": "brand"}], source=SRC)
     # --- Zakończenie
     add("Zakończenie", "Zakończenie: zieleń marki, logo, #zawszedobra. Standardowy ostatni slajd.", type="end",
         variant="brand", contact="halo@dobrakaloria.pl  ·  dobrakaloria.pl")

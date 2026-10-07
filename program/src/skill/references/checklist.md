@@ -19,6 +19,19 @@
 - [ ] Kontrast policzony skryptem (muted ≥4,5:1 na papierze, kartach i tłach smaków).
 - [ ] Znak wodny na packshotach zgłoszony userowi (nie usuwamy).
 
+## P0 - konwersja gotowej prezentacji (`konwersja-pptx.md`, 06.10.2026)
+- [ ] Nic nie zginęło: `coverage.py` przeczytane ręcznie; każdy brak = literówka źródła / parafraza z zachowaną informacją (nie utrata).
+- [ ] Nic nie dopisane: każde pole `text` / `note` / `columns` / `role` / `caption` ma odpowiednik w źródle; brak treści = typ bez pola.
+- [ ] Kolejność slajdów = oryginał; agenda ma tyle pozycji co przekładki `section`, w tej samej kolejności (generowana z listy).
+- [ ] Każdy obraz z podpisem obejrzany w pełnej rozdzielczości; `img_plansza.png` z nazwami plików użyta do przypisania.
+- [ ] Tekst ze zrzutów (listy, cytaty, trendy) przepisany 1:1; zrzut zostaje jako grafika.
+- [ ] Kwantyfikatory zostały („ok.”, „ponad”, „do”); stopka źródła tylko pod liczbami, których dotyczy; link do lektury nie jest „Źródłem”.
+- [ ] Żadnej etykiety produkcyjnej / notatki roboczej w polach widocznych (uwagi -> notatki slajdu lub raport).
+- [ ] Typ dobrany do treści: `hero_stat` tylko z produktem, `two_cols` min. 2 punkty na kolumnę, `steps` tylko dla kolejności lub tekstów > 160 znaków.
+- [ ] `verify.ps1`: „Tekst - problemy: 0” **i brak wyjątku COM (`RPC_E_CALL_REJECTED`) w logu**; render/verify nie szły równolegle z innym PowerPointem.
+- [ ] Krytyk (`critic`) przeszedł 1 rundę na planszy + pełnych renderach + oryginale; zarzuty sprawdzone na obrazach.
+- [ ] Raport z listą DO DECYZJI: literówki niejednoznaczne, interpretacje, komentarze autora, braki; poprawione literówki wypisane („było -> jest”).
+
 ## P1
 - [ ] 1 myśl i 1 liczba-bohater na slajd; tytuł mówi wniosek ("Najwyższy wynik spośród 4 koncepcji"), nie temat ("Wyniki").
 - [ ] Rozmiary: tekst ≥ 13,5 pt (fresh) / ≥ 16 pt (szablon), stopka ≥ 10,5 pt.

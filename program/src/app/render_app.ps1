@@ -14,6 +14,12 @@ if (-not $NoEmbed) {
 }
 $p = $pp.Presentations.Open($Src, -1, 0, 0)   # tylko do odczytu, bez okna
 $i = 1
-foreach ($s in $p.Slides) { $s.Export((Join-Path $Out ("s{0:D2}.png" -f $i)), "PNG", 1600, 900); $i++ }
+foreach ($s in $p.Slides) {
+    $f = Join-Path $Out ("s{0:D2}.png" -f $i)
+    for ($t = 0; $t -lt 6; $t++) {  # PowerPoint zajety (user pracuje w swoim oknie): COM chwilowo odrzuca wywolanie
+        try { $s.Export($f, "PNG", 1600, 900); break } catch { if ($t -eq 5) { throw }; Start-Sleep -Milliseconds 800 }
+    }
+    $i++
+}
 $p.Close()
 Write-Output "OK $($i-1) slajdow -> $Out"

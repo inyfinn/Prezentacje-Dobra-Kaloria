@@ -1,6 +1,6 @@
 ---
 name: prezentacje
-description: Tworzenie prezentacji PPTX marki Dobra Kaloria (Kubara) z folderu produktu (karty wprowadzenia, copy, Wizualizacje, Elementy, opcjonalnie badania) - jednym poleceniem szybka.py w ~25 s do sprawdzonego szkicu, potem dopracowanie. Też szablon 56 slajdów dla pracowników. Styl ze sklepu dobrakaloria.pl, kolory i czcionki motywu (globalne). Style - C "sklep" (ulubiony), B "odświeżona", A "klasyczna" (DK_WZÓR). Używaj, gdy user prosi o prezentację produktu / nowości / dla handlu / szablon / "zrób preskę", wskazuje folder w "D:\Marketing\- POLSKA\09 - PREZENTACJE\", albo wywołuje /prezentacje.
+description: Tworzenie prezentacji PPTX marki Dobra Kaloria (Kubara) z folderu produktu (karty wprowadzenia, copy, Wizualizacje, Elementy, opcjonalnie badania) - jednym poleceniem szybka.py w ~25 s do sprawdzonego szkicu, potem dopracowanie. Też konwersja gotowej prezentacji .pptx na styl marki slajd w slajd (cele: zachowaj układ, rozwiń / dokończ, skróć) i szablon dla pracowników. Styl ze sklepu dobrakaloria.pl, kolory i czcionki motywu (globalne). Style - C "sklep" (ulubiony), B "odświeżona", A "klasyczna" (DK_WZÓR). Używaj, gdy user prosi o prezentację produktu / nowości / dla handlu / szablon / "zrób preskę", wskazuje folder w "D:\Marketing\- POLSKA\09 - PREZENTACJE\", wrzuca gotowy plik .pptx do przełożenia na nasz styl, dokończenia albo skrócenia, albo wywołuje /prezentacje.
 ---
 
 # /prezentacje - prezentacje Dobra Kaloria
@@ -23,9 +23,11 @@ pywebview/WebView2, `stworz-cli.exe` = wiersz poleceń dla AI, biblioteki, `app\
 - testy spakowanego programu: `WORK\logs\e2e_gui.py` (Playwright przez CDP przeklikuje prawdziwe okno),
   `WORK\logs\launcher_test.ps1` (czasy planszy i okna),
 - instrukcja dla AI: `AGENTS.md` obok programu (kopie na G:\Sprzedaż Marketing\PREZENTACJE\— SZABLON\… i M:).
+Okno od 1.1.9 (07.10.2026) to osobne kroki zamiast jednej strony ustawień: folder = Materiały, Styl, Dodatki, Slajdy; gotowa prezentacja = Przegląd, Cel, Rozdziały (`app.js`: `PANES`, `gotoPane`; testy okna klikają `#btn-next`, na końcu `#btn-build`).
 Zmiana w skrypcie skilla = po `build.ps1` trafia do programu. Program NIC nie zapisuje do własnego folderu (dysk
 sieciowy): cache blokady/placeholderów w `%LOCALAPPDATA%\Dobra Kaloria\Stworz prezentacje` (env `DK_GUARD_CACHE`,
 `DK_CACHE_DIR`). Pułapka: kopia skilla w programie ≠ ten katalog - po ręcznej zmianie skilla odśwież (`build.ps1`).
+**Tryb pptx (1.1.6): upuszczony / podany plik .pptx = konwersja gotowej prezentacji** (`scripts/pptx_convert.py`: `extract` -> `compose` -> `build_dk` -> `coverage`; `stworz-cli.exe "<plik.pptx>"` albo `python pptx_convert.py <plik.pptx>`): cała treść zostaje, długi tekst jest dzielony „(1/2)”, wynik `<nazwa> - nowy styl.pptx`, raport „Treść: 100% akapitów (N/N)”; to szkic, który AI dopracowuje według `references/konwersja-pptx.md`.
 
 ## 1. Szybka ścieżka (domyślna)
 
@@ -55,6 +57,39 @@ W ~25 s robi wszystko, co wcześniej zajmowało godziny:
 
 Tylko część kroków: `--tylko inwentarz|grafiki|szkic`; inne style: `--style C` / `--style B,C`; test bez ruszania
 folderu usera: `--robocze <tmp> --wyjscie <tmp>`.
+
+## 1b. Drugie wejście: gotowa prezentacja (.pptx) -> styl DK (06-07.10.2026)
+
+User wrzuca SAM plik .pptx (stary / chaotyczny styl), bez folderu produktu. **Konwersja = ten sam slajd w nowym
+wyglądzie**: slajd N = slajd N (ta sama liczba slajdów), te same teksty i kolejność, ten sam układ (kolumny to kolumny,
+osobne etykiety osobno), obrazy w całości, wyróżnienia kolorem. Bez dodanej agendy, przekładek, tytułów-wniosków, bez
+łączenia i dzielenia slajdów, bez wyjmowania liczb do kafli (lekcje A27-A41, sekcja D). Reguły „tytuł = wniosek”
+i „jedna myśl na slajd” z pkt 3 dotyczą prezentacji budowanych z folderu produktu, NIE konwersji.
+
+```powershell
+python "$env:USERPROFILE\.claude\skills\prezentacje\scripts\pptx_convert.py" "<plik.pptx>" [--cel wiernie|rozwin|skroc]
+```
+
+- **Cel** (zapytaj, gdy user nie powiedział; domyślnie `wiernie`): `wiernie` = zachowaj układ; `rozwin` = baza do
+  dokończenia (nowe slajdy oznaczone NOWY, slajdów oryginału nie ruszasz); `skroc` = baza do skrócenia (**ukrywasz**,
+  nigdy nie kasujesz). Co wolno w każdym celu: `references/konwersja-pptx.md` pkt 0.
+- **Automat** układa slajd z pozycji pól na starym slajdzie (typ `uklad`), czyta też zdjęcia wstawione jako wypełnienie
+  kształtu (Canva), składa kolaże, dokłada wizualizacje linii produktów (`scripts/wizki.py`, tylko pewne dopasowania)
+  i robi dwie kontrole: „Treść: 100% akapitów” oraz „Układ: osobne napisy X z X, kolejność bez zmian, liczby X z X”.
+- **Twoja część**: plansze par stary | nowy (`scripts/pary_slajdow.py`) i przegląd każdej, zaczynając od slajdów z listy
+  „Sprawdź najpierw”; poprawki w specu; `verify` = 0; raport z listą zmian liter, wstawionych wizualizacji i DO DECYZJI.
+- **Program**: w oknie karta „Co zrobić z prezentacją”, w `stworz-cli.exe "<plik.pptx>" --cel …` (te same funkcje).
+- **Pojemnik z szablonu, tekst 1:1** (user 07.10, A42-A43): automat dobiera typ pojemnika do KSZTAŁTU treści regułami
+  R0-R12 (`references/konwersja-pptx.md` pkt 2a): stos haseł = karta / kafle, 2-4 krótkie myśli = równe karty obok siebie,
+  lista = kafle / punkty, cytat z autorem = cytat, akapit = karta-artykuł w Lato, zdjęcie + podpis = obrazy w całości;
+  Mindset tylko tytuł i hasła do ok. 12 słów, tło białe, krem tylko w kartach. Goły akapit Mindset na całą szerokość
+  albo kremowe tło całego slajdu = błąd („Nie korzystałeś z naszego szablonu. Brzydkie”).
+- **Test bez PowerPointa**: `python -m pytest scripts\test_konwersja.py -q` (ok. 45 s; reguły na slajdach s06/s07/s09/s14/
+  s22/s34/s43 + `-k tabela` = regresja 4 prezentacji: treść 100%, `wiernosc` usterki i `znaki` puste, 43 = 43, 0% gołych
+  slajdów). Nowa reguła = nowy test z numerem slajdu. Wygląd nadal sprawdzasz na planszach par + `verify.ps1`.
+- Prezentacji, która już jest w nowym stylu DK, nie konwertuj - wychodzi gorzej niż oryginał.
+Odrzucone przez usera 07.10: wersja 57-slajdowa z przebudowaną treścią („przerobiłeś prezentację w zły sposób”) oraz
+wersje 1:1 z gołym tekstem bez pojemników z szablonu („po slajdzie 5 dramat”).
 
 ## 2. Wejście: folder produktu
 
@@ -120,15 +155,20 @@ Film 15 s z dźwiękiem o 3 smakach (Magnific, Seedance) z `Elementy\`, do osadz
 ## 6. Pliki
 ```text
 scripts/szybka.py          START: folder -> inwentarz, mapa grafik, grafiki, szkic, budowa, QA, lista DO DECYZJI
-scripts/build_dk.py        B/C: 43 typy slajdów (spec-dk.md), motywy, sceny produktu, wykresy edytowalne, film
+scripts/build_dk.py        B/C: 49 typów slajdów w BUILDERS (spec-dk.md; `uklad` = konwersja 1:1 z kartami, kaflami, cytatem, obrazami), motywy, sceny produktu, wykresy edytowalne, film
+scripts/pptx_convert.py    KONWERSJA gotowej prezentacji 1:1: extract -> compose (układ z pozycji, pojemnik z szablonu wg R0-R12, cele CELE z poleceniem dla AI) -> coverage + wiernosc (usterki, znaki)
+scripts/test_konwersja.py  pytest bez PowerPointa: reguły R0-R12 na slajdach wzorcowych + tabela regresji 4 prezentacji (-k tabela -s)
+scripts/wizki.py           wizualizacje produktów z biblioteki 01 - PRODUKTY\- DK (dopasowanie linii, packshot, złożenie 2-3 paczek)
+scripts/pary_slajdow.py    plansze par stary | nowy slajd - bramka oddania konwersji 1:1
 scripts/build_deck.py      A: styl klasyczny DK_WZÓR
-scripts/make_template.py   szablon 56 slajdów
+scripts/make_template.py   szablon 60 slajdów (wpisy add(); wzory pojemników dla konwersji: s14 statement, s16 article, s17 bullets, s20 quote, s21 two_cols, s36 kafle)
 scripts/prep_images.py     cutout / cutout_dark / trim / tif / xlsx
 scripts/qa_all.ps1         przebudowa + fonty + test kolizji wielu plików
 scripts/verify.ps1         kontrola w PowerPoint: kolizje tekst/grafika/logo, przepełnienia, Morph, motyw, fonty
 scripts/render.ps1         PPTX -> PNG (+ -EmbedFonts)      scripts/contact_sheet.py  plansza
 scripts/guard.py           blokada nadpisania              scripts/make_icons.py     ikony Lucide -> PNG
 assets/                    DK_WZOR.pptx, fonty, logo, ikony, demo (packshoty i elementy do szablonu)
+assets/linie-aliasy.json   słownik: nazwa linii na slajdzie -> linia w bibliotece (ZAŁOŻENIE z 07.10, do potwierdzenia)
 references/lekcje.md       CZYTAJ NAJPIERW                 references/styl-dk.md     tokeny i zasady B/C
 references/spec-dk.md      format spec B/C                 references/checklist.md   QA
 references/design-system.md, spec-format.md                styl A

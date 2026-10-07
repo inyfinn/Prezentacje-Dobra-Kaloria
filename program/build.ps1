@@ -35,6 +35,10 @@ if (-not $BezSkilla) {
     $SK = Join-Path $HOME ".claude\skills\prezentacje"
     robocopy $SK (Join-Path $SRC "skill") /E /XD .cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
     Log "skill odswiezony z $SK"
+    # 1a. kopia skilla w korzeniu folderu programu (skill-prezentacje\) - z niej zainstaluj-skill.ps1 instaluje skill agentom AI.
+    #     Bez /MIR i /PURGE (zakaz kasowania): plik usuniety ze skilla zostaje w kopii az do reczneho przeniesienia.
+    robocopy $SK (Join-Path $R "skill-prezentacje") /E /XD .cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
+    Log "skill-prezentacje odswiezony w $R"
 }
 # 1b. tokeny design systemu (kolory, odstępy, promienie) - jedno źródło: skill ds-dobra-kaloria
 $DS = Join-Path $HOME ".claude\skills\ds-dobra-kaloria\tokens\tokens.css"
@@ -42,6 +46,13 @@ if (Test-Path -LiteralPath $DS) {
     Copy-Item -LiteralPath $DS -Destination (Join-Path $SRC "ui\tokens.css") -Force
     Log "tokens.css odswiezony z $DS"
 } else { Log "design system niedostepny - zostaje tokens.css z src\ui" }
+# 1c. identyfikacja wizualna dla agentów AI (KROK 0b polecenia): kopia dokumentów i tokenów skilla ds-dobra-kaloria
+#     obok programu (skill-ds-dobra-kaloria\), bez assets/preview/scripts (ok. 0,5 MB). Bez /MIR i /PURGE.
+$DSK = Join-Path $HOME ".claude\skills\ds-dobra-kaloria"
+if (Test-Path -LiteralPath $DSK) {
+    robocopy $DSK (Join-Path $R "skill-ds-dobra-kaloria") /E /XD assets preview scripts themes __pycache__ .cache /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
+    Log "skill-ds-dobra-kaloria odswiezony z $DSK"
+}
 # 2. ikona i plansza startowa
 python (Join-Path $W "ikona.py") | Out-Null
 python (Join-Path $W "powitanie.py") | Out-Null

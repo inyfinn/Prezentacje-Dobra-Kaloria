@@ -27,10 +27,13 @@ import build_dk  # noqa: E402
 import build_deck  # noqa: E402
 import guard  # noqa: E402
 import make_template  # noqa: E402  - katalog typów slajdów szablonu
+import pptx_convert  # noqa: E402  - konwersja gotowej prezentacji (.pptx) na styl DK
+import wizki  # noqa: E402  - biblioteka wizualizacji produktów (packshoty do slajdów portfolio)
 szybka.OCR_PS = os.path.join(paths.SKILL_SCRIPTS, "ocr_win.ps1")  # paczki bez smaku w nazwie: napis z opakowania
 from PIL import Image  # noqa: E402
 
 CREATE_NO_WINDOW = 0x08000000
+_COM_ERR = re.compile(r"RPC_E_|0x8001|0x800706|COMException|Exception calling|Wyj.tek podczas wywo.ywania|CallRejected", re.I)
 
 
 class _Glob:  # glob bez plików tymczasowych Office (~$Karta...xlsx) - openpyxl by się na nich wywrócił
@@ -126,6 +129,16 @@ def catalog_extra():
             for i, g, n in EXTRA]
 
 
+# Konwersja gotowej prezentacji, cel "Rozwiń / dokończ": puste slajdy z szablonu, które można dołożyć. Tylko typy
+# bez produktów, zdjęć i wykresów z przykładowymi słupkami - w cudzej prezentacji wyglądałyby jak prawdziwe dane.
+PPTX_DODATKI = [10, 11, 13, 15, 17, 19, 21, 42, 43, 58, 38, 40, 41, 20, 14, 60]
+
+
+def catalog_pptx():
+    by = {int(x["id"][1:]): x for x in catalog_extra()}
+    return [dict(by[i], grupa="dodatki") for i in PPTX_DODATKI if i in by]
+
+
 def template_slides(ids, produkt, flavors, packs, props, claim=""):
     """Wybrane slajdy szablonu z podpowiedziami w [nawiasach]; obrazy przykładowe zamienione na grafiki produktu,
     [Nazwa produktu] i [Smak N] - na dane z folderu. Reszta nawiasów zostaje do uzupełnienia."""
@@ -170,6 +183,7 @@ def template_slides(ids, produkt, flavors, packs, props, claim=""):
 STEPS = [("folder", "Czytam folder", 5), ("grafiki", "Przygotowuję grafiki", 40), ("slajdy", "Układam slajdy", 5),
          ("budowa", "Buduję prezentację", 20), ("qa", "Sprawdzam w PowerPoint", 25), ("zapis", "Zapisuję", 5)]
 _cache = {}  # folder -> (inv, mapa)
+PPTX_WEIGHTS = {"folder": 15, "grafiki": 5, "slajdy": 10, "budowa": 20, "qa": 45, "zapis": 5}
 
 
 def powerpoint_available():
@@ -189,12 +203,20 @@ def _log_file(text):
         pass
 
 
+PPTX_EXT = (".pptx", ".ppsx", ".potx", ".pptm")
+
+
 def normalize_folder(path):
-    """Upuszczony może być folder ALBO dowolny plik z niego - bierzemy folder."""
+    """Upuszczony może być folder ALBO dowolny plik z niego - bierzemy folder. Plik .pptx / .ppsx to gotowa
+    prezentacja do przełożenia na styl DK (tryb pptx): zwracamy ścieżkę pliku."""
     path = (path or "").strip().strip('"')
     if not path:
         raise ValueError("Nie wskazano folderu.")
     if os.path.isfile(path):
+        if path.lower().endswith(PPTX_EXT):  # gotowa prezentacja: tryb konwersji, ścieżką jest plik
+            return os.path.abspath(path)
+        if path.lower().endswith(".ppt"):
+            raise ValueError("To stary format .ppt. Otwórz plik w PowerPoint i zapisz jako .pptx, potem upuść go tutaj.")
         path = os.path.dirname(path)
     if not os.path.isdir(path):
         raise ValueError("Folder nie istnieje: %s" % path)
@@ -206,10 +228,12 @@ def normalize_folder(path):
 # --- 1. analiza folderu -------------------------------------------------------------------------------------------
 def analyze(path):
     folder = normalize_folder(path)
+    if os.path.isfile(folder):
+        return analyze_pptx(folder)
     cards = _Glob.glob(os.path.join(folder, "Karta wprowadzenia*.xls*"))
     if not cards:
         raise ValueError("W tym folderze nie ma kart wprowadzenia (plików 'Karta wprowadzenia_....xlsx') - "
-                         "to nie wygląda na folder produktu.")
+                         "to nie wygląda na folder produktu. Gotową prezentację (.pptx) upuść jako plik.")
     rob = os.path.join(folder, "_robocze")
     os.makedirs(rob, exist_ok=True)
     inv, mapa = szybka.inventory(folder, rob)
@@ -273,7 +297,132 @@ def analyze(path):
             "szacowany_czas_s": int(est), "powerpoint": powerpoint_available()}
 
 
-# --- pomocnicze: treść --------------------------------------------------------------------------------------------
+# --- tryb pptx: konwersja gotowej prezentacji -----------------------------------------------------------------
+_pcache = {}  # plik -> (mtime, model)
+
+
+def _pptx_rob(plik):
+    """Katalog roboczy konwersji: <folder pliku>/_robocze/<nazwa>; gdy folder jest tylko do odczytu - katalog użytkownika."""
+    stem = os.path.splitext(os.path.basename(plik))[0]
+    rob = os.path.join(os.path.dirname(plik), "_robocze", stem)
+    try:
+        os.makedirs(rob, exist_ok=True)
+        return rob
+    except OSError:
+        alt = os.path.join(paths.USER_DIR, "konwersje", stem)
+        os.makedirs(alt, exist_ok=True)
+        return alt
+
+
+def _pptx_model(plik):
+    """Model treści (extract) z cache: analiza i budowa czytają plik raz."""
+    mt = os.path.getmtime(plik)
+    c = _pcache.get(plik)
+    if c and c[0] == mt:
+        return c[1]
+    rob = _pptx_rob(plik)
+    os.makedirs(rob, exist_ok=True)
+    model = pptx_convert.extract(plik, rob)
+    _pcache[plik] = (mt, model)
+    return model
+
+
+def analyze_pptx(plik):
+    model = _pptx_model(plik)
+    st = pptx_convert.stats(model)
+    chapters = pptx_convert.detect_chapters(model)
+    # próbny układ (bez biblioteki wizualizacji - ma być szybko): ile slajdów wyniku przypada na rozdział
+    spec = pptx_convert.compose(model, {"wizualizacje": False})
+    n_out = {c["id"]: sum(len(spec["mapa"].get(str(n), [])) for n in c["slajdy"]) for c in chapters}
+    uwagi = [{"typ": "info", "tekst": t} for t in model["uwagi"] if not t.startswith("Animacje")]
+    uwagi.append({"typ": "info", "tekst": "Cały tekst zostanie przeniesiony. Na końcu sprawdzę każdy akapit i układ "
+                                          "slajdów i pokażę wynik."})
+    sekcje = [{"id": c["id"], "nazwa": c["nazwa"], "dostepna": True, "domyslnie": True, "powod": "", "grupa": "rozdzialy",
+               "rodzaj": "pptx", "slajdy": n_out[c["id"]],
+               "opis": ("slajd %s z oryginału" if len(c["slajdy"]) == 1 else "slajdy %s z oryginału") % pptx_convert._range(c["slajdy"])}
+              for c in chapters] + catalog_pptx()
+    try:
+        lib = wizki.biblioteka(plik, paths.ROOT)
+    except OSError:
+        lib = None
+    n = len(spec["slides"])
+    est = 5 + 0.2 * n + (6 + 0.2 * n if powerpoint_available() else 0)
+    return {"ok": True, "tryb": "pptx", "folder": os.path.dirname(plik), "plik": plik, "nazwa_pliku": os.path.basename(plik),
+            "produkt": pptx_convert.produkt(model), "slajdy": st["slajdy"], "slajdy_wynik": len(spec["slides"]),
+            "akapity": st["akapity"], "grafiki": st["grafiki"], "tabele": st["tabele"], "wykresy": st["wykresy"],
+            "rozdzialy": [c["nazwa"] for c in chapters], "sekcje": sekcje,
+            "grupy": [{"id": "rozdzialy", "nazwa": "Rozdziały", "opis": ""},
+                      {"id": "dodatki", "nazwa": "Dołóż puste slajdy", "opis": "z szablonu, z podpowiedziami w [nawiasach]"}],
+            "cele": [{"id": k, "nazwa": v["nazwa"], "opis": v["opis"]} for k, v in pptx_convert.CELE.items()],
+            "cel_domyslny": "wiernie", "wizualizacje": {"dostepne": bool(lib), "sciezka": lib or ""},
+            "presety": {"0": [], "1": [], "2": []}, "smaki": [], "karty": 0, "uwagi": uwagi,
+            "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1}, "szacowany_czas_s": int(est),
+            "powerpoint": powerpoint_available()}
+
+
+def _source_dump(model, limit=24000):
+    """Tekst oryginału slajd po slajdzie (do polecenia dla czatu)."""
+    L = []
+    for s in model["slajdy"]:
+        hb, bl = pptx_convert._body(s, model["h_cm"])
+        parts = ([pptx_convert._text_of(hb)] if hb else []) + [pptx_convert._text_of(b) for b in bl]
+        parts += [" | ".join(r) for tb in s["tables"] for r in tb["rows"]]
+        L.append("Slajd %d: %s" % (s["n"], " || ".join(p for p in parts if p) or "(bez tekstu)"))
+        if s["notes"]:
+            L.append("  notatki: " + " ".join(s["notes"].split()))
+    t = "\n".join(L)
+    return t if len(t) <= limit else t[:limit] + "\n(dalsza część oryginału pominięta - za długa)"
+
+
+def ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa=None, pptx=None, max_chars=24000, cel="wiernie", dane=None):
+    """Polecenie dla czatu (Claude / ChatGPT / Gemini) po konwersji gotowej prezentacji. Zasady zależą od celu wybranego
+    w programie (jedno źródło: pptx_convert.CELE): wiernie = kontrola, czy każdy slajd trzyma teksty, kolejność i układ
+    oryginału i ma pojemnik z szablonu (reguły R0-R12, konwersja-pptx.md 2a); rozwin = dopisanie brakujących slajdów;
+    skroc = skrót przez ukrywanie, bez kasowania. Początek = krok0() (skill + design system), potem punkty z CELE,
+    na końcu treść oryginału i wyniku. Zakorzenione w plikach skilla i DS, nie w pamięci modelu (user 07.10)."""
+    cel = cel if cel in pptx_convert.CELE else "wiernie"
+    L = ["To konwersja prezentacji \"%s\" na styl marki Dobra Kaloria. Cel: %s. Program przełożył slajdy automatycznie, "
+         "slajd w slajd (ten sam tekst, nowy pojemnik z szablonu DK). Kontrola pokrycia treści: %s. Plik wynikowy: \"%s\". "
+         "Zasady i źródła stylu są w punktach poniżej - wykonaj je w tej kolejności, nie z własnego wyczucia." % (
+             os.path.basename(plik), pptx_convert.CELE[cel]["nazwa"].lower(),
+             cov.get("tekst", "-").replace("Treść: ", "").rstrip("."), nazwa), ""]
+    if pptx:
+        L += ["PLIKI NA KOMPUTERZE", krok0(), "Oryginał: %s" % plik, "Wynik: %s" % pptx,
+              "Instrukcja programu: %s (sekcja 3b „Konwersja gotowej prezentacji: jak dopracować wynik” - "
+              "pojemniki z szablonu, bramka plansz par, lista DO DECYZJI)" % paths.AGENTS_MD,
+              "Jeśli masz dostęp do plików (Claude w trybie Cowork albo Code): popraw wynik bezpośrednio w pliku. "
+              "Jeśli nie: odpowiedz samymi tekstami według punktów poniżej.", ""]
+    pts = ["Sprawdź pokrycie treści (nic z oryginału nie może zginąć): porównaj ORYGINAŁ i WYNIK poniżej. "
+           "Wypisz każdą informację, której w wyniku brakuje."]
+    pts += pptx_convert.polecenie_ai(cel, dane)
+    pts += ["Sprawdź wielkie litery nazw własnych i skrótów oraz dobór wizualizacji produktów, jeśli program je dodał "
+            "(lista jest w UWAGACH PROGRAMU).",
+            "Język polski. Nie kończ wiersza na „a, i, o, u, w, z”.",
+            "Odpowiedz listą: numer slajdu wyniku, co zmienić, gotowy tekst."]
+    L += ["CO MASZ ZROBIĆ"] + ["%d. %s" % (i, p) for i, p in enumerate(pts, 1)]
+    L += ["", "ORYGINAŁ (tekst slajdów)", _source_dump(model), "", "WYNIK (slajdy po konwersji)"]
+    used = 0
+    for i, s in enumerate(spec.get("slides", []), 1):
+        skad = "NOWY, pusty slajd z szablonu" if s.get("nowy") else "z oryginału %s" % s.get("zrodlo", "?")
+        L.append("Slajd %d (%s%s):" % (i, skad, ", ukryty" if s.get("hidden") else ""))
+        seen = []
+        for t in _slide_texts(s):
+            if t not in seen:
+                seen.append(t)
+                L.append("  - " + t)
+                used += len(t)
+        if not seen:
+            L.append("  - (sam obraz, bez tekstu)")
+        if used > max_chars:
+            L.append("(dalsza część wyniku pominięta - za długa)")
+            break
+    if uwagi:
+        L += ["", "UWAGI PROGRAMU"] + [" - " + u for u in uwagi]
+    if qa and qa.get("szczegoly"):
+        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in qa["szczegoly"][:12]]
+    return "\n".join(L)
+
+
 def _common_claims(skus):
     if not skus:
         return []
@@ -629,8 +778,30 @@ def _thumbs(png_dir, width=480):
     return out
 
 
+def krok0():
+    """KROK 0 w poleceniach dla AI: najpierw sprawdź, czy agent ma skill /prezentacje, a jeśli nie - zainstaluj go
+    z korzenia programu (zainstaluj-skill.cmd albo kopia folderu skill-prezentacje), potem wczytaj identyfikację
+    wizualną Dobra Kaloria (skill ds-dobra-kaloria; zapasowo folder skill-ds-dobra-kaloria obok programu - build.ps1
+    kopiuje dziś tylko tokens.css, więc ten folder trzeba dołożyć osobno) i dopiero wtedy pracuj według skilla.
+    User 07.10: polecenie ma być zakorzenione w skillu i design systemie, nie w pamięci modelu."""
+    root = paths.ROOT
+    return ("KROK 0: Sprawdź, czy masz skill /prezentacje: plik %USERPROFILE%\\.claude\\skills\\prezentacje\\SKILL.md "
+            "(Claude Code; Codex: %USERPROFILE%\\.codex\\skills\\prezentacje, Gemini: %USERPROFILE%\\.gemini\\skills\\prezentacje, "
+            "Cursor: %USERPROFILE%\\.cursor\\skills\\prezentacje). Jeśli go nie ma, zainstaluj: uruchom \"" +
+            os.path.join(root, "zainstaluj-skill.cmd") + "\" "
+            "(opcjonalnie -Cel \"<katalog skilli Twojego agenta>\") albo skopiuj folder \"" +
+            os.path.join(root, "skill-prezentacje") + "\" w to miejsce. "
+            "Potem wczytaj skill (SKILL.md, references\\lekcje.md; konwersja PPTX: references\\konwersja-pptx.md pkt 1 i 2a). "
+            "KROK 0b: wczytaj identyfikację wizualną Dobra Kaloria: %USERPROFILE%\\.claude\\skills\\ds-dobra-kaloria\\"
+            "IDENTYFIKACJA-WIZUALNA.md (i DESIGN-SYSTEM-DOBRA-KALORIA.md pkt 5.4 „Prezentacje PPTX”); jeśli nie ma, "
+            "szukaj folderu \"" + os.path.join(root, "skill-ds-dobra-kaloria") + "\"; jeśli i tego nie ma, trzymaj się "
+            "skrótu: wzorzec = sklep dobrakaloria.pl, tło białe, kremowe tylko karty, Mindset tylko tytuł i krótkie hasła, "
+            "reszta Lato, zieleń marki ze slotu motywu, dużo światła, mało obrysów. Bez tych dwóch źródeł nie zmieniaj wyglądu.")
+
+
 def ai_prompt(pptx, folder, uwagi):
-    lines = ["Popraw prezentację \"%s\" utworzoną automatycznie z folderu \"%s\"." % (pptx, folder),
+    lines = [krok0(),
+             "Popraw prezentację \"%s\" utworzoną automatycznie z folderu \"%s\"." % (pptx, folder),
              "Najpierw przeczytaj instrukcję: \"%s\" (jak działa program i jak sprawdzić wynik)." % paths.AGENTS_MD,
              "Zadania: 1) uzupełnij teksty w [nawiasach] danymi z folderu (copy, karty wprowadzenia, badanie); "
              "2) każda liczba ma mieć źródło; 3) nie zmieniaj układu, kolorów ani czcionek; "
@@ -689,7 +860,7 @@ def ai_prompt_chat(nazwa, inv, spec, uwagi, qa=None, max_copy=7000, pptx=None, f
          "Program przygotował wersję roboczą pliku \"%s\". Poniżej masz całą jej treść i materiały źródłowe." % nazwa,
          ""]
     if pptx and folder:
-        L += ["PLIKI NA KOMPUTERZE",
+        L += ["PLIKI NA KOMPUTERZE", krok0(),
               "Plik prezentacji: %s" % pptx,
               "Folder produktu (karty, copy, grafiki): %s" % folder,
               "Instrukcja programu: %s" % paths.AGENTS_MD,
@@ -751,6 +922,69 @@ def ai_prompt_chat(nazwa, inv, spec, uwagi, qa=None, max_copy=7000, pptx=None, f
     return "\n".join(L)
 
 
+def _build_and_qa(spec, rob, opts, uwagi, emit, finish_step, check, say):
+    """Budowa PPTX (build_dk / klasyczny) + osadzenie czcionek, zrzuty i kontrola tekstu w PowerPoint.
+    Zwraca (ścieżka pliku, wynik kontroli, miniatury). Dopisuje do uwagi."""
+    # 4. budowa
+    emit("budowa", "Buduję prezentację (%d slajdów)" % len(spec["slides"]), 0.1)
+    out = spec["output"]
+    if spec["theme"] == "classic":
+        pptx = _build_classic(spec, out)
+    else:
+        build_dk.build(spec, out)
+        pptx = build_dk.build.last_out
+    if os.path.abspath(pptx) != os.path.abspath(out):
+        uwagi.append("Plik '%s' był otwarty albo zmieniony ręcznie - zapisano jako '%s'."
+                     % (os.path.basename(out), os.path.basename(pptx)))
+    say("Zapisano: " + pptx)
+    finish_step("budowa")
+    check()
+    # 5. QA w PowerPoint (czcionki, zrzuty, kontrola tekstu)
+    qa = {"problemy": None, "szczegoly": [], "wykonano": False}
+    thumbs = []
+    if powerpoint_available() and not opts.get("bez_qa"):
+        name = os.path.splitext(os.path.basename(pptx))[0]
+        png = os.path.join(rob, "qa", name)
+        if len(png) > 225:
+            import hashlib
+            skrot = hashlib.sha1(png.encode("utf8")).hexdigest()[:10]
+            png = os.path.join(rob, "qa", skrot)
+            if len(png) > 225:
+                png = os.path.join(paths.USER_DIR, "qa", skrot)
+            say("Długa ścieżka folderu - zrzuty slajdów zapisuję w: " + png)
+        emit("qa", "Osadzam czcionki i robię zrzuty slajdów", 0.15)
+        for old in glob.glob(os.path.join(png, "s*.png")):  # stare zrzuty (własne pliki) - inaczej dłuższa poprzednia
+            os.remove(old)                                    # wersja zostawiłaby nadmiarowe miniatury
+        r = _ps(paths.RENDER_PS, "-Src", pptx, "-Out", png)
+        if not glob.glob(os.path.join(png, "s*.png")):  # PowerPoint zajety: jedna powtorka po chwili
+            time.sleep(5)
+            r = _ps(paths.RENDER_PS, "-Src", pptx, "-Out", png)
+        say(r.strip()[-300:])
+        guard.record(pptx)  # PowerPoint zapisał plik od nowa - odśwież sumę (inaczej następna budowa uzna go za ręczny)
+        emit("qa", "Sprawdzam tekst (sieroty, kolizje, krawędzie)", 0.6)
+        rep = _ps(paths.VERIFY_PS, "-Src", pptx)
+        if _COM_ERR.search(rep):
+            time.sleep(5)
+            rep = _ps(paths.VERIFY_PS, "-Src", pptx)
+        m = re.search(r"Tekst - problemy:\s*(\d+)", rep)
+        zajety = bool(_COM_ERR.search(rep)) or not glob.glob(os.path.join(png, "s*.png"))
+        qa["wykonano"] = bool(m) and not zajety
+        if zajety:
+            uwagi.append("PowerPoint nie oddał zrzutów slajdów (był zajęty albo folder ma bardzo długą ścieżkę), więc kontrola "
+                         "tekstu się nie wykonała. Zamknij okna dialogowe PowerPointa i stwórz prezentację jeszcze raz.")
+        qa["problemy"] = int(m.group(1)) if m else None
+        qa["szczegoly"] = [l.strip() for l in rep.splitlines() if re.match(r"\s{3}s\d+ ", l)]
+        emit("qa", "Przygotowuję podgląd", 0.9)
+        thumbs = _thumbs(png)
+    elif opts.get("bez_qa"):
+        say("Pominięto PowerPoint (--bez-qa): bez osadzania czcionek i kontroli tekstu.")
+    else:
+        say("PowerPoint niedostępny - pomijam osadzanie czcionek i kontrolę tekstu.")
+        uwagi.append("Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).")
+    finish_step("qa")
+    return pptx, qa, thumbs
+
+
 def build(folder, opts, progress=None, log=None, cancel=None):
     """Główna praca. progress(krok_id, opis, procent, eta_s); log(tekst); cancel = threading.Event."""
     t0 = time.time()
@@ -758,10 +992,13 @@ def build(folder, opts, progress=None, log=None, cancel=None):
     opts = dict(opts or {})
     est_total = float(opts.get("szacowany_czas_s") or 40)
     done_w = 0
+    weights = dict((s, wt) for s, _, wt in STEPS)
+    if os.path.isfile(folder):
+        weights.update(PPTX_WEIGHTS)
 
     def emit(step, opis, frac):
         nonlocal done_w
-        w = dict((s, wt) for s, _, wt in STEPS)[step]
+        w = weights[step]
         pct = min(99, int(done_w + w * max(0.0, min(1.0, frac))))
         el = time.time() - t0
         eta = max(1, int(el / pct * (100 - pct))) if pct >= 8 else max(1, int(est_total - el))
@@ -771,7 +1008,7 @@ def build(folder, opts, progress=None, log=None, cancel=None):
 
     def finish_step(step):
         nonlocal done_w
-        done_w += dict((s, wt) for s, _, wt in STEPS)[step]
+        done_w += weights[step]
 
     def check():
         if cancel is not None and cancel.is_set():
@@ -782,6 +1019,8 @@ def build(folder, opts, progress=None, log=None, cancel=None):
         if log:
             log(t)
 
+    if os.path.isfile(folder):  # gotowa prezentacja: konwersja bez utraty treści
+        return _build_pptx(folder, opts, t0, emit, finish_step, check, say, progress)
     rob = os.path.join(folder, "_robocze")
     os.makedirs(rob, exist_ok=True)
     # 1. inwentarz (z cache po analizie)
@@ -829,46 +1068,8 @@ def build(folder, opts, progress=None, log=None, cancel=None):
     json.dump(spec, open(os.path.join(rob, "spec_program.json"), "w", encoding="utf8"), ensure_ascii=False, indent=1)
     finish_step("slajdy")
     check()
-    # 4. budowa
-    emit("budowa", "Buduję prezentację (%d slajdów)" % len(spec["slides"]), 0.1)
-    out = spec["output"]
-    if spec["theme"] == "classic":
-        pptx = _build_classic(spec, out)
-    else:
-        build_dk.build(spec, out)
-        pptx = build_dk.build.last_out
-    if os.path.abspath(pptx) != os.path.abspath(out):
-        uwagi.append("Plik '%s' był otwarty albo zmieniony ręcznie - zapisano jako '%s'."
-                     % (os.path.basename(out), os.path.basename(pptx)))
-    say("Zapisano: " + pptx)
-    finish_step("budowa")
-    check()
-    # 5. QA w PowerPoint (czcionki, zrzuty, kontrola tekstu)
-    qa = {"problemy": None, "szczegoly": [], "wykonano": False}
-    thumbs = []
-    if powerpoint_available() and not opts.get("bez_qa"):
-        name = os.path.splitext(os.path.basename(pptx))[0]
-        png = os.path.join(rob, "qa", name)
-        emit("qa", "Osadzam czcionki i robię zrzuty slajdów", 0.15)
-        for old in glob.glob(os.path.join(png, "s*.png")):  # stare zrzuty (własne pliki) - inaczej dłuższa poprzednia
-            os.remove(old)                                    # wersja zostawiłaby nadmiarowe miniatury
-        r = _ps(paths.RENDER_PS, "-Src", pptx, "-Out", png)
-        say(r.strip()[-300:])
-        guard.record(pptx)  # PowerPoint zapisał plik od nowa - odśwież sumę (inaczej następna budowa uzna go za ręczny)
-        emit("qa", "Sprawdzam tekst (sieroty, kolizje, krawędzie)", 0.6)
-        rep = _ps(paths.VERIFY_PS, "-Src", pptx)
-        m = re.search(r"Tekst - problemy:\s*(\d+)", rep)
-        qa["wykonano"] = bool(m)
-        qa["problemy"] = int(m.group(1)) if m else None
-        qa["szczegoly"] = [l.strip() for l in rep.splitlines() if re.match(r"\s{3}s\d+ ", l)]
-        emit("qa", "Przygotowuję podgląd", 0.9)
-        thumbs = _thumbs(png)
-    elif opts.get("bez_qa"):
-        say("Pominięto PowerPoint (--bez-qa): bez osadzania czcionek i kontroli tekstu.")
-    else:
-        say("PowerPoint niedostępny - pomijam osadzanie czcionek i kontrolę tekstu.")
-        uwagi.append("Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).")
-    finish_step("qa")
+    # 4-5. budowa i kontrola w PowerPoint (wspólne z trybem pptx)
+    pptx, qa, thumbs = _build_and_qa(spec, rob, opts, uwagi, emit, finish_step, check, say)
     emit("zapis", "Zapisuję raport", 0.5)
     result = {"ok": True, "pptx": pptx, "nazwa": os.path.basename(pptx), "folder": folder, "slajdy": len(spec["slides"]),
               "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa, "uwagi": uwagi,
@@ -876,6 +1077,78 @@ def build(folder, opts, progress=None, log=None, cancel=None):
               "prompt_agent": ai_prompt(pptx, folder, uwagi), "styl": opts.get("styl", "nowy")}
     json.dump({k: v for k, v in result.items() if k != "miniatury"},
               open(os.path.join(rob, "raport.json"), "w", encoding="utf8"), ensure_ascii=False, indent=1)
+    finish_step("zapis")
+    if progress:
+        progress("zapis", "Gotowe", 100, 0)
+    return result
+
+
+def _build_pptx(plik, opts, t0, emit, finish_step, check, say, progress):
+    """Konwersja gotowej prezentacji: extract -> compose (układ 1:1 z pozycji na starym slajdzie) -> build_dk ->
+    kontrola w PowerPoint -> pokrycie treści i wierność układu.
+    opts["cel"]: wiernie | rozwin | skroc (pptx_convert.CELE). opts["sekcje"]: id rozdziałów widocznych w pokazie
+    (r01...; pozostałe ZOSTAJĄ w pliku jako slajdy ukryte - nic nie znika) oraz, przy celu "rozwin", id pustych slajdów
+    z szablonu (t10...), które program wstawia przed zakończeniem. opts["wizualizacje"]: False wyłącza packshoty."""
+    rob = _pptx_rob(plik)
+    cel = opts.get("cel") if opts.get("cel") in pptx_convert.CELE else "wiernie"
+    emit("folder", "Czytam prezentację", 0)
+    model = _pptx_model(plik)
+    say("Prezentacja: %s, slajdów: %d, akapitów: %d" % (os.path.basename(plik), len(model["slajdy"]), model["akapity"]))
+    finish_step("folder")
+    check()
+    emit("grafiki", "Przygotowuję grafiki (%d)" % model["stat"]["grafiki"], 0.5)
+    finish_step("grafiki")
+    check()
+    emit("slajdy", "Układam slajdy", 0.3)
+    wybrane = opts.get("sekcje")
+    rozdz = [x for x in wybrane if not re.fullmatch(r"t\d+", x)] if wybrane is not None else None
+    dod = [x for x in (wybrane or []) if re.fullmatch(r"t\d+", x)] if cel == "rozwin" else []
+    spec = pptx_convert.compose(model, {"cel": cel, "sekcje": rozdz, "styl": opts.get("styl"),
+                                        "wyjscie": opts.get("wyjscie"), "wizualizacje": opts.get("wizualizacje", True)})
+    uwagi = list(spec.pop("uwagi"))
+    nowe = pptx_convert.wstaw_dodatki(spec, template_slides(dod, "[Nazwa produktu]", [], [], [])) if dod else []
+    if nowe:
+        uwagi.insert(0, "Dołożyłem puste slajdy z szablonu: %d (nr %s, przed zakończeniem). Uzupełnij teksty "
+                        "w [nawiasach] - sam program niczego nie dopisuje." % (len(nowe), ", ".join(str(n) for n in nowe)))
+    os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
+    json.dump(spec, open(os.path.join(rob, "spec_program.json"), "w", encoding="utf8"), ensure_ascii=False, indent=1)
+    finish_step("slajdy")
+    check()
+    pptx, qa, thumbs = _build_and_qa(spec, rob, opts, uwagi, emit, finish_step, check, say)
+    emit("zapis", "Sprawdzam, czy nic nie zginęło", 0.3)
+    cov = pptx_convert.coverage(plik, pptx, spec["mapa"], rob=rob)
+    wier = pptx_convert.wiernosc(model, pptx, spec["mapa"], nowe=len(nowe))
+    say(cov["tekst"])
+    say(wier["tekst"])
+    for m in cov["brakuje"][:10]:
+        uwagi.append("Brakuje (slajd %d oryginału): %s" % (m["slajdy"] if "slajdy" in m else m["slajd"], m["tekst"]))
+    for u in wier["usterki"][:10]:
+        uwagi.append("Do sprawdzenia - " + u)
+    uwagi.insert(0, wier["tekst"])
+    uwagi.insert(0, cov["tekst"])
+    wszystkie = len(spec["slides"])
+    ukryte = sum(1 for x in spec["slides"] if x.get("hidden"))
+    try:
+        cel_slajdy = int(opts.get("cel_slajdy") or 0)
+    except (TypeError, ValueError):
+        cel_slajdy = 0
+    dane = {"cel_slajdy": cel_slajdy or max(3, int(round(0.6 * (wszystkie - ukryte)))), "widoczne": wszystkie - ukryte,
+            "wszystkie": wszystkie}
+    emit("zapis", "Zapisuję raport", 0.6)
+    result = {"ok": True, "tryb": "pptx", "pptx": pptx, "nazwa": os.path.basename(pptx), "folder": os.path.dirname(plik),
+              "plik": plik, "slajdy": wszystkie, "ukryte": ukryte, "nowe": nowe, "cel": cel,
+              "cel_nazwa": pptx_convert.CELE[cel]["nazwa"], "cel_slajdy": dane["cel_slajdy"] if cel == "skroc" else None,
+              "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa,
+              "uwagi": uwagi, "pokrycie": cov, "wiernosc": wier, "sprawdz": spec.get("sprawdz", []),
+              "wizualizacje": spec.get("wizualizacje", []), "styl": "nowy",
+              "prompt_ai": ai_prompt_pptx(os.path.basename(pptx), plik, model, spec, uwagi, cov, qa, pptx, cel=cel, dane=dane),
+              "prompt_agent": krok0() + "\nPracujesz nad prezentacją \"%s\" (konwersja z \"%s\", cel: %s). Najpierw "
+                              "przeczytaj instrukcję: \"%s\". %s" % (
+                                  pptx, plik, pptx_convert.CELE[cel]["nazwa"].lower(), paths.AGENTS_MD,
+                                  " ".join(pptx_convert.polecenie_ai(cel, dane))),
+              "raport": os.path.join(rob, "raport.json")}
+    json.dump({k: v for k, v in result.items() if k != "miniatury"},
+              open(result["raport"], "w", encoding="utf8"), ensure_ascii=False, indent=1)
     finish_step("zapis")
     if progress:
         progress("zapis", "Gotowe", 100, 0)

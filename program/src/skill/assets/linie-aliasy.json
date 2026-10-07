@@ -1,0 +1,22 @@
+{
+  "_opis": "Nazwy linii używane na slajdach -> linia (napis w nawiasie [ ] w nazwie folderu produktu) albo lista smaków w bibliotece '01 - PRODUKTY\\- DK'. Klucze: kategoria i nazwa małymi literami bez polskich znaków. ZAŁOŻENIE z 07.10.2026: dobór agenta przy prezentacji strategii (slajdy „Kulki” i „Batony”); user go nie odrzucił, ale nie potwierdził wprost. Popraw tutaj, jeśli linie są inne - automat zawsze wypisuje w uwagach, co wstawił.",
+  "kulki": {
+    "pralinowe": {
+      "linia": "deserowe"
+    },
+    "posilkowe": {
+      "linia": "sniadanie"
+    }
+  },
+  "batony": {
+    "protein": {
+      "linia": "IG"
+    },
+    "proteina": {
+      "linia": "IG"
+    },
+    "nerkowiec": {
+      "linia": "nerkowcowy"
+    }
+  }
+}

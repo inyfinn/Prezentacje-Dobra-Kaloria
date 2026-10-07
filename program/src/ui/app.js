@@ -3,10 +3,12 @@
 
    Python -> JS:  App.analyze(path), App.showOptions(result), App.onProgress(p),
                   App.onLog(line), App.onDone(result), App.onError(message), App.goto(screen)
-   JS -> Python:  window.pywebview.api.{get_info, pick_folder, analyze, build,
+   JS -> Python:  window.pywebview.api.{get_info, pick_folder, pick_pptx, analyze, build,
                   open_path, open_folder, copy_text, open_ai, check_update, apply_update, cancel}
 
-   W przeglądarce (bez pywebview) sam doładowuje mock.js z udawanym backendem. */
+   W przeglądarce (bez pywebview) sam doładowuje mock.js z udawanym backendem.
+
+   Ekrany: start -> analiza -> opcje (kilka kroków, patrz PANES) -> praca -> wynik. */
 (function () {
   'use strict';
 
@@ -83,9 +85,13 @@
   /* ---------- stan ---------- */
   var state = {
     screen: 'start',
+    mode: 'folder',      /* 'folder' | 'pptx': wyznacza kroki ustawień i pasek kroków */
+    pane: 'materialy',   /* bieżący krok ustawień (body[data-pane]) */
+    paneMax: 0,          /* najdalszy odwiedzony krok ustawień: do odwiedzonych wolno wrócić kliknięciem w pasek kroków */
     info: null,
     result: null,
     secs: [],
+    cel: 'wiernie',
     packFiles: [],
     packs: {},
     analyzing: false,
@@ -125,18 +131,50 @@
 
   /* ---------- ekrany i kroki ---------- */
   var SCREENS = ['start', 'analiza', 'opcje', 'praca', 'wynik'];
-  var STEP_OF = { start: 1, analiza: 1, opcje: 2, praca: 3, wynik: 4 };
+
+  /* Kroki ustawień (07.10.2026): jeden temat na ekran, widać tylko krok z body[data-pane]. Ten sam krok 'slajdy'
+     pokazuje slajdy folderu albo rozdziały gotowej prezentacji. Dodatki stoją przed slajdami, bo link do filmu
+     włącza slajd z filmem. Pasek kroków u góry = kroki ustawień + Tworzenie + Gotowe. */
+  var PANES = { folder: ['materialy', 'styl', 'dodatki', 'slajdy'], pptx: ['materialy', 'cel', 'slajdy'] };
+  var PANE_LBL = {
+    folder: { materialy: 'Materiały', styl: 'Styl', dodatki: 'Dodatki', slajdy: 'Slajdy' },
+    pptx: { materialy: 'Przegląd', cel: 'Cel', slajdy: 'Rozdziały' }
+  };
+  function panes() { return PANES[state.mode] || PANES.folder; }
+  function paneIdx() { return Math.max(0, panes().indexOf(state.pane)); }
+
+  /* numer bieżącego kroku w pasku (od 1); czytanie folderu należy do kroku 1 */
+  function stepNow() {
+    var n = panes().length;
+    if (state.screen === 'opcje') return paneIdx() + 1;
+    if (state.screen === 'praca') return n + 1;
+    if (state.screen === 'wynik') return n + 2;
+    return 1;
+  }
 
   function updateSteps() {
-    var cur = STEP_OF[state.screen] || 1;
-    $$('#steps li').forEach(function (li) {
-      var n = +li.getAttribute('data-step');
-      var badge = $('.n', li);
-      li.classList.toggle('done', n < cur || (n === 4 && cur === 4));
-      if (n === cur) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
-      badge.replaceChildren();
-      if (n < cur || (n === 4 && cur === 4)) badge.appendChild(icon('check')); else badge.textContent = String(n);
+    var ol = $('#steps'), list = panes(), lbl = PANE_LBL[state.mode] || PANE_LBL.folder;
+    var names = list.map(function (p) { return lbl[p]; }).concat(['Tworzenie', 'Gotowe']);
+    var cur = stepNow(), last = names.length;
+    ol.hidden = state.screen === 'start';
+    ol.setAttribute('aria-label', 'Postęp: krok ' + cur + ' z ' + last);
+    ol.style.setProperty('--steps', String(last));
+    ol.replaceChildren();
+    names.forEach(function (name, i) {
+      var n = i + 1, done = n < cur || (n === last && cur === last);
+      /* do odwiedzonego kroku ustawień można wrócić kliknięciem, ale tylko z ekranu ustawień (nie w trakcie tworzenia) */
+      var go = state.screen === 'opcje' && i < list.length && n !== cur && i <= state.paneMax;
+      var inner = [h('span', { class: 'n', 'aria-hidden': 'true' }, done ? icon('check') : String(n)), h('span', { class: 'lbl', text: name })];
+      ol.appendChild(h('li', { class: done ? 'done' : null, 'data-step': n, 'aria-current': n === cur ? 'step' : null },
+        go ? h('button', { type: 'button', class: 'step-go', 'aria-label': 'Wróć do kroku ' + n + ': ' + name,
+          on: { click: function () { gotoPane(list[i]); } } }, inner)
+          : h('span', { class: 'step-in' }, h('span', { class: 'sr-only', text: 'Krok ' + n + ': ' }), inner)));
     });
+  }
+
+  function focusHead(sel) {
+    var head = $(sel + ' [data-focus]');
+    if (head) { try { head.focus({ preventScroll: true }); } catch (e) { /* stary silnik */ } }
   }
 
   function goto(name, noFocus) {
@@ -145,10 +183,32 @@
     document.body.setAttribute('data-screen', name);
     updateSteps();
     window.scrollTo(0, 0);
-    if (!noFocus) {
-      var head = $('#screen-' + name + ' [data-focus]');
-      if (head) { try { head.focus({ preventScroll: true }); } catch (e) { /* stary silnik */ } }
-    }
+    if (!noFocus) focusHead(name === 'opcje' ? '.pane[data-pane="' + state.pane + '"]' : '#screen-' + name);
+  }
+
+  /* Przejście na krok ustawień. Ostatni krok ma przycisk "Stwórz prezentację" zamiast "Dalej";
+     pierwszy ma "Inny folder" / "Inna prezentacja" zamiast "Wstecz" (bo wraca na start). */
+  function gotoPane(id, noFocus) {
+    var list = panes(), i = list.indexOf(id);
+    if (i < 0) { i = 0; id = list[0]; }
+    state.pane = id;
+    state.paneMax = Math.max(state.paneMax, i);
+    document.body.setAttribute('data-pane', id);
+    var lastPane = i === list.length - 1;
+    $('#btn-next').hidden = lastPane;
+    $('#btn-build').hidden = !lastPane;
+    $('#back-lbl').textContent = i === 0 ? (state.mode === 'pptx' ? 'Inna prezentacja' : 'Inny folder') : 'Wstecz';
+    updateSteps();
+    window.scrollTo(0, 0);
+    if (!noFocus && state.screen === 'opcje') focusHead('.pane[data-pane="' + id + '"]');
+  }
+  function nextPane() {
+    var list = panes(), i = paneIdx();
+    if (i < list.length - 1) gotoPane(list[i + 1]); else startBuild();
+  }
+  function prevPane() {
+    var i = paneIdx();
+    if (i > 0) gotoPane(panes()[i - 1]); else { resetAll(); goto('start'); }
   }
 
   /* ---------- toasty ---------- */
@@ -235,6 +295,19 @@
     });
   }
 
+  /* Gotowa prezentacja (.pptx) do przełożenia na styl DK: ten sam przepływ co folder, analyze() rozpoznaje plik. */
+  function pickPptx() {
+    if (state.picking || state.analyzing) return;
+    state.picking = true;
+    call('pick_pptx').then(function (p) {
+      state.picking = false;
+      if (p) analyze(p);
+    }).catch(function (e) {
+      state.picking = false;
+      onError(errMsg(e));
+    });
+  }
+
   function initDrop() {
     var dz = $('#dropzone');
     var depth = 0;
@@ -263,7 +336,9 @@
     /* Upuszczenie obok strefy nie może otworzyć pliku w oknie. */
     window.addEventListener('dragover', function (e) { e.preventDefault(); });
     window.addEventListener('drop', function (e) { e.preventDefault(); });
-    dz.addEventListener('click', pickFolder);
+    /* Klik w kafel robi to samo co jego przycisk (klik przycisku też tu dociera) */
+    $('#choice-folder').addEventListener('click', pickFolder);
+    $('#choice-pptx').addEventListener('click', pickPptx);
   }
 
   /* ---------- analiza ---------- */
@@ -274,6 +349,11 @@
     var lbl = $('#analiza-folder');
     var name = baseName(path);
     lbl.textContent = name || '';
+    var isPptx = /\.(pptx|ppsx|potx|pptm)$/i.test(name);
+    state.mode = isPptx ? 'pptx' : 'folder';
+    state.pane = 'materialy';
+    state.paneMax = 0;
+    $('#h-analiza').textContent = isPptx ? 'Czytam prezentację…' : 'Czytam folder…';
     lbl.hidden = !name;
     goto('analiza');
     clearTimeout(analyzeWatchdog);
@@ -290,9 +370,9 @@
   }
 
   /* ---------- opcje: lewa kolumna ---------- */
-  function foundRow(kind, main, sub, extra) {
+  function foundRow(kind, main, sub, extra, wide) {
     var ic = kind === 'ok' ? 'check' : (kind === 'warn' ? 'alert' : 'minus');
-    return h('li', { class: kind === 'none' ? 'f-none' : '' },
+    return h('li', { class: (kind === 'none' ? 'f-none' : '') + (wide ? ' f-wide' : '') },
       h('span', { class: 'f-ic', 'aria-hidden': 'true' }, icon(ic)),
       h('div', { class: 'f-txt' },
         main,
@@ -370,7 +450,48 @@
     if (b && b.focus && b.tagName === 'BUTTON') b.focus({ preventScroll: true });
   }
 
+  function renderNotes(r) {
+    var uw = r.uwagi || [];
+    var box = $('#notes'), nl = $('#notes-list');
+    nl.replaceChildren();
+    uw.forEach(function (u) {
+      var warn = (u && u.typ) !== 'info';
+      nl.appendChild(h('li', { class: warn ? 'warn' : 'info' }, icon(warn ? 'alert' : 'info'), h('span', { text: txt(u) })));
+    });
+    box.hidden = !uw.length;
+  }
+
+  /* Lewa kolumna dla gotowej prezentacji: ile slajdów, akapitów, grafik, tabel i wykresów, rozdziały. */
+  function renderFoundPptx(r) {
+    $('#h-opcje').textContent = r.produkt || 'Prezentacja';
+    var list = $('#found-list');
+    list.replaceChildren();
+    state.packFiles = [];
+    state.packs = {};
+    list.appendChild(foundRow('ok', h('strong', { text: num(r.slajdy | 0, 'slajd', 'slajdy', 'slajdów') }), r.nazwa_pliku || null));
+    list.appendChild(foundRow('ok', h('strong', { text: num(r.akapity | 0, 'akapit', 'akapity', 'akapitów') }),
+      'cały tekst i notatki trafią do nowej prezentacji, na końcu sprawdzę każdy akapit'));
+    var g = r.grafiki | 0;
+    list.appendChild(g ? foundRow('ok', h('strong', { text: num(g, 'grafika', 'grafiki', 'grafik') }), 'przeniosę je w całości, bez przycinania')
+      : foundRow('none', h('span', { text: 'Grafiki: brak' })));
+    var t = r.tabele | 0, w = r.wykresy | 0;
+    if (t || w) {
+      var parts = [];
+      if (t) parts.push(num(t, 'tabela', 'tabele', 'tabel'));
+      if (w) parts.push(num(w, 'wykres', 'wykresy', 'wykresów'));
+      list.appendChild(foundRow('ok', h('strong', { text: parts.join(' i ') }), w ? 'wykresy zostaną edytowalne' : null));
+    } else {
+      list.appendChild(foundRow('none', h('span', { text: 'Tabele i wykresy: brak' })));
+    }
+    var rz = r.rozdzialy || [];
+    list.appendChild(foundRow(rz.length ? 'ok' : 'none', rz.length
+      ? h('strong', { text: num(rz.length, 'rozdział', 'rozdziały', 'rozdziałów') }) : h('span', { text: 'Rozdziały: brak' }),
+      rz.length ? rz.slice(0, 4).join(', ') + (rz.length > 4 ? '…' : '') : null));
+    renderNotes(r);
+  }
+
   function renderFound(r) {
+    if (r.tryb === 'pptx') { renderFoundPptx(r); return; }
     $('#h-opcje').textContent = r.produkt || 'Produkt';
     var list = $('#found-list');
     list.replaceChildren();
@@ -385,7 +506,7 @@
         ? h('span', { class: 'f-sub f-hint' }, icon('refresh'), h('span', { text: 'Paczka nie pasuje do smaku? Kliknij miniaturę, żeby zamienić.' }))
         : null;
       list.appendChild(foundRow('ok',
-        h('strong', { text: num(smaki.length, 'smak', 'smaki', 'smaków') }), null, [cards, hint]));
+        h('strong', { text: num(smaki.length, 'smak', 'smaki', 'smaków') }), null, [cards, hint], true));
     } else {
       list.appendChild(foundRow('none', h('span', { text: 'Nie znalazłem żadnego smaku' })));
     }
@@ -429,14 +550,7 @@
       list.appendChild(foundRow('none', h('span', { text: 'Grafiki: brak' })));
     }
 
-    var uw = r.uwagi || [];
-    var box = $('#notes'), nl = $('#notes-list');
-    nl.replaceChildren();
-    uw.forEach(function (u) {
-      var warn = (u && u.typ) !== 'info';
-      nl.appendChild(h('li', { class: warn ? 'warn' : 'info' }, icon(warn ? 'alert' : 'info'), h('span', { text: txt(u) })));
-    });
-    box.hidden = !uw.length;
+    renderNotes(r);
   }
 
   /* ---------- opcje: suwaki ---------- */
@@ -466,7 +580,7 @@
   function presetLevel() {  /* który preset odpowiada obecnemu wyborowi slajdów z folderu (-1 = własny) */
     for (var lv = 0; lv < 3; lv++) {
       var set = presetSet(lv), same = state.secs.every(function (o) {
-        return o.rodzaj !== 'auto' || !o.avail || o.id === 'koniec' || !!set[o.id] === o.checked;
+        return o.rodzaj !== 'auto' || !o.avail || o.id === 'koniec' || keepFilm(o) || !!set[o.id] === o.checked;
       });
       if (same) return lv;
     }
@@ -501,7 +615,7 @@
     if (!state.secs) return;
     syncSlider('dlugosc');
     var cnt = slideCount();
-    $('#bar-count').textContent = num(cnt, 'slajd', 'slajdy', 'slajdów');
+    $('#bar-count').textContent = state.pptx ? pptxBar() : num(cnt, 'slajd', 'slajdy', 'slajdów');
     (state.groups || []).forEach(function (g) {
       var items = state.secs.filter(function (o) { return o.grupa === g.id; });
       var on = items.filter(function (o) { return o.checked && o.avail; }).length;
@@ -530,6 +644,7 @@
   var LOCKED = { koniec: 1 };   /* 30.09: okładkę można wyłączyć */
 
   function filmLink() { return ($('#in-film').value || '').trim(); }
+  function keepFilm(o) { return o.id === 'film' && !!filmLink(); }   /* wpisany link: suwak długości nie rusza slajdu z filmem (decyduje przełącznik) */
   function styl() { return ($('input[name="styl"]:checked') || {}).value || 'nowy'; }
 
   function refreshSec(o) {
@@ -543,7 +658,7 @@
     o.row.classList.toggle('is-off', !o.avail);
     o.row.classList.toggle('is-locked', o.locked);
     o.desc.textContent = o.avail ? o.opis : (stary ? 'tylko w nowym stylu'
-      : (o.id === 'film' ? 'wpisz link do filmu poniżej' : (o.powod || 'brak danych w folderze')));
+      : (o.id === 'film' ? 'wpisz link w kroku Dodatki' : (o.powod || 'brak danych w folderze')));
   }
 
   function secRow(s) {
@@ -553,15 +668,17 @@
     var nameId = 'sec-n-' + s.id, descId = 'sec-d-' + s.id;
     o.input = h('input', { type: 'checkbox', role: 'switch', name: 'sekcja', value: s.id, 'aria-labelledby': nameId, 'aria-describedby': descId });
     o.desc = h('span', { class: 'sec-desc', id: descId });
-    var img = h('img', { class: 'sec-img', src: s.miniatura || ('img/sekcja-' + s.id + '.png'), alt: '', decoding: 'async', loading: 'lazy' });
-    img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
-    var multi = auto && s.slajdy > 1 ? h('span', { class: 'sec-tag' }, num(s.slajdy, 'slajd', 'slajdy', 'slajdów')) : null;
-    o.row = h('label', { class: 'sec', 'data-id': s.id },
+    var noimg = s.rodzaj === 'pptx';   /* rozdziały gotowej prezentacji nie mają miniatur */
+    var img = noimg ? null : h('img', { class: 'sec-img', src: s.miniatura || ('img/sekcja-' + s.id + '.png'), alt: '', decoding: 'async', loading: 'lazy' });
+    if (img) img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
+    /* rozdział prezentacji = jeden wiersz: nazwa i zakres slajdów (bez metki i licznika, zakres mówi to samo) */
+    var multi = auto && !noimg && s.slajdy > 1 ? h('span', { class: 'sec-tag' }, num(s.slajdy, 'slajd', 'slajdy', 'slajdów')) : null;
+    o.row = h('label', { class: 'sec' + (noimg ? ' sec-noimg sec-line' : ''), 'data-id': s.id },
       img,
       h('span', { class: 'sec-txt' },
         h('span', { class: 'sec-name', id: nameId },
           h('span', { text: s.nazwa }),
-          auto ? h('span', { class: 'chip chip-auto', text: 'z folderu' }) : null,
+          auto && !noimg ? h('span', { class: 'chip chip-auto', text: 'z folderu' }) : null,
           multi,
           locked ? h('span', { class: 'sec-tag' }, icon('lock'), 'zawsze') : null),
         o.desc),
@@ -576,17 +693,19 @@
     host.replaceChildren();
     state.presety = r.presety || { 0: [], 1: [], 2: [] };
     var groups = r.grupy && r.grupy.length ? r.grupy : [{ id: '', nazwa: 'Slajdy', opis: '' }];
+    host.classList.toggle('one-col', groups.length < 3);
+    host.classList.remove('solo');
     state.secs = (r.sekcje || []).map(secRow);
     state.groups = groups.map(function (g) {
       var items = state.secs.filter(function (o) { return (o.grupa || '') === g.id; });
       items.sort(function (a, b) { return (a.rodzaj === 'auto' ? 0 : 1) - (b.rodzaj === 'auto' ? 0 : 1); });
       var count = h('span', { class: 'grp-count' });
-      var el = h('details', { class: 'grp', 'data-id': g.id },
+      /* grupy startują zwinięte (licznik "3 z 9" mówi, co jest w środku); name = otwarta najwyżej jedna naraz */
+      var el = h('details', { class: 'grp', 'data-id': g.id, name: 'grupa-slajdow' },
         h('summary', null,
           h('span', { class: 'grp-name' }, h('strong', { text: g.nazwa }), h('span', { class: 'grp-desc', text: g.opis || '' })),
           count, icon('chevron')),
         h('ul', { class: 'secs-list' }, items.map(function (o) { return o.li; })));
-      if (items.some(function (o) { return o.checked && o.dostepna; })) el.open = true;
       host.appendChild(el);
       return { id: g.id, el: el, count: count };
     });
@@ -600,7 +719,7 @@
     var set = presetSet(level), on = [], off = [];
     state.secs.forEach(function (o) {
       if (o.rodzaj !== 'auto' || o.locked) { refreshSec(o); return; }
-      var want = !!set[o.id];
+      var want = keepFilm(o) ? o.checked : !!set[o.id];
       var was = o.checked && o.avail;
       o.checked = want;
       refreshSec(o);
@@ -608,8 +727,6 @@
       if (now !== was) {
         (now ? on : off).push(o.nazwa);
         o.row.classList.remove('flash'); void o.row.offsetWidth; o.row.classList.add('flash');
-        var g = (state.groups || []).filter(function (x) { return x.id === o.grupa; })[0];
-        if (g && now) g.el.open = true;
       }
     });
     refreshCounts();
@@ -643,8 +760,114 @@
   }
 
   /* ---------- opcje: cała strona ---------- */
+  /* Tryb wyznacza kroki ustawień (PANES). Konwersja gotowej prezentacji: bez suwaków Długość / Tekst (treść zawsze
+     w całości), bez dodatków i bez wyboru stylu (zawsze nowy); zamiast slajdów z folderu - rozdziały prezentacji. */
+  function setMode(r) {
+    var pp = r.tryb === 'pptx';
+    state.pptx = pp;
+    state.mode = pp ? 'pptx' : 'folder';
+    $('#l-found').textContent = pp ? 'Znalazłem w prezentacji' : 'Znalazłem w folderze';
+    $('#blk-dlugosc').hidden = pp;
+    $('#l-sekcje').hidden = pp;
+    $('#sec-lead').hidden = pp;
+    $('#blk-cel-slajdy').hidden = true;
+    if (pp) { renderCel(r); return; }
+    $('#h-slajdy').textContent = 'Ile slajdów';
+    $('#slajdy-lead').hidden = true;   /* suwak i nagłówek grup tłumaczą się same */
+  }
+
+  /* ---------- konwersja .pptx: cel (zachowaj układ / rozwiń, dokończ / skróć) - 07.10.2026 ----------
+     Program zawsze przekłada prezentację slajd w slajd. Cel zmienia to, co dzieje się obok: przy "rozwiń" można
+     dołożyć puste slajdy z szablonu, przy "skróć" podaje się, ile slajdów ma zostać. Rozdział wyłączony przełącznikiem
+     zostaje w pliku jako slajdy ukryte - w każdym celu (nic nie znika). Zdania niżej stoją nad listą rozdziałów. */
+  var CEL_LEAD = {
+    wiernie: 'Wyłączony rozdział zostaje w pliku jako slajdy ukryte, nic nie znika.',
+    rozwin: 'Włącz puste slajdy z szablonu, które chcesz dołożyć: staną przed zakończeniem.',
+    skroc: 'Wyłączone rozdziały zostają w pliku jako slajdy ukryte, pokaz jest krótszy.'
+  };
+
+  function pptxCounts() {
+    var all = 0, vis = 0, add = 0;
+    (state.secs || []).forEach(function (o) {
+      if (o.rodzaj === 'auto') { all += (+o.slajdy || 0); if (o.checked && o.avail) vis += (+o.slajdy || 0); }
+      else if (state.cel === 'rozwin' && o.checked && o.avail) add += 1;
+    });
+    return { all: all, vis: vis, add: add };
+  }
+
+  /* Cel "Skróć": ile slajdów ma zostać. Puste, za małe albo za duże pole wraca do bezpiecznej wartości. */
+  function celSlajdy() {
+    var c = pptxCounts(), v = parseInt($('#in-cel-slajdy').value, 10);
+    var def = Math.max(3, Math.round(c.all * 0.6)), max = Math.max(3, c.all);
+    if (!(v >= 3)) v = def;
+    return Math.min(v, max);
+  }
+
+  function pptxBar() {
+    var c = pptxCounts(), hid = c.all - c.vis;
+    if (state.cel === 'skroc') {
+      var t = celSlajdy(), hint = $('#cel-slajdy-hint');
+      $('#in-cel-slajdy').placeholder = String(Math.max(3, Math.round(c.all * 0.6)));
+      $('#in-cel-slajdy').max = String(Math.max(3, c.all));
+      hint.textContent = c.vis > t
+        ? 'Teraz w pokazie zostaje ' + c.vis + ' z ' + c.all + '. Do celu brakuje ' + (c.vis - t) + ': wyłącz rozdziały niżej albo zostaw to poleceniu dla AI na końcu.'
+        : 'W pokazie zostaje ' + c.vis + ' z ' + c.all + '. Cel osiągnięty.';
+      return 'Zostaje ' + c.vis + ' z ' + c.all + ', cel: ' + t;
+    }
+    var base = hid ? c.vis + ' z ' + c.all + ' w pokazie' : num(c.all, 'slajd', 'slajdy', 'slajdów');
+    if (state.cel === 'rozwin' && c.add) base += ' + ' + c.add + ' ' + plural(c.add, 'nowy', 'nowe', 'nowych');
+    return base;
+  }
+
+  function refreshCel() {
+    if (!state.pptx) return;
+    var cel = state.cel;
+    $('#blk-cel-slajdy').hidden = cel !== 'skroc';
+    if (cel === 'skroc' && $('#in-cel-slajdy').value === '') $('#in-cel-slajdy').value = String(celSlajdy());
+    /* "Zachowaj" i "Skróć": lista rozdziałów jest treścią kroku, więc stoi otwarta. "Rozwiń": dwie grupy zwinięte
+       z licznikami (16 pustych slajdów to długa lista - otwiera ją użytkownik). */
+    (state.groups || []).forEach(function (g) {
+      if (g.id === 'dodatki') { g.el.hidden = cel !== 'rozwin'; g.el.open = false; }
+      else g.el.open = cel !== 'rozwin';
+    });
+    $('#secs').classList.toggle('solo', cel !== 'rozwin');   /* jedyna grupa = lista bez nagłówka */
+    $('#slajdy-lead').hidden = false;
+    $('#slajdy-lead').textContent = CEL_LEAD[cel] || CEL_LEAD.wiernie;
+    $('#h-slajdy').textContent = cel === 'rozwin' ? 'Rozdziały i nowe slajdy' : 'Rozdziały';
+    refreshCounts();
+  }
+
+  function renderCel(r) {
+    var host = $('#cels');
+    host.replaceChildren();
+    state.cel = r.cel_domyslny || 'wiernie';
+    (r.cele || []).forEach(function (c) {
+      var inp = h('input', { type: 'radio', name: 'cel', value: c.id, 'aria-describedby': 'cel-d-' + c.id });
+      inp.checked = c.id === state.cel;
+      inp.addEventListener('change', function () { if (inp.checked) { state.cel = c.id; refreshCel(); } });
+      host.appendChild(h('label', { class: 'cel-card', 'data-cel': c.id },
+        inp,
+        h('span', { class: 'cel-txt' },
+          h('span', { class: 'cel-name', text: c.nazwa }),
+          h('span', { class: 'cel-desc', id: 'cel-d-' + c.id, text: c.opis })),
+        h('span', { class: 'style-tick', 'aria-hidden': 'true' })));
+    });
+    var wiz = r.wizualizacje || {};
+    $('#wiz-row').hidden = !wiz.dostepne;
+    $('#blk-wiz').hidden = !wiz.dostepne;
+    $('#in-wiz').checked = !!wiz.dostepne;
+    $('#in-cel-slajdy').value = '';
+  }
+
+  function initCel() {
+    var el = $('#in-cel-slajdy');
+    el.addEventListener('input', refreshCounts);
+    el.addEventListener('change', function () { if (el.value !== '') el.value = String(celSlajdy()); refreshCounts(); });
+  }
+
   function renderOptions(r) {
     renderFound(r);
+    setMode(r);
     var d = r.domyslne || {};
     var styl = d.styl === 'stary' ? 'stary' : 'nowy';
     $$('input[name="styl"]').forEach(function (i) { i.checked = i.value === styl; });
@@ -655,14 +878,16 @@
     setSlider('dlugosc', d.dlugosc == null ? 1 : d.dlugosc);
     setSlider('tekst', d.tekst == null ? 1 : d.tekst);
     renderSecs(r);
+    refreshCel();
     syncSlider('tekst');
+    $$('.pane-ctx').forEach(function (e) { e.textContent = r.produkt || ''; });   /* nazwa produktu nad tytułem każdego kroku */
     var s = Math.round((+r.szacowany_czas_s || 30) / 5) * 5;
     $('#bar-eta').textContent = 'zwykle ok. ' + num(Math.max(s, 5), 'sekunda', 'sekundy', 'sekund');
   }
 
   function collectOpts() {
-    var styl = ($('input[name="styl"]:checked') || {}).value || 'nowy';
-    return {
+    var styl = state.pptx ? 'nowy' : (($('input[name="styl"]:checked') || {}).value || 'nowy');   /* konwersja: zawsze nowy styl */
+    var o = {
       styl: styl,
       dlugosc: +$('#in-dlugosc').value,
       tekst: +$('#in-tekst').value,
@@ -671,17 +896,13 @@
       claimy: ($('#in-claimy').value || '').split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean).join('\n'),
       packshoty: JSON.parse(JSON.stringify(state.packs || {}))
     };
-  }
-
-  /* Lewa kolumna jest "lepka". Gdy jest wyższa niż okno, przykleja się dołem
-     (top ujemny), więc po przewinięciu widać jej koniec, a nie ucięty środek. */
-  function fitSticky() {
-    var col = $('.col-left');
-    if (!col || state.screen !== 'opcje') return;
-    var bar = $('#bar');
-    var top = Math.min(16, window.innerHeight - (bar ? bar.offsetHeight : 0) - col.offsetHeight - 16);
-    col.style.top = top + 'px';
-    col.classList.add('is-sticky');
+    if (state.pptx) {  /* konwersja: cel, wizualizacje; puste slajdy z szablonu (t10...) tylko przy celu "rozwiń" */
+      o.cel = state.cel;
+      o.wizualizacje = !$('#wiz-row').hidden && $('#in-wiz').checked;
+      if (state.cel === 'skroc') o.cel_slajdy = celSlajdy();
+      if (state.cel !== 'rozwin') o.sekcje = o.sekcje.filter(function (id) { return !/^t\d+$/.test(id); });
+    }
+    return o;
   }
 
   function showOptions(res) {
@@ -691,10 +912,10 @@
       return;
     }
     state.result = res;
-    renderOptions(res);
+    state.paneMax = 0;
+    renderOptions(res);            /* ustawia state.mode */
+    gotoPane(panes()[0], true);
     goto('opcje');
-    fitSticky();
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSticky);
   }
 
   /* ---------- praca ---------- */
@@ -718,7 +939,9 @@
 
   function stepList() {
     var noPP = state.info && state.info.powerpoint === false;
-    return STEPS.filter(function (s) { return !(noPP && s[0] === 'qa'); });
+    return STEPS.filter(function (s) { return !(noPP && s[0] === 'qa'); }).map(function (s) {
+      return (state.pptx && s[0] === 'folder') ? ['folder', 'Czytam prezentację'] : s;
+    });
   }
   function stepIndexFor(krok, pct) {
     var list = stepList();
@@ -835,6 +1058,8 @@
     $('#res-name').textContent = res.nazwa || baseName(res.pptx) || 'Prezentacja.pptx';
     var meta = [];
     if (res.slajdy != null) meta.push(num(res.slajdy | 0, 'slajd', 'slajdy', 'slajdów'));
+    if (res.ukryte) meta.push('w tym ' + num(res.ukryte | 0, 'ukryty', 'ukryte', 'ukrytych'));
+    if (res.nowe && res.nowe.length) meta.push(num(res.nowe.length, 'nowy do uzupełnienia', 'nowe do uzupełnienia', 'nowych do uzupełnienia'));
     if (res.czas_s != null) meta.push('gotowe w ' + fmtDur(res.czas_s));
     $('#res-meta').textContent = meta.join(' · ');
 
@@ -847,26 +1072,63 @@
         h('span', { class: 'num', 'aria-hidden': 'true', text: String(i + 1) })));
     });
     strip.hidden = !thumbs.length;
+    $('#sec-podglad').hidden = !thumbs.length;   /* bez miniatur nie zostaje sam nagłówek */
     strip.scrollLeft = 0;
     updateStripEdge();
 
+    /* Sprawdzenie: krótkie wiersze (pogrubiona nazwa + zwykły opis). Każde ostrzeżenie jest widoczne od razu;
+       pełna lista uwag jest zwinięta i otwiera się sama, gdy cokolwiek wymaga uwagi. */
     var qa = res.qa || {};
+    var uw = (res.uwagi || []).map(txt);
+    var checked = qa.problemy != null && qa.wykonano !== false;   /* brak liczby = kontrola w PowerPoint się nie wykonała */
     var n = qa.problemy | 0;
-    var q = $('#res-qa');
-    q.replaceChildren();
-    q.className = 'qa' + (n ? ' warn' : '');
-    q.appendChild(icon(n ? 'alert' : 'shield'));
-    q.appendChild(h('span', { text: 'Sprawdzone: ' + num(n, 'problem', 'problemy', 'problemów') + ' z tekstem' }));
-    var ql = $('#res-qa-list');
-    ql.replaceChildren();
-    (qa.szczegoly || []).forEach(function (s) { ql.appendChild(h('li', { text: txt(s) })); });
-    ql.hidden = !(n && (qa.szczegoly || []).length);
+    var covTxt = uw.filter(function (x) { return /^Treść:/.test(x); })[0];
+    var ukTxt = uw.filter(function (x) { return /^Układ:/.test(x); })[0];
+    var covOk = !covTxt || /^Treść: 100%/.test(covTxt);
+    var ukOk = !(res.wiernosc && res.wiernosc.usterki && res.wiernosc.usterki.length);
+    var todo = uw.filter(function (x) { return !/^(Treść|Układ):/.test(x); });
+    if (!checked) todo = todo.filter(function (x) { return !/^Nie sprawdzono w PowerPoint/.test(x); });   /* mówi to już wiersz kontroli */
+    var WAZNE = /^(Brakuje|Do sprawdzenia|Nie sprawdzono|PowerPoint nie oddał)/;   /* to, co wymaga działania, idzie na górę listy */
+    todo = todo.filter(function (x) { return WAZNE.test(x); }).concat(todo.filter(function (x) { return !WAZNE.test(x); }));
+    var alarm = !checked || n > 0 || !covOk || !ukOk || todo.some(function (x) { return /^(Brakuje|Do sprawdzenia)/.test(x); });
 
-    var todo = res.uwagi || [];
+    var checks = $('#res-checks');
+    checks.replaceChildren();
+    function row(cls, ic, label, detail, id) {
+      checks.appendChild(h('li', { class: cls, id: id }, icon(ic),
+        h('span', null, label ? h('strong', { text: label }) : null, label && detail ? ' ' : null, detail || null)));
+    }
+    function check(id, ok, t) {   /* "Nazwa: opis" z silnika -> pogrubiona nazwa + zwykły opis */
+      var i = t.indexOf(': ');
+      row(ok ? 'ok' : 'warn', ok ? 'shield' : 'alert', i > 0 ? t.slice(0, i + 1) : t, i > 0 ? t.slice(i + 2) : '', id);
+    }
+    if (!checked) row('warn', 'alert', 'Tekst na slajdach:', 'nie sprawdzono w PowerPoint. Otwórz prezentację i przejrzyj slajdy.', 'res-qa');
+    else check('res-qa', !n, 'Tekst na slajdach: ' + num(n, 'problem', 'problemy', 'problemów'));
+    var det = (qa.szczegoly || []).map(txt);   /* które slajdy i co: od razu pod swoim wierszem */
+    if (checked && n && det.length) $('#res-qa > span').appendChild(h('ul', { class: 'qa-details' }, det.map(function (d) { return h('li', { text: d }); })));
+    if (covTxt) check('res-cov', covOk, covTxt);
+    if (ukTxt) check('res-uklad', ukOk, ukTxt);
+
+    /* najwyżej trzy wskazówki z danych programu: nowe slajdy, slajdy ukryte, slajdy do obejrzenia najpierw, wstawione paczki */
+    var nowe = res.nowe || [], spr = res.sprawdz || [], ukr = res.ukryte | 0;
+    var wiz = (res.wizualizacje || []).map(function (w) { return w && w.slajd; }).filter(Boolean);
+    function nums(a) {
+      return a.length > 5 ? a.slice(0, 5).join(', ') + ' i ' + (a.length - 5) + ' ' + plural(a.length - 5, 'inny', 'inne', 'innych') : a.join(', ');
+    }
+    if (nowe.length) row('tip', 'info', '', 'Uzupełnij ' + num(nowe.length, 'nowy slajd', 'nowe slajdy', 'nowych slajdów') + ' (nr ' + nums(nowe) + '): teksty w [nawiasach].');
+    if (ukr) row('tip', 'info', '', num(ukr, 'slajd jest ukryty', 'slajdy są ukryte', 'slajdów jest ukrytych') + '. Przed wysłaniem pliku poza firmę usuń je albo zapisz PDF.');
+    if (spr.length) row('tip', 'info', '', 'Zajrzyj najpierw na ' + (spr.length === 1 ? 'slajd' : 'slajdy') + ' oryginału nr ' + nums(spr) + ': nietypowy układ albo dużo tekstu.');
+    if (wiz.length && $$('#res-checks .tip').length < 3) row('tip', 'info', '', 'Wstawiłem paczki z biblioteki produktów na ' + (wiz.length === 1 ? 'slajdzie' : 'slajdach') + ' nr ' + nums(wiz) + ': sprawdź dobór.');
+
     var tl = $('#res-todo-list');
     tl.replaceChildren();
-    todo.forEach(function (u) { tl.appendChild(h('li', { text: txt(u) })); });
-    $('#res-todo').hidden = !todo.length;
+    todo.forEach(function (u) { tl.appendChild(h('li', { text: u })); });
+    var box = $('#res-todo');
+    box.hidden = !todo.length;
+    /* ścieżka folderu nie ma wskazówek z danych, więc jej uwagi (zwykle 2-4 krótkie) stoją otwarte; przy prezentacji
+       długa lista jest zwinięta, chyba że coś wymaga uwagi */
+    box.open = alarm || !state.pptx || todo.length <= 3;
+    $('#res-todo-label').textContent = 'Uwagi do prezentacji (' + todo.length + ')';
   }
 
   function updateStripEdge() {
@@ -915,6 +1177,8 @@
 
   function resetAll() {
     state.result = null;
+    state.pane = 'materialy';
+    state.paneMax = 0;
     state.done = null;
     state.secs = [];
     state.building = false;
@@ -924,11 +1188,19 @@
 
   /* ---------- przyciski ---------- */
   function initButtons() {
-    $('#btn-other-folder').addEventListener('click', function () { resetAll(); goto('start'); });
+    $('#btn-back').addEventListener('click', prevPane);
+    $('#btn-next').addEventListener('click', nextPane);
     $$('input[name="styl"]').forEach(function (i) {
       i.addEventListener('change', function () { if (state.secs) { state.secs.forEach(refreshSec); refreshCounts(); } });
     });
-    $('#opcje-form').addEventListener('submit', function (e) { e.preventDefault(); startBuild(); });
+    /* Enter w polu tekstowym = przycisk główny kroku (Dalej albo Stwórz prezentację).
+       Enter na przełączniku, karcie wyboru i suwaku niczego nie przeskakuje. */
+    $('#opcje-form').addEventListener('submit', function (e) { e.preventDefault(); nextPane(); });
+    $('#opcje-form').addEventListener('keydown', function (e) {
+      var t = e.target;
+      if (e.key !== 'Enter' || !t || t.tagName !== 'INPUT') return;
+      if (e.repeat || /^(checkbox|radio|range)$/.test(t.type)) e.preventDefault();   /* przytrzymany Enter nie przeskakuje kilku kroków */
+    });
     $('#btn-cancel').addEventListener('click', cancelBuild);
     $('#btn-back-opts').addEventListener('click', function () { state.building = false; goto('opcje'); });
 
@@ -943,7 +1215,9 @@
     $('#btn-copy-ai').addEventListener('click', function () {
       var t = state.done && state.done.prompt_ai;
       if (!t) { onError('Nie mam czego skopiować.'); return; }
-      call('copy_text', t).then(function () {
+      call('copy_text', t).then(function (ok) {
+        /* set_clipboard zwraca False, gdy schowek jest zajęty (np. zablokowany pulpit) - wtedy nie udawaj sukcesu */
+        if (ok === false) { toast('Nie udało się skopiować polecenia (schowek zajęty). Spróbuj jeszcze raz za chwilę.', 'error', 12000); return; }
         showGuide({ nazwa: 'czat', klucz: 'inny', gdzie: 'inny' });
       }).catch(function (e) { onError(errMsg(e)); });
     });
@@ -981,9 +1255,10 @@
     document.addEventListener('keydown', function (e) {
       if (e.key !== 'Enter' || e.defaultPrevented || e.isComposing) return;
       var t = e.target;
-      if (t && t.closest && t.closest('button, a, summary, textarea, select, [role="button"], form')) return;
+      if (t && t.closest && t.closest('button, a, summary, textarea, select, input, [role="button"]')) return;
+      if (e.repeat) return;   /* przytrzymany Enter nie przeskakuje kilku kroków */
       if (state.screen === 'start') { e.preventDefault(); pickFolder(); }
-      else if (state.screen === 'opcje') { e.preventDefault(); startBuild(); }
+      else if (state.screen === 'opcje') { e.preventDefault(); nextPane(); }
       else if (state.screen === 'wynik') { e.preventDefault(); $('#btn-open').click(); }
     });
   }
@@ -1032,9 +1307,9 @@
     initDrop();
     initSliders();
     initFilm();
+    initCel();
     initStrip();
     initButtons();
-    window.addEventListener('resize', fitSticky);
     updateSteps();
     renderFooter();
     checkUpdate();

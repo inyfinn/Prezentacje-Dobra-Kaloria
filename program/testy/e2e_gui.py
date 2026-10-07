@@ -49,17 +49,21 @@ try:
         page.evaluate("p => App.analyze(p)", a.folder)
         page.wait_for_selector("body[data-screen='opcje']", timeout=180000)
         time.sleep(1.5)
-        page.screenshot(path=os.path.join(OUT, "2-opcje.png"), full_page=True)
+        page.screenshot(path=os.path.join(OUT, "2-krok-materialy.png"))
         print("opcje OK | paczki:", page.evaluate("[...document.querySelectorAll('.flav')].map(f => f.innerText.split('\\n')[0] + '=' + (f.querySelector('img') ? f.querySelector('img').getAttribute('alt') || 'obraz' : 'brak')).join(', ')"),
               "| pasek:", page.evaluate("document.querySelector('#bar-count').textContent"))
         # slajd z szablonu (grupa Cytaty) - sprawdza drogę "do uzupełnienia" w prawdziwym programie
+        # okno ma kroki (1.1.9): Materiały -> Styl -> Dodatki -> Slajdy; "Dalej" = #btn-next
+        for krok in ("styl", "dodatki", "slajdy"):
+            page.click("#btn-next")
+            page.wait_for_selector("body[data-pane='%s']" % krok, timeout=5000)
+            if krok == "styl" and a.styl == "stary":
+                page.click(".style-card:has(input[value='stary'])")
+            time.sleep(0.4)
+            page.screenshot(path=os.path.join(OUT, "2-krok-%s.png" % krok))
         page.click(".grp[data-id='cytaty'] > summary")
         page.click(".sec[data-id='t20'] .switch")
         print("dodano cytat z szablonu | pasek:", page.evaluate("document.querySelector('#bar-count').textContent"))
-        if a.styl == "stary":
-            el = page.query_selector("text=Stary styl")
-            if el:
-                el.click()
         page.click("#btn-build")
         t0 = time.time()
         last = ""

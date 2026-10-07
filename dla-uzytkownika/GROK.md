@@ -1,6 +1,6 @@
-# Stwórz prezentację — instrukcja dla Claude (Claude Code, Claude Desktop, Cowork)
+# Stwórz prezentację — instrukcja dla Groka (Grok, Grok w Cursorze)
 
-Jesteś Claude — pracujesz w Claude Code, Claude Desktop (Cowork) albo w rozmowie z dostępem do plików.
+Jesteś Grok — pracujesz w Cursorze albo w czacie Groka.
 Zadanie: zrobić prezentację handlową marki Dobra Kaloria z **folderu produktu** albo z **gotowej prezentacji .pptx**
 (przełożysz ją na styl marki — nic z niej nie ginie). **Nie zadawaj pytań** — czego nie wiesz, wpisz w raporcie jako
 „DO DECYZJI”.
@@ -17,17 +17,16 @@ Obok tego pliku: `pliki programu\stworz-cli.exe` (**wersja dla Ciebie**), `skill
 
 ## KROK 0 — skill `/prezentacje` (zrób najpierw)
 
-Sprawdź, czy istnieje `%USERPROFILE%\.claude\skills\prezentacje\SKILL.md`
-(PowerShell: `Test-Path "$env:USERPROFILE\.claude\skills\prezentacje\SKILL.md"`).
+**Grok w Cursorze:** sprawdź, czy istnieje `%USERPROFILE%\.cursor\skills\prezentacje\SKILL.md`
+(PowerShell: `Test-Path "$env:USERPROFILE\.cursor\skills\prezentacje\SKILL.md"`).
 
-- **Jeśli nie:** uruchom `<folder programu>\zainstaluj-skill.cmd` (albo skopiuj `<folder programu>\skill-prezentacje\`
-  do `%USERPROFILE%\.claude\skills\prezentacje\`). Skrypt niczego nie kasuje — istniejącą wersję przenosi do
-  `%USERPROFILE%\.claude\skills\_poprzednie\`. Sprawdź `Test-Path` jeszcze raz.
-- **Potem** wczytaj skill `/prezentacje` i przeczytaj jego `references\lekcje.md` (decyzje zespołu i znane błędy).
-  Skill zainstalowany w trakcie rozmowy może nie być jeszcze widoczny — wtedy przeczytaj `SKILL.md` i
-  `references\lekcje.md` z zainstalowanego katalogu i pracuj według nich (nie każ restartować bez potrzeby).
-- **Brak dostępu do `%USERPROFILE%`** (np. Cowork w piaskownicy): nie instaluj — czytaj
-  `<folder programu>\skill-prezentacje\SKILL.md` prosto z folderu programu.
+- **Jeśli nie:** `<folder programu>\zainstaluj-skill.cmd -Cel "%USERPROFILE%\.cursor\skills\prezentacje"`
+  (w PowerShellu: `& "<folder programu>\zainstaluj-skill.cmd" -Cel "$env:USERPROFILE\.cursor\skills\prezentacje"`).
+  Skrypt niczego nie kasuje — istniejącą wersję przenosi do `…\skills\_poprzednie\`. Sprawdź `Test-Path` jeszcze raz.
+- **Potem** wczytaj skill `/prezentacje` (o ile Cursor go widzi w tej sesji) i przeczytaj `references\lekcje.md`.
+- **Bez skilli** (Grok w przeglądarce lub aplikacji, brak katalogu skilli): nic nie instaluj — przeczytaj
+  `<folder programu>\skill-prezentacje\SKILL.md` i `<folder programu>\skill-prezentacje\references\lekcje.md`
+  jako instrukcję i pracuj według nich.
 
 ## KROK 1 — czekaj na materiał
 
