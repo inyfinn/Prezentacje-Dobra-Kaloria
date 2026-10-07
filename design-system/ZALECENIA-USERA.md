@@ -174,3 +174,11 @@ i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bi
 - **S17** (DS 2.0.5): tagi w 8 różnych barwach, samo wypełnienie bez obrysu, jedna grupa tagów = jedna barwa.
 - Ciepłe brązowe przyciemnienie pod oknem dialogowym user pochwalił — zostaje (`shadow-scrim`).
 - UCHYLA zasadę z 30.09 „tagi tylko delikatnie zmieniają barwę” oraz zielone odcienie tagów z 2.0.0.
+
+## 07.10.2026 — tryb ciemny po przełączaniu „przesuwa się do góry” (DAM)
+
+> „Pamiętaj, że tryb dark ma być dosłownie tym samym, co tryb light. Zmieniają się tylko kolorki. Nigdy nie dodawaj
+> dodatkowych kafelków, teł, ani nie przesuwaj treści. Zmieniają się tylko kolory.”
+
+- **S19** (DS 2.0.8): geometria jasnego i ciemnego identyczna; reguły zależne od motywu zmieniają tylko kolory.
+- Przyczyna zgłoszenia: w DAM odstępy 2.0 (24 px pod nagłówkiem) dostał tylko styl jasny.

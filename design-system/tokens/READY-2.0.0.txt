@@ -43,7 +43,7 @@ KSZTAŁT, CIEŃ, IKONA
   cienie neutralne rgba(34,34,34,…) - tylko nakładki, toast, uchwyty; karty i panele BEZ cienia i bez obrysu
   focus: obrys 2 px #007936, odstęp 2 px · ikony liniowe Lucide, kreska 2, kolor icon
 
-REGUŁY 2.0 (S1-S15; S13 dodana w 2.0.1, S14-S15 w 2.0.2) - obowiązują wszystkie trzy programy
+REGUŁY 2.0 (S1-S19; S13 w 2.0.1, S14-S15 w 2.0.2, S16-S18 w 2.0.4-2.0.6, S19 w 2.0.8) - obowiązują wszystkie trzy programy
   S1  Tło okna jest BIAŁE. Bieli jest najwięcej. Beż, ecru ani szary nigdy jako tło okna.
   S2  Sekcja = panel L1 (jasnoszary ciepły), bez obrysu i bez cienia. W panelu leżą BIAŁE karty i białe pola (L2).
       Biała karta położona wprost na białym tle dostaje linię 1 px border, albo zamiast niej używasz panelu.
@@ -99,6 +99,11 @@ REGUŁY 2.0 (S1-S15; S13 dodana w 2.0.1, S14-S15 w 2.0.2) - obowiązują wszystk
   S16 OSTRZEŻENIE BEZ BRĄZU (2.0.4): tekst i tytuł ostrzeżenia w text (#222222), nie w bursztynowym brązie
       (warning-text = #222222). Znak ostrzeżenia = żółty kwadrat cta (#FFD821, promień 4) z ciemnym symbolem #222222.
       Tło warning-bg (#FFF4D6) wolno dać tylko samemu komunikatowi, bez obrysu. Błąd: danger (#C0262C).
+  S19 CIEMNY = JASNY, ZMIENIAJĄ SIĘ TYLKO KOLORY (2.0.8; user 07.10: „tryb dark ma być dosłownie tym samym, co tryb
+      light. Zmieniają się tylko kolorki. Nigdy nie dodawaj dodatkowych kafelków, teł, ani nie przesuwaj treści.”)
+      Geometria, odstępy, rozmiary, liczba i układ kontenerów są identyczne w stylu jasnym i ciemnym. Reguły zależne
+      od motywu (np. `:not([data-theme="dark"])`) mogą zmieniać WYŁĄCZNIE kolory: tło, tekst, obramowanie, wypełnienie
+      ikon, kolor cienia. Kontrola: prostokąt każdego elementu z tłem w jasnym = w ciemnym (różnica 0 px).
   ZOSTAJE z wcześniejszych rund: Mindset także w nazwach (+10), duży tekst (>= 14-15 px), jeden język kształtów,
       okno nigdy większe niż ekran i nigdy przycięte, żadnych zbędnych linijek-podpowiedzi.
 
