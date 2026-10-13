@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Szablon prezentacji Dobra Kaloria dla handlowców i pracowników (46 slajdów, 8 sekcji).
+Szablon prezentacji Dobra Kaloria: DWA pliki z jednego źródła (decyzja usera 13.10.2026).
 
-    python make_template.py [katalog_wyjściowy]
+    python make_template.py [katalog_wyjściowy] [--krotki | --pelny]
 
-Tworzy dwa pliki (ta sama treść, dwa motywy): "DK - szablon prezentacji (naturalny).pptx" i "(sklep).pptx".
+- "DK - szablon prezentacji.pptx": KRÓTKI, 7 slajdów dla ludzi (spec_krotki: po jednej opcji, wzięte z pełnego po numerze).
+- "DK - szablon prezentacji - pełen.pptx": PEŁNY, 65 slajdów dla programu i AI (spec; z niego korzysta engine._template).
 Każdy slajd ma opis "do czego służy" w notatkach i na żółtej karteczce POZA obszarem slajdu.
 """
 import json
@@ -343,13 +344,16 @@ def spec(theme):
         rows=[{"k": "cols", "card": True, "kont": True, "pad": 1.6, "min_h": 8.0, "valign": "m", "items": [{"blocks": [
             {"k": "p", "t": "[Akapit 1: 2-3 zdania z liczbą i jej źródłem w stopce.]", "wyr": "-----a-----"},
             {"k": "p", "t": "[Akapit 2: dopowiedzenie albo skutek dla marki.]"}]}]}], source=SRC)
-    add(None, "TRZY FAKTY W KARTACH: trzy równe karty, w każdej jedno zdanie Lato z liczbą w środku zdania (liczba "
-        "nie wychodzi do osobnego kafla). Pod kartami wniosek jednym hasłem.", type="uklad",
-        title="[Tytuł: wniosek z trzech faktów]", valign="t",
-        rows=[{"k": "cols", "card": True, "kont": True, "pad": 1.2, "min_h": 5.0, "valign": "t", "items": [
-            {"blocks": [{"k": "p", "t": "[Fakt %d: zdanie z liczbą, np. 7,7 mln osób to 20,6%% ludności.]" % i}]}
-            for i in (1, 2, 3)]},
-              {"k": "lead", "t": "[Wniosek jednym hasłem]", "gap": 0.9}], source=SRC)
+    add(None, "TRZY FAKTY W KARTACH: rząd 3 równych kart, w każdej liczba-bohater (zielona), pod nią hasło Mindsetem "
+        "(do 12 słów) i krótki dopisek Lato. Pod kartami wniosek w zielonym pasie. Dla 2-4 faktów z liczbą.",
+        type="uklad", title="[Tytuł: wniosek z trzech faktów]", valign="t",
+        rows=[{"k": "cols", "card": True, "kont": True, "rwane_ok": True, "pad": 1.1, "min_h": 6.0, "valign": "t",
+               "items": [{"blocks": [
+                   {"k": "hero", "t": "00%"},
+                   {"k": "lead", "t": "[Fakt %d: hasło, do 12 słów]" % i, "color": "ink"},
+                   {"k": "p", "t": "[Krótki dopisek: kontekst albo źródło liczby]", "max_pt": 18}]}
+                   for i in (1, 2, 3)]},
+              {"k": "band", "t": "[Wniosek z trzech faktów jednym zdaniem]", "fill": "brand"}], source=SRC)
     add(None, "ZRZUTY W CAŁOŚCI + WNIOSEK: dwa obrazy bez kadrowania (zrzuty ekranu, wykresy) i pod nimi jedno zdanie "
         "Mindsetem w zieleni. Źródło zostaje drobnym drukiem w stopce.", type="uklad",
         title="[Tytuł: co pokazują zrzuty]",
@@ -365,6 +369,56 @@ def spec(theme):
         if sl["type"] not in KEEP_KICKER:
             sl.pop("kicker", None)
     return {"theme": theme, "sections": True, "slides": s}
+
+
+# Krótki szablon dla ludzi: numery slajdów PEŁNEGO specu, w kolejności pokazu. Katalog (w_krotkim) i test trzymają się tej listy.
+KROTKI_NR = (4, 17, 22, 31, 62, 21, 65)
+DOPISEK_OKLADKI = "[Dopisz: imię i nazwisko  ·  dla kogo  ·  data]"
+KROTKI_OPISY = {
+    4: "OKŁADKA: nowość z produktem (paczka na granicy zieleni). Podmień nazwę, claim, smaki i packshot (prawy klik > Zmień "
+       "obraz); na dole dopisz, kto, dla kogo i kiedy. JAK KORZYSTAĆ Z SZABLONU: skopiuj slajd (Ctrl+C, Ctrl+V w panelu "
+       "slajdów) i podmień teksty w [nawiasach kwadratowych] - zaznacz je razem z nawiasami i wpisz swoje. Zdjęcia: prawy "
+       "klik > Zmień obraz. Kolory i czcionki bierze motyw (Projektowanie > Warianty), nie zmieniaj ich ręcznie. Tytuł ma "
+       "mówić wniosek, nie temat. Więcej układów (agenda, wykresy, tabele, film, galerie)? Poproś AI albo użyj programu "
+       "„Stwórz prezentację”.",
+    17: "PUNKTY: 3-6 haseł z krótkim rozwinięciem. Zalety, warunki, ustalenia.",
+    22: "TEKST I ZDJĘCIE: opis i punkty po lewej, zdjęcie po prawej. Zdjęcie: prawy klik > Zmień obraz.",
+    31: "PRODUKT I ZALETY: packshot i 4 claimy z ikonami. Claimy tylko z karty wprowadzenia.",
+    62: "TRZY LICZBY I WNIOSEK: 2-4 fakty (liczba, hasło, dopisek) i wniosek w zielonym pasie. Źródło w stopce.",
+    21: "PORÓWNANIE: dziś kontra nasza propozycja. Prawa kolumna jest wyróżniona.",
+    65: "ZAKOŃCZENIE: podziękowanie i dane do kontaktu albo następny krok. Dopisz je w nawiasach.",
+}
+
+
+def spec_krotki(theme="shop"):
+    """7 slajdów dla ludzi: po jednej opcji (otwarcie, 4 układy treści, porównanie, zamknięcie). Slajdy są kopiami
+    slajdów pełnego specu po numerze (ten sam wzór), bez sekcji i bez ukrytych instrukcji; instrukcja jest w opisie
+    (notatkach i karteczce) slajdu 1."""
+    import copy
+    full = spec(theme)["slides"]
+    out = []
+    for nr in KROTKI_NR:
+        sl = copy.deepcopy(full[nr - 1])
+        sl.pop("section", None)
+        sl["label_slide"] = KROTKI_OPISY[nr]
+        if nr == 65:
+            sl["subtitle"] = "[Dopisz: jedno zdanie na pożegnanie albo następny krok]"
+            sl["contact"] = "[Dopisz: imię i nazwisko  ·  telefon  ·  e-mail]"
+        out.append(sl)
+    return {"theme": theme, "sections": False, "slides": out}
+
+
+def dopisek_okladki(path):
+    """Okładka z produktem (typ cover) nie ma pola na dopisek (build_dk.s_cover nie czyta `meta`): dokładam je tu, w tym
+    samym miejscu i stylu co stopka okładki bez produktu (Lato bold 13 pt, kolor muted, nad dolną krawędzią)."""
+    from pptx import Presentation
+    prs = Presentation(path)
+    sl = prs.slides[0]
+    if not any("Dopisz" in (sh.text_frame.text if sh.has_text_frame else "") for sh in sl.shapes):
+        x = build_dk.cm(21.8)
+        build_dk.txt(sl, x, build_dk.H - build_dk.cm(2.9), build_dk.W - x - build_dk.MX, build_dk.cm(1.5),
+                     DOPISEK_OKLADKI, 13, color="muted", font="bold", anchor="b", name="!!meta")
+    prs.save(path)
 
 
 KEEP_KICKER = {"cover", "cover_text", "instructions", "segments", "hero_stat", "kpis", "bars", "donut", "columns",
@@ -474,14 +528,29 @@ def easy_edit(path):
     prs.save(path)
 
 
+def zbuduj(spec_, out, krotki):
+    """Buduje jeden plik: generator, nazwy obiektów (easy_edit), blokada nadpisania, filmy online. Zwraca ścieżkę."""
+    n = build_dk.build(spec_, out)
+    out = build_dk.build.last_out  # guard.py mógł przekierować do "(nowa wersja)"
+    if krotki:
+        dopisek_okladki(out)
+    easy_edit(out)
+    import guard
+    guard.record(out)
+    build_dk.bd.online_videos(out)  # prawdziwe wideo YouTube w slotach filmu (tylko tam, gdzie jest slot)
+    print("OK", out, n, "slajdow")
+    return out
+
+
+NAZWA_KROTKI = "DK - szablon prezentacji.pptx"
+NAZWA_PELNY = "DK - szablon prezentacji - pełen.pptx"
+
 if __name__ == "__main__":
-    out_dir = sys.argv[1] if len(sys.argv) > 1 else os.getcwd()
-    for theme, label in (("shop", None),):  # jeden szablon (28.09): motywy różniły się tylko kolorem tła
-        out = os.path.join(out_dir, "DK - szablon prezentacji.pptx")
-        n = build_dk.build(spec(theme), out)
-        out = build_dk.build.last_out  # guard.py mógł przekierować do "(nowa wersja)"
-        easy_edit(out)
-        import guard
-        guard.record(out)
-        build_dk.bd.online_videos(out)  # prawdziwe wideo YouTube w slotach filmu
-        print("OK", out, n, "slajdow")
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    out_dir = args[0] if args else os.getcwd()
+    chce_krotki = "--pelny" not in sys.argv
+    chce_pelny = "--krotki" not in sys.argv
+    if chce_krotki:
+        zbuduj(spec_krotki("shop"), os.path.join(out_dir, NAZWA_KROTKI), True)
+    if chce_pelny:
+        zbuduj(spec("shop"), os.path.join(out_dir, NAZWA_PELNY), False)

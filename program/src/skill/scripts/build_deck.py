@@ -83,6 +83,9 @@ def fit_size(text, max_pt, min_pt, width_emu, name="Mindset"):
 
 ZAWIESZKI = set("aiouwzAIOUWZ")  # jednoliterowe spójniki/przyimki - nigdy na końcu linii (typografia PL, 29.09)
 DASHES = {"-", "–", "—"}
+SKROTY_PRZED = {"ok.", "np.", "tj.", "tzw.", "wg", "m.in.", "ul.", "nr", "str.", "pkt"}  # nie kończą linii
+JEDNOSTKI = {"mln", "mld", "tys", "zł", "r", "lat", "g", "kg", "mg", "ml", "l", "g/kg", "proc", "szt", "pkt", "kcal",
+             "h", "min", "cm", "mm", "m", "km"}  # nie zaczynają linii po liczbie
 
 
 def typo_tokens(text):
@@ -92,7 +95,10 @@ def typo_tokens(text):
     words = [w for w in words if w]
     out = []
     for w in words:
-        if out and (w in DASHES or out[-1] in ZAWIESZKI or out[-1].endswith(tuple(" " + z for z in ZAWIESZKI))):
+        ost = out[-1].rsplit(" ", 1)[-1] if out else ""
+        if out and (w in DASHES or out[-1] in ZAWIESZKI or out[-1].endswith(tuple(" " + z for z in ZAWIESZKI))
+                    or ost.lower() in SKROTY_PRZED  # 13.10: „ok. 12”, „np. AAKG” - skrót razem z następnym słowem
+                    or (w.lower().rstrip(".,;:)") in JEDNOSTKI and ost[:1].isdigit())):  # „7,7 mln”, „2025 r.”
             out[-1] = out[-1] + " " + w
         else:
             out.append(w)

@@ -133,10 +133,30 @@ def download(info, progress=None):
     return dst
 
 
+# SHA-256 znanych STARYCH wydań "DK - szablon prezentacji.pptx" (wielkie litery). Plik o takim skrócie nie był ruszany ręcznie,
+# więc aktualizacja może go podmienić nowym; inny skrót = poprawiany ręcznie, zostaje nietknięty.
+STARE_SZABLONY = (
+    "3EFF7B42A42B0782ACA9D777DA2AF188A9112A3141D2A1A5B64A90853AE18349",  # szablon 65 slajdów z 07.10.2026 (wydanie 1.2.0)
+)
+
+# Wybór, co zrobić z szablonem; wydzielone, żeby dało się je przetestować (WORK\logs\test_update.py). Zakłada funkcję L (log).
+PS_SZABLON = r"""function Wgraj-Szablon($Src, $Root, $Stare) {
+    $t = "DK - szablon prezentacji.pptx"
+    $s = Join-Path $Src $t
+    $d = Join-Path $Root $t
+    if (-not (Test-Path -LiteralPath $s)) { return }
+    if (-not (Test-Path -LiteralPath $d)) { Copy-Item -LiteralPath $s -Destination $d; L "szablon wgrany (nie było pliku)"; return }
+    $h = (Get-FileHash -LiteralPath $d -Algorithm SHA256).Hash.ToUpper()
+    if ($h -eq (Get-FileHash -LiteralPath $s -Algorithm SHA256).Hash.ToUpper()) { L "szablon bez zmian"; return }
+    if (@($Stare) -contains $h) { Copy-Item -LiteralPath $s -Destination $d -Force; L "szablon podmieniony (stara niezmieniona wersja)" }
+    else { L "szablon zmieniony ręcznie - zostawiam" }
+}
+"""
+
 PS1 = r"""param([string]$Src, [string]$Root, [int]$ProcId, [string]$Log)
-# Aktualizacja programu "Stwórz prezentację": kopiuje nowe pliki na stare. Niczego nie kasuje.
+# Aktualizacja programu "Stwórz prezentację": kopiuje nowe pliki na stare. Nie kasuje; nadpisuje tylko znane, niezmienione stare wersje.
 function L($t) { ("{0} {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $t) | Out-File -LiteralPath $Log -Append -Encoding utf8 }
-L "start: $Src -> $Root (czekam na proces $ProcId)"
+""" + PS_SZABLON + r"""L "start: $Src -> $Root (czekam na proces $ProcId)"
 foreach ($p in @($Src, $Root)) { if (-not $p -or -not (Test-Path -LiteralPath $p -PathType Container)) { L "BLAD brak folderu: $p"; exit 2 } }
 if (-not (Test-Path -LiteralPath (Join-Path $Root "pliki programu\program.exe"))) { L "BLAD to nie jest folder programu: $Root"; exit 2 }
 for ($i = 0; $i -lt 120; $i++) {
@@ -149,16 +169,28 @@ robocopy (Join-Path $Src "pliki programu") (Join-Path $Root "pliki programu") /E
 $rc = $LASTEXITCODE
 L "robocopy kod $rc"
 if ($rc -ge 8) { L "BLAD kopiowania"; exit 4 }
-foreach ($f in "Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "CZYTAJ - jak zrobić prezentację.txt") {
+# kopie skilli dla AI obok programu: bez nich polecenie dla AI wskazywałoby starą metodę (kopia bez kasowania)
+foreach ($d in "skill-prezentacje", "skill-ds-dobra-kaloria") {
+    $sd = Join-Path $Src $d
+    if (Test-Path -LiteralPath $sd -PathType Container) {
+        robocopy $sd (Join-Path $Root $d) /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+        L ("skill " + $d + " - robocopy kod " + $LASTEXITCODE)
+    }
+}
+foreach ($f in "Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd", "CZYTAJ - jak zrobić prezentację.txt") {
     $s = Join-Path $Src $f
     if (Test-Path -LiteralPath $s) { Copy-Item -LiteralPath $s -Destination (Join-Path $Root $f) -Force }
 }
-# szablon PPTX mógł być poprawiany ręcznie - wgrywamy tylko wtedy, gdy go nie ma
-$t = "DK - szablon prezentacji.pptx"
-if ((Test-Path -LiteralPath (Join-Path $Src $t)) -and -not (Test-Path -LiteralPath (Join-Path $Root $t))) { Copy-Item -LiteralPath (Join-Path $Src $t) -Destination (Join-Path $Root $t) }
+# szablon PPTX mógł być poprawiany ręcznie: wgrywamy go, gdy go nie ma ALBO gdy to niezmieniona stara wersja (skrót z listy)
+Wgraj-Szablon $Src $Root @(@@STARE@@)
 L ("gotowe, wersja " + (Get-Content -LiteralPath (Join-Path $Root "pliki programu\wersja.txt") -Raw).Trim())
 Start-Process -FilePath (Join-Path $Root "Stwórz prezentację.exe")
 """
+
+
+def skrypt_ps1():
+    """Skrypt podmiany z wstawioną listą skrótów starych wydań szablonu."""
+    return PS1.replace("@@STARE@@", ", ".join("'%s'" % h.upper() for h in STARE_SZABLONY))
 
 
 def apply(src):
@@ -169,7 +201,7 @@ def apply(src):
     os.makedirs(paths.LOG_DIR, exist_ok=True)
     ps = os.path.join(UPD_DIR, "zastosuj.ps1")
     with open(ps, "w", encoding="utf-8-sig", newline="\r\n") as f:  # BOM: PowerShell 5.1 inaczej psuje polskie litery
-        f.write(PS1)
+        f.write(skrypt_ps1())
     subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ps,
                       "-Src", src, "-Root", paths.ROOT, "-ProcId", str(os.getpid()),
                       "-Log", os.path.join(paths.LOG_DIR, "aktualizacja.log")],

@@ -33,11 +33,11 @@ Log "=== build $ver ==="
 # 1. świeża kopia skilla (silnik) - bez .cache, examples, __pycache__
 if (-not $BezSkilla) {
     $SK = Join-Path $HOME ".claude\skills\prezentacje"
-    robocopy $SK (Join-Path $SRC "skill") /E /XD .cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
+    robocopy $SK (Join-Path $SRC "skill") /E /XD .cache .pytest_cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
     Log "skill odswiezony z $SK"
     # 1a. kopia skilla w korzeniu folderu programu (skill-prezentacje\) - z niej zainstaluj-skill.ps1 instaluje skill agentom AI.
     #     Bez /MIR i /PURGE (zakaz kasowania): plik usuniety ze skilla zostaje w kopii az do reczneho przeniesienia.
-    robocopy $SK (Join-Path $R "skill-prezentacje") /E /XD .cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
+    robocopy $SK (Join-Path $R "skill-prezentacje") /E /XD .cache .pytest_cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
     Log "skill-prezentacje odswiezony w $R"
 }
 # 1b. tokeny design systemu (kolory, odstępy, promienie) - jedno źródło: skill ds-dobra-kaloria
@@ -98,6 +98,9 @@ if (Test-Path -LiteralPath $target) {
 }
 Move-Item -LiteralPath $new -Destination $target
 Copy-Item -LiteralPath $lexe -Destination (Join-Path $R "Stwórz prezentację.exe") -Force
+# 5a. pełny szablon (65 slajdów) dla programu i AI - w "pliki programu"; obok programu leży krótki (7 slajdów) dla ludzi (13.10)
+$pelny = Join-Path $W "DK - szablon prezentacji - pełen.pptx"
+if (Test-Path -LiteralPath $pelny) { Copy-Item -LiteralPath $pelny -Destination (Join-Path $target "DK - szablon prezentacji - pełen.pptx") -Force; Log "pelny szablon skopiowany do pliki programu" } else { Log "UWAGA brak $pelny" }
 Log ("gotowe: {0}  ({1:N0} MB, {2} plikow; plik startowy {3:N0} KB)" -f $R, ((Get-ChildItem -LiteralPath $target -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), (Get-ChildItem -LiteralPath $target -Recurse -File).Count, ((Get-Item -LiteralPath (Join-Path $R "Stwórz prezentację.exe")).Length / 1KB))
 # 6. test dymny wersji konsolowej (bez Select-Object -First: ucięty potok daje fałszywy kod wyjścia)
 $smoke = @(& (Join-Path $target "stworz-cli.exe") --help)

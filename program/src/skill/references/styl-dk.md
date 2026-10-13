@@ -30,7 +30,7 @@ Czcionki motywu: nagłówki **Mindset** (osadzony w DK_WZOR), treść **Lato** (
 - Przycisk żółty: prostokąt, rogi ~0,12 cm (`tag(style="button")`) - NIE ścięty.
 - Metka ceny/gramatury: zielona, ścięta tylko z lewej (`style="price"`).
 - Znaczek NOWOŚĆ / BESTSELLER: ostre końce (`style="badge"`).
-- Ikony: Lucide, kreska 1,6, kolor marki (`assets/icons/<kolor>/<nazwa>.png`, nowe: `scripts/make_icons.py`).
+- Ikony: zestaw marki „W stylu DK” (odręczny obrys, `assets/icons/dk/<nazwa>.png`, kolor nadaje `build_dk.icon()` w locie; nazwy jak w Lucide, słownik słowo -> ikona: `assets/ikony-slowa.json`). Zapas, gdy ikony nie ma w zestawie marki: Lucide, kreska 1,6, `assets/icons/<kolor>/<nazwa>.png` (`scripts/make_icons.py`).
 - Światło: MX 2,4 cm, CT 5,3 cm, CB = H-1,75 cm, GAP 0,7 cm - zmieniaj stałe, nie liczby w funkcjach.
 
 ## Zasady kompozycji

@@ -348,6 +348,9 @@
           <button type="button" class="link-btn" id="btn-copy-ai" title="Tylko kopiuje polecenie - do wklejenia w dowolnym innym czacie.">
             <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Tylko skopiuj polecenie
           </button>
+          <button type="button" class="link-btn" id="btn-copy-agent" title="Dla agenta z dostępem do plików (Claude w trybie Cowork albo Code, Codex, Gemini CLI, Cursor): sam otworzy pliki, poprawi prezentację i zgłosi, co zostawił do decyzji.">
+            <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Polecenie dla agenta z plikami
+          </button>
         </aside>
       </div>
     </div>
@@ -361,7 +364,7 @@
     <p class="eyebrow">Co teraz</p>
     <h2 class="display h-md" id="guide-title">Polecenie skopiowane</h2>
     <ol class="guide-steps">
-      <li><span class="guide-n"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><strong>Polecenie jest już skopiowane</strong><span>Zawiera treść slajdów i ścieżki do plików. Niczego nie musisz pisać.</span></div></li>
+      <li><span class="guide-n"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></span><div><strong>Polecenie jest już skopiowane</strong><span id="guide-s1-d">Zawiera treść slajdów. Niczego nie musisz pisać.</span></div></li>
       <li><span class="guide-n">2</span><div><strong id="guide-s2-t"></strong><span id="guide-s2-d"></span></div></li>
       <li><span class="guide-n">3</span><div><strong>Kliknij w pole wiadomości i wklej</strong><span class="keys" aria-label="Control plus V, potem Enter"><kbd>Ctrl</kbd><i>+</i><kbd>V</kbd><i>potem</i><kbd>Enter</kbd></span></div></li>
     </ol>

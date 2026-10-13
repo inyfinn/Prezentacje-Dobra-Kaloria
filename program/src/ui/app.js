@@ -254,13 +254,17 @@
   /* ---------- instrukcja po skopiowaniu polecenia dla AI ---------- */
   function showGuide(r) {
     var g = $('#guide');
-    var app = r.gdzie === 'aplikacja', claude = r.klucz === 'claude';
-    $('#guide-title').textContent = r.klucz === 'inny' ? 'Polecenie skopiowane' : 'Otwieram ' + r.nazwa;
+    var app = r.gdzie === 'aplikacja', claude = r.klucz === 'claude', agent = r.klucz === 'agent';
+    $('#guide-title').textContent = agent ? 'Polecenie dla agenta skopiowane' : (r.klucz === 'inny' ? 'Polecenie skopiowane' : 'Otwieram ' + r.nazwa);
+    $('#guide-s1-d').textContent = agent ? 'Zawiera ścieżki do plików i zasady pracy. Niczego nie musisz pisać.' : 'Zawiera treść slajdów. Niczego nie musisz pisać.';
     var s2;
-    if (claude && app) s2 = ['Wybierz tryb Cowork albo Code', 'W tych trybach Claude widzi pliki na komputerze, więc sam otworzy folder i poprawi prezentację.'];
+    if (agent) s2 = ['Wklej je agentowi z dostępem do plików', 'Claude w trybie Cowork albo Code, Codex, Gemini CLI, Cursor. Agent sam otworzy pliki, poprawi prezentację i zgłosi, co zostawił do decyzji.'];
+    else if (claude && app) s2 = ['Wybierz tryb Cowork albo Code', 'W tych trybach Claude widzi pliki na komputerze, więc sam otworzy folder i poprawi prezentację.'];
     else if (claude) s2 = ['Najlepiej użyj aplikacji Claude na komputerze', 'W przeglądarce Claude nie widzi plików. W aplikacji wybierz tryb Cowork albo Code. W przeglądarce dołącz plik prezentacji ręcznie.'];
     else if (r.klucz === 'inny') s2 = ['Otwórz swój czat AI', 'Masz Claude na komputerze? Wybierz tryb Cowork albo Code, wtedy AI widzi pliki. W innym czacie dołącz plik prezentacji.'];
     else s2 = ['Dołącz plik prezentacji', r.nazwa + ' nie widzi plików na komputerze. Przeciągnij do czatu plik prezentacji z folderu.'];
+    /* plansze slajdów leżą w podfolderze obok prezentacji (otwiera go "Pokaż folder"): czat bez plików ocenia z nich wygląd */
+    if (!agent && state.done && state.done.plansze_folder) s2[1] += ' Przeciągnij do czatu obrazy z folderu „plansze” obok prezentacji - wtedy AI oceni też wygląd.';
     $('#guide-s2-t').textContent = s2[0];
     $('#guide-s2-d').textContent = s2[1];
     g.hidden = false;
@@ -1088,8 +1092,10 @@
     var ukOk = !(res.wiernosc && res.wiernosc.usterki && res.wiernosc.usterki.length);
     var todo = uw.filter(function (x) { return !/^(Treść|Układ):/.test(x); });
     if (!checked) todo = todo.filter(function (x) { return !/^Nie sprawdzono w PowerPoint/.test(x); });   /* mówi to już wiersz kontroli */
-    var WAZNE = /^(Brakuje|Do sprawdzenia|Nie sprawdzono|PowerPoint nie oddał)/;   /* to, co wymaga działania, idzie na górę listy */
-    todo = todo.filter(function (x) { return WAZNE.test(x); }).concat(todo.filter(function (x) { return !WAZNE.test(x); }));
+    var WAZNE = /^(Brakuje|Do sprawdzenia|Sprawdź najpierw|Nie sprawdzono|PowerPoint nie oddał)/;   /* to, co wymaga działania, idzie na górę listy */
+    var bl = (res.bledy_okno || []).map(txt);   /* błędy tekstu oryginału (nagłówek, najwyżej 5 linii): na samym początku tej samej listy */
+    todo = todo.filter(function (x) { return bl.indexOf(x) < 0; });
+    todo = bl.concat(todo.filter(function (x) { return WAZNE.test(x); }), todo.filter(function (x) { return !WAZNE.test(x); }));
     var alarm = !checked || n > 0 || !covOk || !ukOk || todo.some(function (x) { return /^(Brakuje|Do sprawdzenia)/.test(x); });
 
     var checks = $('#res-checks');
@@ -1127,7 +1133,7 @@
     box.hidden = !todo.length;
     /* ścieżka folderu nie ma wskazówek z danych, więc jej uwagi (zwykle 2-4 krótkie) stoją otwarte; przy prezentacji
        długa lista jest zwinięta, chyba że coś wymaga uwagi */
-    box.open = alarm || !state.pptx || todo.length <= 3;
+    box.open = alarm || bl.length > 0 || !state.pptx || todo.length <= 3;
     $('#res-todo-label').textContent = 'Uwagi do prezentacji (' + todo.length + ')';
   }
 
@@ -1219,6 +1225,14 @@
         /* set_clipboard zwraca False, gdy schowek jest zajęty (np. zablokowany pulpit) - wtedy nie udawaj sukcesu */
         if (ok === false) { toast('Nie udało się skopiować polecenia (schowek zajęty). Spróbuj jeszcze raz za chwilę.', 'error', 12000); return; }
         showGuide({ nazwa: 'czat', klucz: 'inny', gdzie: 'inny' });
+      }).catch(function (e) { onError(errMsg(e)); });
+    });
+    $('#btn-copy-agent').addEventListener('click', function () {
+      var t = state.done && state.done.prompt_agent;
+      if (!t) { onError('Nie mam czego skopiować.'); return; }
+      call('copy_text', t).then(function (ok) {
+        if (ok === false) { toast('Nie udało się skopiować polecenia (schowek zajęty). Spróbuj jeszcze raz za chwilę.', 'error', 12000); return; }
+        showGuide({ nazwa: 'agent', klucz: 'agent', gdzie: 'inny' });
       }).catch(function (e) { onError(errMsg(e)); });
     });
     Array.prototype.forEach.call(document.querySelectorAll('[data-ai]'), function (b) {

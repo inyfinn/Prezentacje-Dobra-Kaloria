@@ -54,83 +54,84 @@ Opcje — domyślne wystarczą: `--styl nowy|stary`, `--dlugosc krotka|standard|
 2. **Dopracuj treść** według `SKILL.md` i `references\lekcje.md` skilla: uzupełnij podpowiedzi w `[nawiasach]` danymi z
    folderu (każda liczba ma źródło w stopce). Dla pliku .pptx: sekcja „Konwersja gotowej prezentacji: jak dopracować wynik” niżej
    (jeśli nie ma `references\konwersja-pptx.md` w Twojej kopii skilla — `references\lekcje.md`, reguły A27–A44). Cel `wiernie`: slajd N = slajd N
-   oryginału, te same teksty, kolejność i układ, obrazy w całości; bez własnych tytułów, agendy i przekładek. Cel
-   `rozwin`: slajdów oryginału nie ruszasz, wypełniasz [nawiasy] na slajdach „NOWY” i proponujesz brakujące. Cel
+   oryginału, te same słowa, kolejność i obrazy w całości; dopracowujesz według sekcji niżej (hasła, liczby, wnioski, układ z
+   katalogu szablonu, poprawione błędy tekstu); bez własnych tytułów, agendy i przekładek. Cel
+   `rozwin`: slajdy oryginału dopracowujesz jak w `wiernie`, wypełniasz [nawiasy] na slajdach „NOWY” i proponujesz brakujące. Cel
    `skroc`: tylko **ukrywasz** slajdy (nic nie kasujesz); krótsza wersja slajdu to NOWY slajd, oryginał ukryty za nim.
-   Edytuj python-pptx albo PowerPointem (COM); nie zmieniaj układu, kolorów ani czcionek.
+   Folder produktu: edytuj python-pptx albo PowerPointem (COM); nie zmieniaj układu, kolorów ani czcionek. Konwersja .pptx:
+   poprawki wpisujesz w specu i budujesz `build_dk.py` (sekcja niżej), nie ręcznie w PowerPoincie.
 3. **Kontrola** — oddajesz dopiero przy `Tekst - problemy: 0`:
    `powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\pliki programu\app\skill\scripts\verify.ps1" -Src "<wynik.pptx>"`
-   Nowe zrzuty po poprawkach: `…\pliki programu\app\app\render_app.ps1 -Src "<wynik.pptx>" -Out "<katalog png>"`.
+   Nowe zrzuty po poprawkach: `…\pliki programu\app\skill\scripts\render.ps1 -Src "<wynik.pptx>" -Out "<katalog png>"` (tylko do odczytu; po ostatniej zmianie dodaj `-EmbedFonts`).
 
 ## Konwersja gotowej prezentacji: jak dopracować wynik
 
-Program robi **szkic** (ten sam slajd w stylu marki, 100% treści). Dopracowujesz go Ty - a o firmie nic nie wiesz, więc
-oto skąd brać wiedzę, według czego oceniać i czego nie wolno ruszać. **Dobra Kaloria** = polska marka przekąsek (kulki,
-batony…); jej prezentacje to deck handlowy i strategiczny, a wzorem wyglądu jest sklep dobrakaloria.pl.
+W razie sprzeczności wygrywa `skill-prezentacje\references\dopracowanie.md` (pełna metoda; poniżej jej skrót w tej samej kolejności). Starsze zapisy „zdania w Lato”, „bez wyjmowania liczb do kafli”, „akapit = karta-artykuł” są nieaktualne od 13.10.2026.
 
-**Skąd wiedza (czytaj, nie zgaduj).** (1) Skill `/prezentacje` (KROK 0): `SKILL.md` sekcje 0 i 1b, `references\konwersja-pptx.md`
-(zasady, pułapki, kroki), `references\lekcje.md` A27-A44 (decyzje właściciela) - kopia zawsze leży w
-`<folder programu>\skill-prezentacje\`. (2) Design system: `%USERPROFILE%\.claude\skills\ds-dobra-kaloria\DESIGN-SYSTEM-DOBRA-KALORIA.md`
-(§2 zasady, §5.4 prezentacje PPTX); **nie masz go** (to osobny skill, program nie kopiuje go w całości) - wystarczy 10 reguł
-niżej. (3) Wzorzec układów: `DK - szablon prezentacji.pptx` obok programu (60 typów slajdów; format opisu: `references\spec-dk.md`).
+Program robi **szkic** (ten sam slajd w stylu marki, 100% treści, hasła i liczby wstępnie wyciągnięte, układ z klocków szablonu). Dopracowujesz go Ty - a o firmie nic nie wiesz, więc oto skąd brać wiedzę, według czego oceniać i czego nie wolno ruszać. **Dobra Kaloria** = polska marka przekąsek (kulki, batony…); jej prezentacje to deck handlowy i strategiczny, a wzorem wyglądu jest sklep dobrakaloria.pl.
+
+**Skąd wiedza (czytaj, nie zgaduj).** (1) Skill `/prezentacje` (KROK 0): `SKILL.md` sekcje 0 i 1b, **`references\dopracowanie.md`** (metoda dopracowania - czytasz ją pierwszą i w całości), **`references\katalog-szablonu.md`** (tabela „kształt treści -> slajd szablonu” i 65 slajdów z „użyj gdy / nie gdy”), `references\konwersja-pptx.md` (zasady, pułapki, pkt 2a i 2b), `references\lekcje.md` A27-A44 (decyzje właściciela) - kopia zawsze leży w `<folder programu>\skill-prezentacje\`. (2) Design system: `%USERPROFILE%\.claude\skills\ds-dobra-kaloria\DESIGN-SYSTEM-DOBRA-KALORIA.md` (§2 zasady, §5.4 prezentacje PPTX); **nie masz go** (to osobny skill, program nie kopiuje go w całości) - wystarczy 10 reguł niżej. (3) Wzorzec układów: `references\katalog-szablonu.md` (65 slajdów „tNN Nazwa” i tabela kształt treści -> wzór; format opisu klocków: `references\spec-dk.md`) oraz, do obejrzenia, pełny szablon (65 slajdów) `pliki programu\DK - szablon prezentacji - pełen.pptx`. Krótki plik `DK - szablon prezentacji.pptx` obok programu (7 slajdów, po jednej opcji: okładka, punkty, tekst i zdjęcie, produkt i zalety, trzy liczby i wniosek, porównanie, zakończenie) jest dla ludzi - nie traktuj go jako pełnej listy możliwości.
 
 **10 reguł stylu Dobra Kaloria w prezentacji.**
 
 1. Tło slajdu **białe**; bieli jest najwięcej. Beż, ecru i szary nigdy jako tło całego slajdu.
 2. **Kremowy** (ecru `#FDF8EC`) tylko jako karta albo kafel na bieli. Głębiej niż karta w karcie nie schodzisz.
-3. **Mindset** (nagłówkowa, wersaliki) tylko na tytuł i krótkie hasło (ok. do 12 słów).
-4. **Lato** na zdania i akapity. Zdanie wielkimi literami Mindset jest nieczytelne - to częsty błąd.
+3. **Hasła w Mindset** (nagłówkowa, wersaliki): zdanie do 12 słów albo początek dłuższego zdania.
+4. **Lato** tylko jako krótki dopisek pod hasłem, najwyżej 18 pt; akapit Lato bez hasła to błąd poza wyjątkami z `dopracowanie.md` pkt 3 (czego hasłowanie nie dotyczy).
 5. Tekst ciemny z motywu (nie czysta czerń); drobne podpisy i etykiety w beżu motywu.
 6. **Zieleń marki** `#007936` (w motywie PPTX: slot Akcent 1) na tytuły, kropki, metki. Czerwień motywu to tylko akcent
    i wyróżnione słowo - jeśli było wyróżnione w oryginale.
 7. **Żółty** `#FFD821` to jedna wyróżniona akcja na widok; w konwersji zwykle wcale.
 8. **Bez obrysów** wokół kart, kafli i tagów (karta = wypełnienie). Ikony liniowe, zielone. Zero plam i bąbelków za produktem.
 9. Kolory i czcionki **tylko ze slotów motywu** (Projektowanie > Warianty), bez własnych kodów hex; kolory smaków produktu to wyjątek.
-10. **1:1** (niżej): slajd to ten sam slajd, tylko w nowym wyglądzie.
+10. **1:1** (niżej): slajd to ten sam slajd, tylko w nowym wyglądzie i z tymi samymi słowami w nowych rolach.
 
-**Zasada 1:1 (lekcje A33-A35).** Slajd N wyniku = slajd N oryginału: ta sama liczba slajdów, te same teksty i kolejność góra-dół,
-kolumny zostają kolumnami, osobny napis („Zmiana nazwy”, „Segment 1 & 3”, źródło) zostaje osobnym elementem, obrazy w całości
-(bez kadrowania - ucina tekst na zrzucie). Priorytety właściciela: 1) nie zgubić żadnej danej, 2) sens, 3) kolejność,
-4) kontekst, 5) dopiero wygląd. Właściciel porównuje dwa okna obok siebie, slajd po slajdzie. Cel (`wiernie`/`rozwin`/`skroc`):
-tabela wyżej / w KROKU 1.
+**1. Skąd ta metoda (13.10.2026).** Właściciel odrzucił dwie wersje tej samej prezentacji i przyjął trzecią. Odrzucona 1 (sam tekst w Mindset na całą szerokość): „tekst jednolity, bez sensownych akapitów, podnagłówków, widać, że to nie jest z szablonu”. Odrzucona 2 (zdania jako akapity Lato w kartach): „Za dużo czcionki Lato. Za mało tam jest prezentacji, za dużo tekstu, bloków tekstu. Za mało jakichś haseł.” Przyjęta 3 (hasła, liczby, wnioski w klockach szablonu): „TAK! teraz ta prezentacja jest cudownie piękna.” O błędach tekstu: „Tego typu błędy, literówki, sieroty itp. - POPRAWIASZ.”
 
-**Dobór pojemnika z szablonu po kształcie treści** (reguły silnika R0-R12, projekt 07.10; sprawdzasz, czy automat wybrał
-dobry pojemnik, a przy ręcznej poprawce w specu `uklad` bierzesz go z tej tabeli; tekstu nie zmieniasz):
+**2. Zasada naczelna: slajd to plakat, nie kartka.** Na slajdzie widać: tytuł, 1-4 hasła w Mindset, przy nich liczbę albo ikonę, pod hasłem krótki dopisek w Lato, na dole wniosek w pasie. Słowa autora zostają wszystkie i w tej samej kolejności; zmienia się ich ROLA:
 
-| Kształt treści na starym slajdzie | Pojemnik (typ z szablonu) |
-|---|---|
-| pierwszy slajd z samym tekstem / ostatni z `#…` / jedno hasło >= 54 pt | okładka tekstowa / zakończenie / przekładka ciemna (bez numeru) |
-| 2-4 kolumny (pola i obrazy obok siebie) | kolumny z kartami (s34, s46, s21), obraz w całości |
-| 2-8 krótkich pozycji (<= 36 znaków, bez kropki, lista) | kafle `chips` (s36), **zawsze zielone**; wiodący myślnik „–” listy to marker (jak punktor): kafle go nie mają, zapis w `pokrycie.json` jako `markery` (nie w `znaki`). Dłuższe lub > 8: punkty z kropką marki (s17); 2-4 punkty: środek slajdu, pismo do 32 pt |
-| cytat: zdanie + `(Autor Nazwisko)` albo „…” i krótka linijka autora pod spodem | cytat (s20): cudzysłów, kursywa Lato, autor pogrubiony |
-| 1-4 wiersze dużego pisma (>= 28 pt), same hasła | jedna karta z hasłem na środku (s14 w karcie) |
-| 2-4 podobne jednostki dużego pisma (<= 22 słowa, podobna długość) | 2-4 karty obok siebie (s21); „Prefiks - reszta” = nagłówek zielony/czerwony + hasło. 3+ karty z „rwanym” tekstem (krótkie wiersze Lato), którym nie pomaga mniejsze pismo, układają się **jedna pod drugą** na pełną szerokość - to nie błąd |
-| akapity zdań (> 22 słów lub nierówne) | jedna karta na całą szerokość (s16), nagłówek przed nią wchodzi do karty |
-| pole dużego pisma, w którym >= 50% słów to zdania (>= 13 słów albo >= 8 + kropka) | Lato, nie Mindset |
-| etykiety `CT:` / `TA:` / `Insight:` | goły wiersz pod kartami, osobno (nie w karcie) |
-| krótkie hasło (<= 12 słów lub kończące się „:”) przed listą / obrazami | goły zielony nagłówek nad pojemnikiem |
-| podpis-wniosek pod obrazami, hasło po kartach | osobny wiersz pod spodem; „Źródło:” małym pismem |
-| hiperłącze na słowach (np. „Byron Sharp”) | zostaje na tych samych słowach, **bez dopisanej stopki „Link: …”**; adres, którego nie ma na slajdzie, idzie do notatek |
-| tekst nie mieści się w pojemniku | zostaje stary układ + wpis na listę „Sprawdź najpierw”; tekstu nie skracasz |
+| Rola | Co to jest | Jak wygląda |
+|---|---|---|
+| hasło | zdanie do 12 słów albo początek dłuższego zdania | `lead`, Mindset, kolor tekstu (ink) |
+| dopisek | reszta zdania i kolejne zdania akapitu | `p`, Lato, najwyżej 18 pt |
+| liczba-bohater | liczba z jednostką stojąca w haśle, powtórzona nad nim | `hero`, Mindset, zieleń |
+| wniosek | ostatnie zdanie-puenta, „Ważna kwestia – …”, „Insight: …”, linia od „=” | `band`, pas zielony (czerwony = zła wiadomość) |
+| etykieta | „CT: …”, „TA: …”, „Słodziki:” | `kv` albo nagłówek karty `h` |
+| punkt | pozycja listy, kolejne zdanie długiego akapitu | `li` z ikoną albo kafel z ikoną |
 
-**Bramka oddania - dowód, nie raport.** (1) Render oryginału i wyniku do PNG, pojedynczo (PowerPoint COM nie lubi dwóch naraz):
-`powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\pliki programu\app\app\render_app.ps1" -Src "<plik.pptx>" -Out "<katalog png>"`.
-(2) **Plansze par** stary | nowy: `python "<folder programu>\pliki programu\app\skill\scripts\pary_slajdow.py" <png oryginału> <png wyniku> <katalog>`
-(3 pary na planszę; różna liczba slajdów = błąd). (3) Obejrzyj **każdą planszę** narzędziem do czytania obrazów, najpierw slajdy
-z listy „Sprawdź najpierw”: ten sam slajd? te same teksty i kolejność? nic nie ucięte? podpis przy swoim obrazie? (4) Poprawki
-w `_robocze\<nazwa>\spec_konwersja.json` (albo `spec_program.json`), potem `python "<folder programu>\pliki programu\app\skill\scripts\build_dk.py" <spec>`.
-(5) `verify.ps1` (sekcja 4 pkt 4): **`Tekst - problemy: 0`**. (6) Raport programu: `Treść: 100%` i `Układ: … slajdów tyle samo (N)` czyste.
-Bez par obejrzanych i bez tych wyników nie pisz „gotowe”.
+Miara kontrolna: w kartach z tekstem więcej słów stoi w Mindset niż w Lato (wzorzec: 492 do 309). Wersaliki robi czcionka Mindset: w specu tekst zostaje w wielkości liter oryginału.
 
-**Czego nie wolno (to odrzucił właściciel 07.10).** Dodawać agendę, przekładki, numery rozdziałów; pisać własne tytuły-wnioski;
-wyjmować liczby ze zdań do kafli KPI; łączyć, dzielić, przestawiać, kasować slajdy; dopisywać treść; przycinać obrazy; zmieniać
-kolory i czcionki; zastępować zrzut z tekstem przepisanym tekstem. Zasady „tytuł = wniosek” i „jedna myśl na slajd” dotyczą
-prezentacji budowanych z folderu produktu, **nie konwersji**. Prezentacji, która już jest w stylu DK, nie konwertuj.
+**3. Co wolno, czego nie wolno.** Zostaje bez zmian: liczba slajdów (slajd N = slajd N, właściciel porównuje dwa okna obok siebie), każde słowo i każda liczba, kolejność czytania, obrazy w całości, słowa wyróżnione kolorem przez autora, hiperłącza (zostają na tych samych słowach, bez dopisanej stopki „Link: …”; adres, którego nie ma na slajdzie, idzie do notatek), znaki interpunkcji (przecinek, na którym tniesz zdanie, zostaje przy haśle). Wolno: podzielić zdanie na hasło i dopisek; powtórzyć liczbę z hasła jako liczbę-bohatera nad nim (jedyne dozwolone powtórzenie tekstu); rozdzielić akapit na kafle (jedno zdanie = jeden kafel, najwyżej 4, 4 = siatka 2 x 2); przenieść do pasa pod kartami zdanie-wniosek, które w oryginale i tak stoi najniżej; dać ikonę ze słownika; zrobić z nagłówka slajdu tytuł, a z belki rozdziału etykietę nad tytułem. **Nie wolno:** dodawać ani kasować slajdów, agendy, przekładek; pisać własnych tytułów i haseł; łączyć, dzielić, przestawiać slajdów; dopisywać, skracać ani przestawiać treści; wymyślać liczb; przycinać obrazów; używać kolorów i czcionek spoza motywu; przepisywać tekstu ze zrzutu; zmniejszać pisma, żeby „się zmieściło”; edytować skryptów skilla ani programu (błąd skryptu zgłoś w DO DECYZJI). Zasady „tytuł = wniosek” i „jedna myśl na slajd” dotyczą prezentacji z folderu produktu, **nie konwersji**. Prezentacji, która już jest w stylu DK, nie konwertuj.
 
-**Lista „DO DECYZJI” dla człowieka (zawsze na końcu raportu).** Literówki źródła (oczywiste popraw i wypisz: było -> jest; niejasne zostaw i zgłoś) ·
-zmiany wielkości liter z `wielkosc-liter.txt` · wstawione wizualizacje produktów (słownik nazw linii to założenie) ·
-slajdy z listy „Sprawdź najpierw” i te, gdzie karty się nie zmieściły · slajdy podzielone, ukryte lub NOWE (ukryte zostają
-w pliku - przed wysłaniem poza firmę trzeba je usunąć albo zapisać PDF) · niejasne dane i [nawiasy] bez źródła · znak „DEMO”.
+**4. Czego hasłowanie nie dotyczy.** Tabela, wykres, slajd z samym zdjęciem albo zrzutem, okładka, przekładka rozdziału, zakończenie, wartości odżywcze, slajd produktu (EAN, gramatura, claimy z karty wprowadzenia) i cytat zostają takie, jakie dał program albo katalog szablonu; sprawdzasz w nich tylko błędy tekstu i czytelność. Nie dzielisz komórek tabeli na hasła i dopiski. Zdanie dłuższe niż 24 słowa bez przecinka i spójnika, na którym da się je podzielić, zostaje akapitem w karcie (jedyny dopuszczalny akapit bez hasła) i trafia do DO DECYZJI.
+
+**5. Błędy w tekście oryginału: poprawiasz.** Tylko gdy spełnione są WSZYSTKIE cztery warunki: a) to, co stoi w źródle, nie jest w tym zdaniu poprawnym polskim słowem lub formą, nazwą, skrótem ani słowem obcym; b) jest jedna oczywista poprawna forma, różna najwyżej o spację albo 2 znaki w jednym słowie; c) słowo nie stoi w cytacie, w tekście obcojęzycznym, w liczbie, w oświadczeniu żywieniowym lub zdrowotnym, w nazwie prawnej ani w hiperłączu; d) nie zmieniasz szyku, stylu ani wielkości liter. Wątpliwość = nie poprawiasz, wpisujesz do DO DECYZJI. Mieszczą się tu: sklejone słowa („komunikacjaod” -> „komunikacja od”), literówki („odwrotem o węglowodanów” -> „odwrotem od węglowodanów”), oczywisty błąd odmiany z sąsiedniego słowa („do zbudowanie trialu” -> „do zbudowania trialu”), zdublowane słowo, brak spacji po przecinku, spacja przed przecinkiem, podwójne spacje. Nie poprawiasz, tylko zgłaszasz: nazw własnych i marek, skrótów, liczb i jednostek, wielokropków i myślników autora, zdań niezręcznych, wszystkiego, co zmienia sens. Sieroty i zawieszki (spójnik albo jedna litera na końcu linii, jedno słowo w ostatniej linii, „ok. / 12 mln”) to błędy łamania, nie tekstu: poprawiasz podziałem hasło / dopisek albo szerokością karty. **Każdą poprawkę wpisz do specu**, inaczej kontrola treści uzna ją za zgubione słowo: `"poprawki": [{"slajd": 12, "bylo": "komunikacjaod", "jest": "komunikacja od", "powod": "sklejone słowa"}]` (`slajd` = numer slajdu oryginału). Zacznij od listy „Możliwe błędy w tekście oryginału” z programu (`bledy_tekstu` w specu i w `raport.json`), potem przeczytaj każdy slajd sam: program łapie tylko słowa spoza słownika, błędu odmiany („kierunku” zamiast „kierunki”) nie zobaczy.
+
+**6. Dobór układu: z katalogu szablonu, nie z głowy.** Dla każdego slajdu nazwij kształt treści i weź wzór z `references\katalog-szablonu.md`; gdy żaden wiersz nie pasuje, złóż układ z tych samych klocków i wpisz slajd do DO DECYZJI. Najczęstsze kształty (typ slajdu `uklad`; klocki: `references\spec-dk.md`):
+
+| Kształt treści | Układ | Wzór w szablonie |
+|---|---|---|
+| 2-4 fakty, każdy z liczbą | rząd równych kart: `hero` + `lead` + `p`, wniosek w `band` | t62 Trzy fakty w kartach |
+| 2-4 zdania, część bez liczby | te same karty; bez liczby = `icon` zamiast `hero` | t62, t56 Okazje spożycia |
+| lista 2-6 krótkich haseł | kafle `icon` + `lead` na środku; 4 = 2 x 2; 5 = jeden rząd | t56 Okazje spożycia, t36 |
+| jedna teza slajdu | jedna karta `fill: brand`, tekst na środku | t14 Jedno zdanie – teza |
+| dwie strony („dobra / zła wiadomość”) | 2 karty: `icon`, nagłówek `h` w kolorze, `lead` | t59 Dwie karty |
+| temat + kilka zdań o nim | pas `band` z ikoną NAD kartami, zdania = karty | t62 |
+| etykieta: wartość („CT: …”) | rząd kafli `kv` | t45 Logistyka |
+| nagłówek + lista zdań | karta: `h` + punkty `li` | t17 Punkty |
+| długi akapit (4 i więcej zdań) | karta: etykieta `h`, 1. zdanie = hasło + dopisek, reszta = `li` | t17 Punkty |
+| zdanie z 3+ parami „nazwa (NN%)” | hasło + słupki `bars` z tymi samymi nazwami i liczbami | t39 Wykres słupkowy |
+| cytat z autorem (+ wynik) | `quote` (+ karta i pas) | t20 Cytat, t60 Cytat i wniosek |
+| obrazy + podpis-wniosek | `pics` + `band` | t63 Zrzuty w całości i wniosek |
+| zdanie-puenta na końcu | `band` pod kartami | t62, t63 |
+
+**7. Reguły hasłowania i progi pisma.** (1) Zdanie do 12 słów jest hasłem w całości. (2) Dłuższe: hasło kończy się na pierwszym przecinku stojącym po 4-15 słowach (przecinek zostaje przy haśle); gdy go nie ma - przed pierwszym spójnikiem `i / oraz / ale / wobec / czyli` na pozycji 4-15; bez granicy do 24 słów - całe jest hasłem; powyżej 24 - pkt 4. Hasło nie może wyjść puste w treść („WHO (2023) zaleca warunkowo,”) - przesuń granicę. (3) Jedno hasło na kartę w rzędzie trzech i więcej kart; karta z nagłówkiem-hasłem (3+ słowa) dostaje resztę jako dopisek; nagłówek-etykieta (1-2 słowa albo z dwukropkiem) hasła nie blokuje. (4) Liczba-bohater: pierwsza liczba z jednostką (%, mln, mld, zł, g/kg…) stojąca w HAŚLE, jedna na kartę; nie jest bohaterem rok i data, EAN, gramatura opakowania, nazwa z cyfrą (B12, GLP-1), zakres wieku w etykiecie („CT: 20-35”), liczba z oświadczenia żywieniowego. (5) Hasło wyróżnione przez autora kolorem w całości idzie w kolorze tekstu; wyróżnione pojedyncze słowa zostają. (6) Hasło nigdy nie jest mniejsze od dopisku tej samej karty (builder pilnuje: co najmniej + 2 pt). (7) Zielony tekst tylko jako nagłówek-etykieta, liczba albo pas. **Progi:** hasło od 16 pt (cel 18+), dopisek i punkty `li` od 13 pt (cel 14), etykiety od 11 pt; wyjątek: rząd 5-6 kafli z krótkimi hasłami, 14-16 pt. Gdy treść spada poniżej progu, NIE zmniejszasz pisma i nie usuwasz słów - upraszczasz układ w tej kolejności: zdejmij ikony z kart; 4 karty w rzędzie zamień na siatkę 2 x 2; nagłówek karty wynieś jako wiersz nad karty; kolejne zdania długiego akapitu zamień na punkty `li`. Gdy i to nie pomaga: DO DECYZJI (za dużo treści na jeden slajd - decyzja autora, nie Twoja).
+
+**8. Pętla pracy i bramki oddania - dowód, nie raport.** Pracujesz sam, do bramek. (1) Render oryginału i wyniku do PNG, **pojedynczo** (PowerPoint COM nie lubi dwóch naraz):
+`powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\pliki programu\app\skill\scripts\render.ps1" -Src "<plik.pptx>" -Out "<katalog png>"`.
+Do renderu używasz zawsze `render.ps1` ze skilla, nie `app\app\render_app.ps1`: oba robią to samo (PNG 1600 x 900), ale `render_app.ps1` jest skryptem samego programu (bez Pythona) i **domyślnie zapisuje plik od nowa z osadzonymi czcionkami**, nie zapisując sumy kontrolnej - kolejna budowa uznałaby plik za zmieniony ręcznie i zapisałaby „… (nowa wersja)”. `render.ps1` otwiera plik tylko do odczytu; po OSTATNIEJ zmianie dodaj `-EmbedFonts` (osadza czcionki i zapisuje sumę; wymaga Pythona, który i tak masz do kolejnych kroków). (2) **Plansze par** stary | nowy: `python "<folder programu>\pliki programu\app\skill\scripts\pary_slajdow.py" <png oryginału> <png wyniku> <katalog>` (3 pary na planszę; różna liczba slajdów = błąd). (3) Obejrzyj **każdą planszę** narzędziem do czytania obrazów, najpierw slajdy z listy „Sprawdź najpierw”; dla każdego slajdu 8 pytań: jaki to kształt treści i czy układ jest z katalogu (czy hasłowanie w ogóle go dotyczy)? czy każda karta ma hasło w Mindset, a akapit Lato dłuższy niż 3 linie nie stoi bez hasła? czy najważniejsza liczba jest bohaterem? czy wniosek stoi w pasie? czy pismo trzyma progi z pkt 7? czy nic nie łamie się źle (słowo po słowie w wąskiej karcie, sierota, spójnik na końcu linii)? czy ikona pasuje do treści (jeśli nie - wymień w `assets\ikony-slowa.json` albo zdejmij)? czy są błędy w tekście (pkt 5)? (4) Poprawki wpisujesz w specu (nie w PowerPoincie): `_robocze\<nazwa>\spec_program.json` (to ten sam spec, który polecenia nazywają `spec_konwersja.json`), potem `python "<folder programu>\pliki programu\app\skill\scripts\build_dk.py" <spec>`; po każdej zmianie render i ponowny ogląd, najwyżej 3 podejścia na slajd. Czego nie rozwiążesz - DO DECYZJI z numerem slajdu. (5) `verify.ps1`: `powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\pliki programu\app\skill\scripts\verify.ps1" -Src "<plik.pptx>"` - **`Tekst - problemy: 0`**, bez błędu COM. (6) Raport programu: `Treść: 100% akapitów` (poprawki z pkt 5 zadeklarowane w `poprawki` i przyjęte) oraz kontrola układu: usterki 0, znaki 0, slajdów tyle samo. Po poprawkach tekstu pełną kontrolę (budowa, zrzuty, `verify`, pokrycie z `poprawki`) daje jedno polecenie: `python "<folder programu>\pliki programu\app\skill\scripts\pptx_convert.py" "<plik.pptx>" --ze-specu "<spec>" --robocze "<katalog roboczy>"`. Bez par obejrzanych po ostatniej zmianie i bez tych wyników nie pisz „gotowe”.
+
+**9. Raport dla człowieka i lista „DO DECYZJI” (zawsze na końcu, po polsku, krótko).** (1) Plik wynikowy, liczba slajdów, wyniki bramek. (2) Co zmieniłeś względem wersji z programu: slajd -> wzór z katalogu. (3) Poprawione błędy tekstu: slajd, było -> jest. (4) **DO DECYZJI**: wątpliwe słowa i nazwy; błędy, których nie wolno było poprawić; zmiany wielkości liter z `wielkosc-liter.txt`; wstawione wizualizacje produktów (słownik nazw linii to założenie); slajdy z listy „Sprawdź najpierw” i te, gdzie treść się nie mieści mimo uproszczeń; slajdy z własnym układem (bez wzoru w katalogu); slajdy podzielone, ukryte lub NOWE (ukryte zostają w pliku - przed wysłaniem poza firmę trzeba je usunąć albo zapisać PDF); niepewne ikony i wizualizacje produktów; niejasne dane i [nawiasy] bez źródła; znak „DEMO”.
 
 ## Zasady
 
@@ -153,6 +154,7 @@ potem upuść folder produktu (albo plik .pptx) do okna.” Program zrobi reszt�
 
 ## Dla czatu bez dostępu do dysku
 
-Użytkownik klika w programie na ekranie **Gotowe** „Kopiuj polecenie” i wkleja je do czatu — dostajesz pełną treść
-slajdów i dopracowujesz ją według zasad z tego pliku oraz z polecenia (`SKILL.md` i `references\lekcje.md` — jeśli masz
-do nich dostęp).
+Użytkownik klika w programie na ekranie **Gotowe** „Kopiuj polecenie” i wkleja je do czatu — dostajesz tekst slajdów
+z rolami ([hasło], [liczba], [wniosek]…) oraz zasady w samym poleceniu. Wygląd widzisz tylko z plansz (obrazy z podfolderu
+`plansze` obok prezentacji), jeśli użytkownik je dołączył. Masz dostęp do plików? Poproś o „polecenie dla agenta” z programu
+i pracuj według tego pliku.

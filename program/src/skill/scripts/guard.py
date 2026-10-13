@@ -28,6 +28,22 @@ def _load():
         return {}
 
 
+def _inne_pamieci():
+    """Pamięci sum innych uruchomień generatora na tym komputerze (tylko odczyt): program „Stwórz prezentację” zapisuje
+    swoją w %LOCALAPPDATA%\\Dobra Kaloria\\Stworz prezentacje, skill w .cache obok skryptów."""
+    kand = [os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "Dobra Kaloria", "Stworz prezentacje",
+                         "wygenerowane.json"),
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".cache", "wygenerowane.json")]
+    out = []
+    for k in kand:
+        if os.path.normcase(k) != os.path.normcase(CACHE):
+            try:
+                out.append(json.load(open(k, encoding="utf8")))
+            except (OSError, ValueError):
+                pass
+    return out
+
+
 def _sha(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -52,6 +68,10 @@ def can_overwrite(path):
     if os.path.exists(lock_file(path)):
         return False, "plik jest otwarty w PowerPoint (plik blokady ~$)"
     rec = _load().get(_key(path))
+    if rec is None or rec != _sha(path):  # 13.10: plik mógł zapisać program (inna pamięć sum) - sprawdź pozostałe
+        suma = _sha(path)
+        if any(d.get(_key(path)) == suma for d in _inne_pamieci()):
+            return True, ""
     if rec is None:
         return False, "plik nie pochodzi z generatora (brak zapisanej sumy) - mógł go utworzyć lub edytować człowiek"
     if rec != _sha(path):

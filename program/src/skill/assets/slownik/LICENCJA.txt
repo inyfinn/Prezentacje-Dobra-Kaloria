@@ -1,0 +1,27 @@
+Slownik dla lint_tekst.py - zrodla danych i licencje
+=====================================================
+
+Pliki czeste.xz i forms.bloom sa POCHODNE od dwoch zrodel (budowane skryptem buduj_slownik.py). Te pliki mozna
+rozpowszechniac w publicznym repozytorium na warunkach ponizej.
+
+1. Polski slownik ortograficzny (pl_PL.aff, pl_PL.dic) - forms.bloom i czesc czeste.xz
+   Autor / opiekun: Marek Futrega, serwis SJP.pl (https://sjp.pl/slownik/ort/), wersja 2017-05-14, w postaci
+   pakietu dla LibreOffice: https://github.com/LibreOffice/dictionaries/tree/master/pl_PL
+   Licencja (wg README_pl.txt / README_en.txt tego slownika): slownik jest udostepniany na wybor na licencjach
+   GPL, LGPL, MPL (Mozilla Public License), Apache 2.0 oraz Creative Commons Attribution-ShareAlike.
+   WYBRANA LICENCJA: Apache License 2.0 (https://www.apache.org/licenses/LICENSE-2.0) - pozwala na dalsze
+   rozpowszechnianie danych pochodnych (rozwiniete formy slow zapisane w filtrze Blooma) bez zarazania kodu programu.
+   Zmiany wzgledem oryginalu: rozwiniecie regul odmiany (afiksow) do pelnych form, zamiana na male litery, zapis jako
+   filtr Blooma (struktura probabilistyczna - nie da sie z niego odtworzyc listy slow).
+   Copyright (C) SJP.pl / Marek Futrega i wspolautorzy slownika.
+
+2. Listy frekwencyjne z napisow filmowych (pl_full.txt, en_50k.txt) - czeste.xz (kolejnosc czestosci, slowa obce)
+   Autor: Hermit Dave, repozytorium FrequencyWords: https://github.com/hermitdave/FrequencyWords
+   (dane 2018 oparte na korpusie OpenSubtitles2018: https://opus.nlpl.eu/OpenSubtitles2018.php)
+   Licencja danych: Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0)
+   https://creativecommons.org/licenses/by-sa/4.0/ (kod generatora: MIT, nieuzywany tutaj).
+   Zmiany: przefiltrowanie do slow alfabetycznych, przyciecie do najczestszych form, usuniecie liczb wystapien,
+   polaczenie ze slownikiem z punktu 1, kompresja LZMA. Plik czeste.xz jako opracowanie tych danych pozostaje na
+   licencji CC BY-SA 4.0 (udostepniany dalej na tych samych warunkach, z tym uznaniem autorstwa).
+
+Kod programu (lint_tekst.py, buduj_slownik.py) nie jest pochodna powyzszych danych i ma licencje reszty skilla.

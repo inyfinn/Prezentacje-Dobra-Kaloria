@@ -1297,6 +1297,15 @@ CELE = {
             "(jeśli powstał).",
         ]},
 }
+try:  # 13.10 (przelotka): `opis` i `polecenie` celów bierze polecenia.py (jedno źródło); tu zostają `nazwa` i `sufiks`
+    import polecenia as _pol
+    for _k, _c in CELE.items():
+        _p = _pol.POLECENIA.get(_k)
+        if _p:
+            _c["opis"] = _p["opis"]
+            _c["polecenie"] = _p["polecenie_pliki"][:1] + _p["polecenie"] + _p["polecenie_pliki"][1:]  # agent z plikami; %(klucz)s bez podstawienia
+except ImportError:
+    pass  # bez polecenia.py zostają teksty powyżej
 SKROTY = {"GUS", "TA", "IG", "UE", "USA", "UK", "AI", "KPI", "ROI", "SKU", "EAN", "VAT", "IT", "PR", "HR", "NCEŻ", "CEO",
           "ESG", "PLN", "EUR", "USD", "FMCG", "NPD", "CT", "MCT", "DK", "GLP", "II", "III", "IV", "VI", "XL", "XXL", "OK",
           "WHO", "NIK", "NFZ", "EFSA", "FDA", "BCG", "PWC", "ZUS", "PKB", "CBOS", "OECD", "ONZ", "GIS", "IŻŻ", "AAKG",
@@ -1658,7 +1667,7 @@ def _hasla_grupy(b, ctx, n, kolumna=False):
         else:
             lines = _bez_sierot(_lit(ctx, n, b, raw))
         znaki = [(_MARK.match(w["t"]).group(0).strip() if w["mark"] else "") for w in g]  # markery wpisane przez autora
-        out.append({"lines": lines, "flagi": "".join(flagi), "pt": max(w["pt"] for w in g), "al": g[0]["al"],
+        out.append({"lines": lines, "raw": raw, "flagi": "".join(flagi), "pt": max(w["pt"] for w in g), "al": g[0]["al"],
                     "mark": g[0]["mark"], "lista": lista, "znaki": znaki})
     return out
 
@@ -1725,6 +1734,7 @@ def _wiersze_pola(b, ctx, n):
                 row["pt"] = pw
         _kolor(g, row)
         row["_fl"] = g["flagi"]
+        row["_raw"] = g.get("raw")  # linie źródła przed zmianą wielkości liter (lista pod nagłówkiem: _pozycje)
         if _wyrownanie(b, g["al"], ctx["wc"]) != "c":
             row["align"] = "l"
         rows.append(dict(row, _pt=pt, **pole))
@@ -2295,12 +2305,38 @@ def _komentarz(r):
     return dict(r, pt=22, max_pt=24, po_kartach=True)
 
 
+def _pozycje(run):
+    """13.10: wiersz haseł z kilku linii autora tuż pod nagłówkiem Mindset zakończonym „:”, gdy KAŻDA linia zaczyna się w
+    źródle wielką literą (s10 „Odpowiedź … / Pozyskanie …”), to POZYCJE listy, nie jedno zdanie: wiersz dzieli się na osobne
+    wiersze (każda pozycja od wielkiej litery, kolory słów zostają)."""
+    out = []
+    for i, r in enumerate(run):
+        raw, lines = r.get("_raw") or [], r["t"].split("\n")
+        pr = out[-1] if out else None
+        if pr is not None and pr["k"] in _MIND and pr["t"].rstrip().endswith(":") and r["k"] in _MIND and len(lines) >= 2 and \
+                len(raw) == len(lines) and all(x[:1].isupper() for x in raw):
+            c = 0
+            for ln in lines:
+                k = len(ln.split())
+                nr = dict(r, t=ln[:1].upper() + ln[1:])
+                if r.get("wyr"):
+                    nr["wyr"] = r["wyr"][c:c + k]
+                if r.get("_fl"):
+                    nr["_fl"] = r["_fl"][c:c + k]
+                c += k
+                out.append(nr)
+        else:
+            out.append(r)
+    return out
+
+
 def _run(run, pk, nk, alt=False):
     """Ciąg kolejnych wierszy tekstu (przerwany obrazami, kafelkami, kolumnami, cytatem) -> wiersze i karty.
     pk / nk = rodzaj wiersza przed / po ciągu ('karta', 'chips', 'pics', 'cols', ...).
     alt = wariant układu: karty z R6 jedna pod drugą, a grupy z R7b obok siebie (wybiera lepszy _uklad)."""
     if not run:
         return []
+    run = _pozycje(run)
     if len(run) == 1 and run[0]["k"] in _MIND and (_w(run[0]) <= 12 or run[0]["t"].rstrip().endswith(":")) and \
             (nk in ("chips", "pics", "cols", "karta") or pk in ("karta", "pics")):
         return [_komentarz(run[0]) if pk == "karta" else run[0]]  # R9 (wstęp przed pojemnikiem) i R10b (wniosek po kartach)
@@ -2743,7 +2779,13 @@ def _slajd(s, model, ctx, first, last):
 
 
 def polecenie_ai(cel, dane=None):
-    """Punkty polecenia dla AI dla wybranego celu (jedno źródło dla programu, wiersza poleceń i dokumentów)."""
+    """Punkty polecenia dla AI dla wybranego celu (jedno źródło dla programu, wiersza poleceń i dokumentów). Przelotka: polecenia.py
+    (agent z plikami); bez niego stare teksty z CELE."""
+    try:
+        import polecenia
+        return polecenia.polecenie_ai(cel, dane, pliki=True)
+    except ImportError:
+        pass
     dane = dane or {}
     return [p % dane if "%(" in p else p for p in CELE[cel if cel in CELE else "wiernie"]["polecenie"]]
 
@@ -2796,6 +2838,7 @@ def compose(model, opts=None):
     ctx = {"skala": sk, "sk_y": sk, "wc": model["w_cm"], "glowny": kol.most_common(1)[0][0] if kol else None,
            "chron": _chronione(model), "maly": _maly(model), "litery": [], "uwagi": uwagi, "sprawdz": [], "wiz": [], "lib": lib, "idx": None,
            "rob": model["rob"]}
+    bledy_tekstu = _lint(model, uwagi, model["rob"])
     slides, mapa = [], {}
     for s in sl:
         try:
@@ -2831,6 +2874,8 @@ def compose(model, opts=None):
         slides += specs
     for sp in slides:  # znaczniki robocze (_poj, _wiz, _pole, _fl ...) nie trafiają do specu
         _czysc(sp)
+    ctx["warianty"] = {"wersja": 1, "slajdy": []}
+    szablon = _szablonuj(slides, ctx) if opts.get("szablonuj", True) else []
     st = model["stat"]
     if st["grafiki"]:
         uwagi.append("Grafiki: przeniesiono %d (całe, bez przycinania). Tekst na zrzutach ekranu zostaje obrazem - "
@@ -2861,9 +2906,253 @@ def compose(model, opts=None):
     if opts.get("styl") == "stary":
         uwagi.append("Stary styl jest niedostępny dla konwersji gotowej prezentacji - zbudowano w nowym stylu.")
     return {"theme": "shop", "sections": len(chapters) > 1, "slides": slides, "mapa": mapa, "uwagi": uwagi, "cel": cel,
+            "szablon": szablon, "bledy_tekstu": bledy_tekstu, "poprawki": list(opts.get("poprawki") or []),
+            "warianty": ctx["warianty"], "warianty_plik": WARIANTY_PLIK,
             "sprawdz": sprawdz, "wizualizacje": ctx["wiz"], "litery": len(ctx["litery"]),
             "biblioteka": lib,
             "output": os.path.join(out_dir, "%s - nowy styl%s.pptx" % (model["nazwa"], CELE[cel]["sufiks"]))}
+
+
+WARIANTY_PLIK = "warianty-szablon.json"  # obok spec_konwersja.json: kandydaci układu slajdów (pełne slajdy + punkty)
+
+
+def _szablonuj(slides, ctx):
+    """13.10 (user: „wygląda okropnie, tekst jednolity… widać, że to nie jest z szablonu”): krok szablonowania (szablonuj.py,
+    reguły S1-S13, references/konwersja-pptx.md pkt 2b) zamienia goły tekst slajdów `uklad` w klocki szablonu. Slajd, który
+    po zmianie się nie mieści albo zmienia zestaw słów, zostaje taki, jaki był. Zwraca listę decyzji {slajd, wzorzec, opis}."""
+    import szablonuj
+    decyzje, ruszone, rekordy, inne = [], [], [], []
+    licznik = collections.Counter()  # który z kolei slajd tego samego źródła (klucz rekordu wariantów: zrodlo + czesc)
+    for k, sp in enumerate(slides):
+        n = sp.get("zrodlo", 0)
+        czesc = licznik[n]
+        licznik[n] += 1
+        if sp.get("type") != "uklad" or not sp.get("rows"):
+            continue
+        try:
+            # 13.10 (pkt 9): zamiast jednej decyzji - kandydaci układu (osie: pad, ikony, siatka, nagłówek, zdania), każdy z samooceną
+            # z pomiaru (szablonuj.ocena); wybór: najlepszy, a przy równorzędnych najbliższy kolejności reguł
+            kand = szablonuj.kandydaci(sp, n, build_dk, _miesci)
+            if not kand:
+                continue
+            w = szablonuj.wybierz(kand)
+            if w is None:
+                ctx["uwagi"].append("Slajd %d: układ z klockami szablonu nie mieści się czytelnym pismem - zostawiłem poprzedni." % n)
+                continue
+            nowy, dec = kand[w]["slajd"], kand[w]["decyzje"]
+        except Exception as e:  # szablonowanie nigdy nie gubi slajdu: wyjątek = slajd bez zmian
+            ctx["uwagi"].append("Slajd %d: szablonowanie pominięte (%s: %s)." % (n, type(e).__name__, e))
+            continue
+        slides[k] = nowy
+        wybrany = kand[w]
+        decyzje += dec + [{"slajd": n, "wzorzec": "wybor-wariantu", "wzor": None, "warianty": szablonuj.opis_wariantow(kand, w),
+                           "opis": "wybrany wariant układu „%s” (%.1f pkt z %d kandydatów)" % (
+                               wybrany["nazwa"], wybrany["ocena"]["punkty"], len(kand))}]
+        rekordy.append(szablonuj.zapis_wariantow(kand, w, n, czesc))
+        if w != 0:
+            inne.append("%d (%s)" % (n, wybrany["nazwa"]))
+        ruszone.append(n)
+    ctx["warianty"] = {"wersja": 1, "slajdy": rekordy}
+    if inne:
+        ctx["uwagi"].append("Dobór układu z pomiaru: na slajdach %s wybrałem wariant inny niż domyślny, bo miał mniej usterek "
+                            "(lista kandydatów z punktami: decyzje-szablon.json)." % "; ".join(inne))
+    if ruszone:
+        wzory = szablonuj.opis_wzorow(decyzje)  # „slajd 18: Trzy fakty w kartach (wzór: slajd 62 szablonu); …” (do 12 pozycji)
+        ctx["uwagi"].append("Ułożyłem w klocki szablonu marki (liczby, pasy-wnioski, kafle z ikonami, etykiety) slajdy: %s.%s "
+                            "Ikony dobrane ze słownika po słowach - sprawdź, czy pasują; lista decyzji: decyzje-szablon.json."
+                            % (", ".join(str(x) for x in sorted(set(ruszone))), (" Wzory z szablonu: %s." % wzory) if wzory else ""))
+        try:
+            with open(os.path.join(ctx["rob"], "decyzje-szablon.json"), "w", encoding="utf8") as f:
+                json.dump(decyzje, f, ensure_ascii=False, indent=1)
+            with open(os.path.join(ctx["rob"], WARIANTY_PLIK), "w", encoding="utf8") as f:  # kandydaci do podmiany po renderze
+                json.dump(ctx["warianty"], f, ensure_ascii=False)
+        except OSError:
+            pass
+    return decyzje
+
+
+def _lint(model, uwagi, rob):
+    """Ostrzeżenia o ewidentnych błędach tekstu ŹRÓDŁA (sklejone słowa, literówki, powtórzenia...) z modułu lint_tekst
+    (kontrakt: `sprawdz([(nr, [teksty])]) -> [{slajd, rodzaj, jest, propozycja, kontekst, pewnosc}]`, `opis(u) -> zdanie`).
+    Program ICH NIE POPRAWIA (zasada 1:1): dopisuje do uwag nagłówek, wszystkie `wysoka` i do 10 `srednia`, a pełną listę zwraca
+    (klucz `bledy_tekstu` specu). Brak modułu, słownika albo wyjątek w lincie = brak ostrzeżeń, konwersja działa dalej
+    (wpis w `<rob>\\lint.log`)."""
+    try:
+        import lint_tekst
+    except ImportError:  # modułu nie ma (stary skill) - po cichu
+        return []
+    except Exception as e:
+        _log(rob, "lint.log", "moduł lint_tekst się nie wczytał: %s: %s" % (type(e).__name__, e))
+        return []
+    try:
+        slajdy = []
+        for s in model["slajdy"]:
+            tx = [p["t"] for b in s["texts"] for p in b["paras"]]  # kolejne akapity slajdu, tekst surowy (wskazówka autora lintu)
+            for tb in s.get("tables", []):
+                tx += [c for r in tb.get("rows", []) for c in r if isinstance(c, str)]
+            slajdy.append((s["n"], [t for t in tx if t.strip()]))
+        wyniki = list(lint_tekst.sprawdz(slajdy) or [])
+        wys = [u for u in wyniki if u.get("pewnosc") == "wysoka"]
+        sre = [u for u in wyniki if u.get("pewnosc") == "srednia"]
+        if wys or sre:
+            uwagi.append("Możliwe błędy w tekście oryginału: %d (program ich nie poprawia - popraw w pliku albo zleć AI)"
+                         % (len(wys) + len(sre)))
+            for u in wys + sre[:10]:
+                try:
+                    uwagi.append(lint_tekst.opis(u))
+                except Exception:
+                    uwagi.append("Slajd %s: „%s” - możliwy błąd (%s)" % (u.get("slajd"), u.get("jest"), u.get("rodzaj")))
+            if len(sre) > 10:
+                uwagi.append("…i %d innych podejrzeń o średniej pewności (lista: bledy_tekstu w spec_konwersja.json)" % (len(sre) - 10))
+        return wyniki
+    except Exception as e:  # lint nigdy nie psuje konwersji
+        _log(rob, "lint.log", "wyjątek w lint_tekst: %s: %s" % (type(e).__name__, e))
+        return []
+
+
+def _log(rob, nazwa, tekst):
+    try:
+        with open(os.path.join(rob, nazwa), "a", encoding="utf8") as f:
+            f.write(tekst + "\n")
+    except OSError:
+        pass
+
+
+def popraw_po_renderze(spec_path, usterki):
+    """Po renderze (pkt 9c): `usterki` = {nr slajdu WYNIKU (1-based): [kody]} z kontroli obrazu (`oko.py`: PUSTY_DOL, KARTA_PUSTA,
+    KARTY_NIEROWNE, PRZY_KRAWEDZI, GESTO, MALO_TRESCI) i z verify.ps1 (SIEROTA, ZAWIESZKA, PRZEPELNIENIE, KOLIZJA). Dla każdego
+    slajdu podmienia w specu układ na następnego kandydata bez tych usterek (`szablonuj.inny_wariant`; kandydaci z pliku
+    `warianty-szablon.json` obok specu albo z klucza `warianty` specu). Zapisuje spec (i plik wariantów) i zwraca listę numerów
+    zmienionych slajdów; wpis w uwagach: „Po obejrzeniu zrzutów poprawiłem układ slajdów: …”. Ponowna budowa pliku jest po stronie
+    wołającego (CLI: pętla do 2 rund w `main`). Brak kandydatów / pliku = [] (nic się nie zmienia)."""
+    import szablonuj
+    spec_path = os.path.abspath(spec_path)
+    with open(spec_path, encoding="utf8") as f:
+        spec = json.load(f)
+    plik = os.path.join(os.path.dirname(spec_path), spec.get("warianty_plik") or WARIANTY_PLIK)
+    war = None
+    if os.path.isfile(plik):
+        with open(plik, encoding="utf8") as f:
+            war = json.load(f)
+    elif spec.get("warianty"):
+        war = spec["warianty"]
+    if not war or not war.get("slajdy"):
+        return []
+    zm = []
+    for nr in sorted(int(x) for x in usterki):
+        kody = usterki.get(nr) if nr in usterki else usterki.get(str(nr))
+        if kody and szablonuj.inny_wariant(spec, nr, kody, war):
+            zm.append(nr)
+    if zm:
+        spec.setdefault("uwagi", []).append("Po obejrzeniu zrzutów poprawiłem układ slajdów: %s (wybrałem inny wariant układu z "
+                                            "listy kandydatów: %s)." % (", ".join(str(x) for x in zm), WARIANTY_PLIK))
+        spec.pop("warianty", None)  # kandydaci są w pliku obok (spec zostaje szczupły)
+        with open(spec_path, "w", encoding="utf8") as f:
+            json.dump(spec, f, ensure_ascii=False, indent=1)
+        with open(plik, "w", encoding="utf8") as f:
+            json.dump(war, f, ensure_ascii=False)
+    return zm
+
+
+def _oko_katalog(png_dir, spec_path):
+    """{nr: [{"kod", "waga"}]} z `oko.ocen_katalog` dla WSZYSTKICH ocenionych zrzutów slajdów (png_dir/sNN.png), także tych bez usterek;
+    brak modułu / zrzutów / wyjątek = {}. Waga 1 = tylko do wiadomości, 2-3 = usterka do poprawienia (oko.py)."""
+    try:
+        import oko
+        wyn = oko.ocen_katalog(png_dir, spec_path)
+        return {nr: [{"kod": u["kod"], "waga": int(u.get("waga", 2))} for u in w.get("usterki", [])] for nr, w in wyn.items()}
+    except Exception:
+        return {}
+
+
+def _kody_z_oka(png_dir, spec_path, min_waga=0):
+    """{nr: [kody]} dla slajdów z usterkami o wadze >= min_waga (`_oko_katalog`)."""
+    wyn = {}
+    for nr, us in _oko_katalog(png_dir, spec_path).items():
+        kody = [u["kod"] for u in us if u["waga"] >= min_waga]
+        if kody:
+            wyn[nr] = kody
+    return wyn
+
+
+def _png_dir(rob, pptx):
+    return os.path.join(rob, "qa", os.path.splitext(os.path.basename(pptx))[0])
+
+
+def _ciezkie(usterki):
+    """Liczba usterek wagi >= 2 (waga 1 = tylko do wiadomości, nie liczy się przy porównaniu przed / po)."""
+    return sum(1 for u in usterki if u["waga"] >= 2)
+
+
+def _wczytaj_poprawki(spec_path):
+    """(spec, warianty) z dysku jako słowniki - migawka przed podmianą układu, do ewentualnego cofnięcia."""
+    spec_path = os.path.abspath(spec_path)
+    with open(spec_path, encoding="utf8") as f:
+        spec = json.load(f)
+    plik = os.path.join(os.path.dirname(spec_path), spec.get("warianty_plik") or WARIANTY_PLIK)
+    war = None
+    if os.path.isfile(plik):
+        with open(plik, encoding="utf8") as f:
+            war = json.load(f)
+    return spec, war, plik
+
+
+def _cofnij_poprawki(spec_path, migawka, zmienione, cofnac):
+    """Przywraca w specu (i w rekordach wariantów) układ slajdów `cofnac` z migawki sprzed podmiany; dla pozostałych z `zmienione`
+    zostawia poprawkę. Poprawia wpisy `poprawki_ukladu` i uwagi (nowe zdanie: które slajdy poprawione, które zostawione bez zmian)."""
+    import szablonuj
+    spec0, war0, _ = migawka
+    spec, war, plik = _wczytaj_poprawki(spec_path)
+    for nr in cofnac:
+        spec["slides"][nr - 1] = spec0["slides"][nr - 1]
+        r, r0 = szablonuj._rekord(spec, nr, war), szablonuj._rekord(spec0, nr, war0)
+        if r is not None and r0 is not None:
+            r["wybrany"] = r0["wybrany"]
+    stare = spec0.get("poprawki_ukladu", [])
+    spec["poprawki_ukladu"] = stare + [p for p in spec.get("poprawki_ukladu", [])[len(stare):] if p.get("slajd") not in cofnac]
+    uwagi = list(spec0.get("uwagi", []))
+    zostaje = [x for x in zmienione if x not in cofnac]
+    if zostaje:
+        uwagi.append("Po obejrzeniu zrzutów poprawiłem układ slajdów: %s (wybrałem inny wariant układu z listy kandydatów: %s)." % (
+            ", ".join(str(x) for x in zostaje), WARIANTY_PLIK))
+    uwagi.append("Na %s %s próbowałem innego układu, ale po ponownym obejrzeniu zrzutu nie było lepiej (nie mniej usterek wagi 2-3) - "
+                 "zostawiłem poprzedni." % ("slajdzie" if len(cofnac) == 1 else "slajdach", ", ".join(str(x) for x in cofnac)))
+    spec["uwagi"] = uwagi
+    with open(spec_path, "w", encoding="utf8") as f:
+        json.dump(spec, f, ensure_ascii=False, indent=1)
+    if war is not None:
+        with open(plik, "w", encoding="utf8") as f:
+            json.dump(war, f, ensure_ascii=False)
+
+
+def _petla_oka(spec_path, rob, pptx, szybka_mod, max_rund=2):
+    """9c: po renderze program ogląda zrzuty (oko.py) i przy usterkach układu wagi >= 2 (pusty dół, pusta karta, nierówne karty,
+    pływająca treść...) próbuje innego wariantu układu z listy kandydatów (`popraw_po_renderze`); najwyżej `max_rund` rund, każda =
+    ponowna budowa + render (`szybka_mod.build_and_qa(spec_path, rob)`). Po przebudowie ogląda zrzuty jeszcze raz i zostawia wariant
+    tylko tam, gdzie slajd ma MNIEJ usterek wagi >= 2 niż przed; gdzie nie - cofa układ (kolejna przebudowa) i drugi raz tego slajdu
+    nie rusza. Zwraca (ścieżka pptx, numery slajdów z zatrzymaną poprawką). Brak zrzutów / modułu oko / kandydatów = nic się nie zmienia."""
+    poprawione, odrzucone = [], set()
+    for _runda in range(max_rund):
+        if not pptx:
+            break
+        przed = _oko_katalog(_png_dir(rob, pptx), spec_path)
+        kody = {nr: [u["kod"] for u in us if u["waga"] >= 2] for nr, us in przed.items() if nr not in odrzucone}
+        kody = {nr: k for nr, k in kody.items() if k}
+        if not kody:
+            break
+        migawka = _wczytaj_poprawki(spec_path)
+        zm = popraw_po_renderze(spec_path, kody)
+        if not zm:
+            break
+        pptx = szybka_mod.build_and_qa(spec_path, rob) or pptx
+        po = _oko_katalog(_png_dir(rob, pptx), spec_path)
+        cofnac = [nr for nr in zm if nr not in po or _ciezkie(po[nr]) >= _ciezkie(przed.get(nr, []))]
+        if cofnac:
+            _cofnij_poprawki(spec_path, migawka, zm, cofnac)
+            odrzucone.update(cofnac)
+            pptx = szybka_mod.build_and_qa(spec_path, rob) or pptx
+        poprawione += [x for x in zm if x not in cofnac and x not in poprawione]
+    return pptx, poprawione
 
 
 def _range(nums):
@@ -2920,8 +3209,9 @@ def _tokens(t):
     return re.findall(r"\w+", _norm(t), re.U)
 
 
-def _xml_paras(root, skip_ph=True):
-    """Akapity (a:p) z XML slajdu / notatek - niezależnie od modelu: łapie też grupy, tabele i pola."""
+def _xml_paras(root, skip_ph=True, krotkie=False):
+    """Akapity (a:p) z XML slajdu / notatek - niezależnie od modelu: łapie też grupy, tabele i pola. krotkie: także akapity
+    1-2-znakowe (strona WYNIKU: nagłówek Mindset łamany na linie-akapity może mieć wiersz „1:” - to treść, nie śmieć)."""
     out = []
     for p in root.iter(qn("a:p")):
         if skip_ph:
@@ -2937,28 +3227,105 @@ def _xml_paras(root, skip_ph=True):
             elif el.tag == qn("a:br"):
                 txt.append(" ")
         t = " ".join("".join(txt).split())
-        if len(t) >= 3 and _tokens(t):
+        if len(t) >= (1 if krotkie else 3) and _tokens(t):
             out.append(t)
     return out
 
 
-def _slide_paras(prs):
+def _slide_paras(prs, krotkie=False, podm=None):
+    """[(akapity slajdu, akapity notatek)]; podm(nr_slajdu, tekst) -> tekst: podmiana tekstu (jawne poprawki źródła)."""
     res = []
-    for sl in prs.slides:
-        main = _xml_paras(sl._element)
-        notes = _xml_paras(sl.notes_slide._element) if sl.has_notes_slide else []
+    for n, sl in enumerate(prs.slides, 1):
+        main = _xml_paras(sl._element, krotkie=krotkie)
+        notes = _xml_paras(sl.notes_slide._element, krotkie=krotkie) if sl.has_notes_slide else []
+        if podm:
+            main, notes = [podm(n, t) for t in main], [podm(n, t) for t in notes]
         res.append((main, notes))
     return res
 
 
-def coverage(src_pptx, out_pptx, mapa=None, skip=(), rob=None):
+def _popraw_tekst(t, n, poprawki):
+    """Jawne poprawki źródła (13.10): w tekście slajdu n podmienia `bylo` -> `jest` (dokładne dopasowanie ciągu, bez regexów).
+    Podmienia TYLKO to, co przeszło `_raport_poprawek` (status `przyjeta`) - reszta nie jest stosowana."""
+    for p in poprawki or ():
+        if p.get("slajd") == n and p.get("bylo") and p["bylo"] in t and p.get("status", "przyjeta") == "przyjeta":
+            t = t.replace(p["bylo"], p.get("jest", ""))
+    return t
+
+
+def _podm(poprawki):
+    return (lambda n, t: _popraw_tekst(t, n, poprawki)) if poprawki else None
+
+
+def _odl(a, b):
+    """Odległość edycyjna Levenshteina dwóch słów."""
+    if len(a) < len(b):
+        a, b = b, a
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def poprawka_w_granicach(bylo, jest):
+    """Czy zmiana `bylo` -> `jest` mieści się w granicach jawnej poprawki (13.10): (a) wstawienie / usunięcie spacji (sklejone
+    i rozklejone słowa, podwójna spacja, spacja przy przecinku lub kropce), (b) usunięcie zdublowanego słowa („na na” -> „na”),
+    (c) zmiana, wstawienie lub usunięcie najwyżej 2 znaków w obrębie JEDNEGO słowa (odległość edycyjna <= 2), przy czym cyfry
+    w `bylo` i `jest` są identyczne i w tej samej kolejności. Reszta (puste `jest`, zamiana zdania, zmiana cyfry...) = nie."""
+    if not bylo or not jest or bylo == jest:
+        return False
+    if re.findall(r"\d", bylo) != re.findall(r"\d", jest):
+        return False
+    if "".join(bylo.split()) == "".join(jest.split()):  # (a)
+        return True
+    tb, tj = bylo.split(), jest.split()
+    for i in range(len(tb) - 1):  # (b)
+        if tb[i].lower() == tb[i + 1].lower() and (tb[:i] + tb[i + 1:] == tj or tb[:i + 1] + tb[i + 2:] == tj):
+            return True
+    if len(tb) == len(tj):  # (c)
+        r = [(x, y) for x, y in zip(tb, tj) if x != y]
+        return len(r) == 1 and _odl(r[0][0], r[0][1]) <= 2
+    return False
+
+
+POPRAWKI_DUZO = 15  # więcej przyjętych poprawek na prezentację = ostrzeżenie „dużo poprawek tekstu”
+
+
+def _raport_poprawek(poprawki, zr_surowe):
+    """[{slajd, bylo, jest, powod, w_zrodle, status}]: `status` = `przyjeta` (`bylo` jest w tekście slajdu źródła i zmiana mieści
+    się w granicach `poprawka_w_granicach`) | `nie_w_zrodle` (`bylo` nie ma w źródle: usterka „poprawka nie pasuje do oryginału”)
+    | `poza_granicami` (usterka „poprawka poza granicami”; NIE jest stosowana przed porównaniem). zr_surowe = akapity źródła
+    BEZ poprawek."""
+    out = []
+    for p in poprawki or ():
+        n = p.get("slajd")
+        akap = (zr_surowe[n - 1][0] + zr_surowe[n - 1][1]) if isinstance(n, int) and 1 <= n <= len(zr_surowe) else []
+        w = bool(p.get("bylo")) and any(p["bylo"] in t for t in akap)
+        st = "nie_w_zrodle" if not w else ("przyjeta" if poprawka_w_granicach(p["bylo"], p.get("jest") or "") else "poza_granicami")
+        out.append(dict(p, w_zrodle=w, status=st))
+    return out
+
+
+def _ostrzezenia_poprawek(rap):
+    # różne poprawki: ten sam błąd w belce na N slajdach (N wpisów) liczy się raz
+    przyj = len({(p.get("bylo"), p.get("jest")) for p in rap if p["status"] == "przyjeta"})
+    return ["dużo poprawek tekstu: %d - sprawdź listę" % przyj] if przyj > POPRAWKI_DUZO else []
+
+
+def coverage(src_pptx, out_pptx, mapa=None, skip=(), rob=None, poprawki=None):
     """Czy każdy akapit źródła (>= 3 znaki) jest w wyniku? Test na tokenach: >= 95% tokenów akapitu musi się znaleźć
     na slajdach wyniku (albo w ich notatkach). mapa {nr slajdu źródła: [indeksy slajdów wyniku]} zawęża szukanie do
     slajdów, na które trafił dany slajd źródła; bez niej - okno 3 kolejnych slajdów wyniku. skip: slajdy źródła
-    świadomie pominięte (wyłączone rozdziały)."""
+    świadomie pominięte (wyłączone rozdziały). poprawki: jawne poprawki tekstu źródła [{slajd, bylo, jest, powod}] - przed
+    porównaniem `bylo` -> `jest` w tekstach danego slajdu; wynik ma klucz `poprawki` (z flagą `w_zrodle`)."""
     sp = otworz(src_pptx, rob or os.path.dirname(os.path.abspath(out_pptx)))
     op = Presentation(out_pptx)
-    src, out = _slide_paras(sp), _slide_paras(op)
+    src_raw = _slide_paras(sp)
+    rap = _raport_poprawek(poprawki, src_raw) if poprawki else []
+    src, out = _slide_paras(sp, podm=_podm(rap)), _slide_paras(op, True)
     out_cnt = []
     for main, notes in out:
         c = collections.Counter()
@@ -2989,6 +3356,7 @@ def coverage(src_pptx, out_pptx, mapa=None, skip=(), rob=None):
     ch_ok = sum(1 for c in chs[0] if c in chs[1])
     pct = 100.0 * ok / total if total else 100.0
     return {"akapity": total, "przeniesione": ok, "brakuje": missing, "procent": round(pct, 1),
+            "poprawki": rap, "ostrzezenia": _ostrzezenia_poprawek(rap),
             "wykresy": {"zrodlo": len(chs[0]), "przeniesione": ch_ok},
             "tekst": ("Treść: 100%% akapitów (%d/%d) przeniesionych" % (ok, total)) if ok == total else
                      ("Treść: %.1f%% akapitów (%d/%d) przeniesionych, brakuje %d" % (pct, ok, total, total - ok))}
@@ -3053,8 +3421,8 @@ def _pola_wyniku(slide):
     return [o for o in out if o[0]]
 
 
-def _liczby(root):
-    """Liczby z tekstu slajdu (bez numeru strony, stopki i daty z symboli zastępczych)."""
+def _liczby(root, podm=None):
+    """Liczby z tekstu slajdu (bez numeru strony, stopki i daty z symboli zastępczych). podm(tekst) -> tekst: jawne poprawki."""
     out = []
     for p in root.iter(qn("a:p")):
         sp = next((a for a in p.iterancestors() if a.tag == qn("p:sp")), None)
@@ -3063,7 +3431,7 @@ def _liczby(root):
             if ph is not None and ph.get("type") in ("sldNum", "ftr", "dt"):
                 continue
         t = "".join(x.text or "" for x in p.iter(qn("a:t")))
-        out += re.findall(r"\d+(?:[.,]\d+)*", t)
+        out += re.findall(r"\d+(?:[.,]\d+)*", podm(t) if podm else t)
     return out
 
 
@@ -3072,12 +3440,14 @@ def _interp(t):
     return collections.Counter(re.findall(r"[^\w\s]", _norm(t).replace("…", "..."), re.U))
 
 
-def wiernosc(model, out_pptx, mapa, nowe=0):
+def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None):
     """Czy wynik trzyma układ źródła. Zwraca {etykiety: [ok, wszystkie], kolejnosc: [naruszenia], liczby: [ok, wszystkie],
     slajdy: [źródło, wynik], usterki: [opisy z numerem slajdu], tekst: jedno zdanie do raportu}.
     etykiety - każde krótkie, jednowierszowe pole źródła (do 40 znaków) ma w wyniku WŁASNE pole o tym samym tekście;
     kolejnosc - pole, które w źródle stało nad innym w tej samej kolumnie, w wyniku też jest nad nim;
-    liczby - każda liczba ze slajdu źródła jest na slajdach, które z niego powstały (także akapity 1-2-znakowe)."""
+    liczby - każda liczba ze slajdu źródła jest na slajdach, które z niego powstały (także akapity 1-2-znakowe).
+    poprawki: jawne poprawki tekstu źródła [{slajd, bylo, jest, powod}] - przed porównaniem `bylo` -> `jest` w tekstach slajdu;
+    poprawka, której `bylo` nie ma w źródle, to usterka „poprawka nie pasuje do oryginału”; wynik ma klucz `poprawki`."""
     op = Presentation(out_pptx)
     outs = [_pola_wyniku(s) for s in op.slides]
     onum = []
@@ -3087,8 +3457,11 @@ def wiernosc(model, out_pptx, mapa, nowe=0):
             c.update(_liczby(s.notes_slide._element))
         onum.append(c)
     sp = otworz(model["plik"], model["rob"])
-    snum = [collections.Counter(_liczby(s._element)) for s in sp.slides]
-    zr_par, wy_par = _slide_paras(sp), _slide_paras(op)
+    rap = _raport_poprawek(poprawki, _slide_paras(sp)) if poprawki else []
+    pod = _podm(rap)  # stosujemy tylko poprawki przyjęte (w granicach, `bylo` jest w źródle)
+    snum = [collections.Counter(_liczby(s._element, (lambda t, n=i: pod(n, t)) if pod else None))
+            for i, s in enumerate(sp.slides, 1)]
+    zr_par, wy_par = _slide_paras(sp, podm=pod), _slide_paras(op, True)
     et_ok = et_all = li_ok = li_all = 0
     usterki, kolej, znaki, markery = [], [], [], []
     for s in model["slajdy"]:
@@ -3127,6 +3500,7 @@ def wiernosc(model, out_pptx, mapa, nowe=0):
         # etykiety osobno
         for b in s["texts"]:
             one = _jedna_linia(b)
+            one = _popraw_tekst(one, s["n"], rap) if one else one
             if one and len(one) <= 40 and _nk(one):
                 et_all += 1
                 if _nk(one) in teksty:
@@ -3136,7 +3510,7 @@ def wiernosc(model, out_pptx, mapa, nowe=0):
 
         # kolejność góra-dół w kolumnie
         def gdzie(b):
-            tk = collections.Counter(_tokens(_text_of(b)))
+            tk = collections.Counter(_tokens(_popraw_tekst(_text_of(b), s["n"], rap)))
             need = sum(tk.values())
             best = None
             for t, top, _left, i in pola:
@@ -3159,8 +3533,13 @@ def wiernosc(model, out_pptx, mapa, nowe=0):
     if n_src != n_out:
         usterki.append("liczba slajdów: oryginał %d, wynik %d" % (n_src, n_out))
     usterki += kolej
+    for p in rap:
+        if p["status"] == "nie_w_zrodle":
+            usterki.append("slajd %s: poprawka nie pasuje do oryginału („%s” nie ma w tekście źródła)" % (p.get("slajd"), p.get("bylo")))
+        elif p["status"] == "poza_granicami":
+            usterki.append("poprawka poza granicami (slajd %s: „%s” -> „%s”)" % (p.get("slajd"), p.get("bylo"), p.get("jest")))
     return {"etykiety": [et_ok, et_all], "kolejnosc": kolej, "liczby": [li_ok, li_all], "slajdy": [n_src, n_out],
-            "usterki": usterki, "znaki": znaki, "markery": markery,
+            "usterki": usterki, "znaki": znaki, "markery": markery, "poprawki": rap, "ostrzezenia": _ostrzezenia_poprawek(rap),
             "tekst": "Układ: osobne napisy %d z %d, kolejność góra-dół %s, liczby %d z %d, interpunkcja %s, %s" % (
                 et_ok, et_all, "bez zmian" if not kolej else "zmieniona w %d miejscach" % len(kolej), li_ok, li_all,
                 "bez różnic" if not znaki else "zdjęta na %d slajdach (lista w pokrycie.json: znaki)" % len(znaki),
@@ -3184,10 +3563,20 @@ def main(argv=None):
     ap.add_argument("--sekcje", default="", help="id rozdziałów widocznych w pokazie (r01,r02...); pozostałe UKRYTE")
     ap.add_argument("--slajdy", type=int, default=0, help="cel skroc: ile slajdów ma zostać w pokazie (do polecenia dla AI)")
     ap.add_argument("--bez-wizualizacji", action="store_true", help="nie dokładaj packshotów z biblioteki produktów")
+    ap.add_argument("--bez-szablonowania", action="store_true",
+                    help="nie zamieniaj gołego tekstu w klocki szablonu (liczby, pasy-wnioski, kafle z ikonami; szablonuj.py)")
     ap.add_argument("--wyjscie", default="", help="katalog na PPTX (domyślnie obok źródła)")
     ap.add_argument("--robocze", default="", help="katalog roboczy (domyślnie <folder>\\_robocze\\<nazwa>)")
     ap.add_argument("--styl", choices=["nowy", "stary"], default="nowy")
     ap.add_argument("--bez-qa", action="store_true", help="bez PowerPointa (zrzuty, kontrola tekstu)")
+    ap.add_argument("--bez-oka", action="store_true",
+                    help="nie zmieniaj układu slajdów po obejrzeniu zrzutów (pętla „oko”); przy --ze-specu wyłączone zawsze")
+    ap.add_argument("--poprawki", default="",
+                    help="plik JSON z jawnymi poprawkami tekstu źródła: [{\"slajd\": 12, \"bylo\": \"komunikacjaod\", "
+                         "\"jest\": \"komunikacja od\", \"powod\": \"sklejone słowa\"}] (kontrole liczą po podmianie)")
+    ap.add_argument("--ze-specu", default="",
+                    help="zbuduj z gotowego spec_konwersja.json (np. po poprawce tekstu przez człowieka / AI) zamiast składać "
+                         "od nowa; kontrole czytają `poprawki` ze specu")
     a = ap.parse_args(argv)
     plik = os.path.abspath(a.plik)
     stem = os.path.splitext(os.path.basename(plik))[0]
@@ -3198,22 +3587,50 @@ def main(argv=None):
     print("Prezentacja: %s | %d slajdów, %d akapitów, %d grafik, %d tabel, %d wykresów" % (
         produkt(model), st["slajdy"], st["akapity"], st["grafiki"], st["tabele"], st["wykresy"]))
     sekcje = [x.strip() for x in a.sekcje.split(",") if x.strip()] or None
-    spec = compose(model, {"styl": a.styl, "cel": a.cel, "sekcje": sekcje, "wizualizacje": not a.bez_wizualizacji,
-                           "wyjscie": os.path.abspath(a.wyjscie) if a.wyjscie else None})
+    z_pliku = json.load(open(a.poprawki, encoding="utf8")) if a.poprawki else []
+    if a.ze_specu:  # spec już jest (zmieniony ręcznie / przez AI): nie składamy od nowa; poprawki ze specu + z pliku
+        spec = json.load(open(a.ze_specu, encoding="utf8"))
+        if a.wyjscie:
+            spec["output"] = os.path.join(os.path.abspath(a.wyjscie), os.path.basename(spec["output"]))
+        spec["poprawki"] = list(spec.get("poprawki") or []) + z_pliku
+    else:
+        spec = compose(model, {"styl": a.styl, "cel": a.cel, "sekcje": sekcje, "wizualizacje": not a.bez_wizualizacji,
+                               "szablonuj": not a.bez_szablonowania, "poprawki": z_pliku,
+                               "wyjscie": os.path.abspath(a.wyjscie) if a.wyjscie else None})
+    poprawki = spec.get("poprawki") or []
     os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
-    spec_path = os.path.join(rob, "spec_konwersja.json")
-    json.dump(spec, open(spec_path, "w", encoding="utf8"), ensure_ascii=False, indent=1)
+    # 13.10: --ze-specu buduje Z TEGO pliku (bez drugiej kopii spec_konwersja.json obok spec_program.json z programu)
+    spec_path = os.path.abspath(a.ze_specu) if a.ze_specu else os.path.join(rob, "spec_konwersja.json")
+    if not a.ze_specu or a.wyjscie or z_pliku:  # --ze-specu: zapis tylko gdy coś zmieniliśmy (output, poprawki z pliku)
+        spec.pop("warianty", None)  # kandydaci układu są w warianty-szablon.json obok specu (compose go zapisał)
+        json.dump(spec, open(spec_path, "w", encoding="utf8"), ensure_ascii=False, indent=1)
     import szybka
     if a.bez_qa:
         build_dk.build(spec, spec["output"])
         pptx = build_dk.build.last_out
     else:
         pptx = szybka.build_and_qa(spec_path, rob)
-    cov = coverage(plik, pptx, spec["mapa"], rob=rob)
-    wier = wiernosc(model, pptx, spec["mapa"])
+        # 13.10: spec podany przez --ze-specu jest poprawiony ręcznie / przez AI - pętla „oko” NIE podmienia w nim układów
+        # (kandydaci z warianty-szablon.json są sprzed tych poprawek; zamiana zniszczyłaby pracę agenta)
+        pptx, poprawione = (pptx, []) if (a.ze_specu or a.bez_oka) else _petla_oka(spec_path, rob, pptx, szybka)
+        if poprawione:
+            with open(spec_path, encoding="utf8") as f:
+                spec = json.load(f)
+            print("Po obejrzeniu zrzutów poprawiłem układ slajdów: %s" % ", ".join(str(x) for x in sorted(poprawione)))
+    cov = coverage(plik, pptx, spec["mapa"], rob=rob, poprawki=poprawki)
+    wier = wiernosc(model, pptx, spec["mapa"], poprawki=poprawki)
     json.dump(dict(cov, wiernosc=wier), open(os.path.join(rob, "pokrycie.json"), "w", encoding="utf8"),
               ensure_ascii=False, indent=1)
     print("Cel: %s" % CELE[spec["cel"]]["nazwa"])
+    zast = [p for p in cov.get("poprawki", []) if p["status"] == "przyjeta"]
+    if poprawki:
+        print("Poprawione błędy tekstu: %d (lista w raporcie)" % len(zast))
+        for p in cov.get("poprawki", []):
+            print("  s%s: „%s” -> „%s” (%s)%s" % (p.get("slajd"), p.get("bylo"), p.get("jest"), p.get("powod", ""),
+                                               {"przyjeta": "", "nie_w_zrodle": "  [NIE W ŹRÓDLE - nie zastosowana]",
+                                                "poza_granicami": "  [POZA GRANICAMI - nie zastosowana]"}[p["status"]]))
+        for o in cov.get("ostrzezenia", []):
+            print("  UWAGA:", o)
     print(cov["tekst"])
     for m in cov["brakuje"][:30]:
         print("  BRAK s%d (%.0f%%): %s" % (m["slajd"], 100 * m["zgodnosc"], m["tekst"]))
@@ -3222,7 +3639,9 @@ def main(argv=None):
         print("  USTERKA:", u)
     if wier.get("znaki"):  # informacja: znaki interpunkcji ze źródła, których nie ma w wyniku (np. punktor listy zastąpiony kropką)
         print("Znaki interpunkcji zdjęte (informacja): " + "; ".join("s%d: %s" % (z["slajd"], z["brak"]) for z in wier["znaki"][:40]))
-    for u in spec["uwagi"]:
+    print("Kontrola układu: usterki %d, znaki %d, slajdów %s" % (len(wier["usterki"]), len(wier.get("znaki") or []),
+                                                              " z ".join(str(x) for x in wier.get("slajdy", []))))
+    for u in spec.get("uwagi") or []:  # spec z programu (spec_program.json) nie ma klucza `uwagi`
         print(" -", u)
     if a.cel != "wiernie":
         wid = sum(1 for s in spec["slides"] if not s.get("hidden"))

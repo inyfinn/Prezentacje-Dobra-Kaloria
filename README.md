@@ -49,6 +49,20 @@ Na ekranie „Gotowe” kliknij Claude, ChatGPT albo Gemini. Program kopiuje pol
 i ścieżkami do plików, a potem otwiera czat. Wklejasz (Ctrl+V) i naciskasz Enter.
 Najlepiej działa aplikacja Claude na komputerze w trybie Cowork albo Code, bo widzi pliki.
 
+Od wersji 1.2.1, przy konwersji gotowej prezentacji `.pptx`:
+
+- program układa slajdy jak plakat: hasła, liczby i wnioski w układach z szablonu marki, bez zmiany słów autora;
+- ostrzega o ewidentnych błędach w tekście oryginału (sklejone słowa, literówki, interpunkcja) - sam ich nie poprawia;
+- po zrobieniu zrzutów mierzy slajdy (pusty dół, pusta karta, treść „pływa”) i próbuje innego układu, gdy pomiar jest zły;
+- daje dwa polecenia: dla zwykłego czatu i dla agenta z dostępem do plików (link „Polecenie dla agenta z plikami”);
+- zapisuje plansze slajdów w folderze `plansze` obok prezentacji - przeciągnij je do czatu, wtedy AI oceni też wygląd.
+
+Metoda dopracowania dla AI: `program/src/skill/references/dopracowanie.md`; katalog 65 slajdów szablonu
+(„co do czego”): `program/src/skill/references/katalog-szablonu.md`.
+
+Szablon `DK - szablon prezentacji.pptx` obok programu ma 7 slajdów, po jednej opcji. Pełny szablon (65 slajdów),
+z którego korzysta program i AI, leży w `pliki programu`.
+
 ## Co jest w repozytorium
 
 | Folder | Zawartość |

@@ -23,7 +23,7 @@ foreach ($f in "build.ps1", "wydaj.ps1", "repo.ps1", "zip_release.py", "ikona.py
     Copy-Item -LiteralPath (Join-Path $W $f) -Destination (Join-Path $Repo "program\$f") -Force
 }
 New-Item -ItemType Directory -Force (Join-Path $Repo "program\testy") | Out-Null
-foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1", "test_u_innych.ps1") {
+foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1", "test_u_innych.ps1", "test_prompty.py", "test_update.py", "miniatury_typow.py") {
     $p = Join-Path $W "logs\$f"
     if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination (Join-Path $Repo "program\testy\$f") -Force }
 }

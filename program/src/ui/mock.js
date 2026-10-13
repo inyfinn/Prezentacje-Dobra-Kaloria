@@ -140,12 +140,24 @@
     return r;
   }
 
+  /* błędy tekstu oryginału: blok z engine.uwagi_okno (nagłówek, najwyżej 5 linii, reszta w poleceniu dla AI) */
+  var BLEDY_OKNO = [
+    'Możliwe błędy w tekście oryginału: 7 (program ich nie poprawia - popraw w pliku albo zleć AI)',
+    'Slajd 12: „komunikacjaod” wygląda na sklejone słowa - może „komunikacja od”?',
+    'Slajd 2: „zbudowanie” wygląda na błąd odmiany - może „zbudowania”?',
+    'Slajd 9: „na na” - powtórzone słowo',
+    'Slajd 17: „odwrotem o węglowodanów” - może „odwrotem od węglowodanów”?',
+    'Slajd 21: brak spacji po przecinku: „wzrost,spadek”',
+    '…i 2 kolejnych w poleceniu dla AI'];
+
   /* uwagi wyniku dla gotowej prezentacji, jak z prawdziwego programu (kolejność i brzmienie z engine.py) */
   function uwagiPptx(opts) {
     var bad = wynik === 'ostrzezenia';
     var u = [bad ? 'Treść: 97% akapitów (195/201) przeniesionych' : 'Treść: 100% akapitów (201/201) przeniesionych',
       bad ? 'Układ: osobne napisy 78 z 80, kolejność góra-dół bez zmian, liczby 94 z 95, slajdów tyle samo (43)'
         : 'Układ: osobne napisy 80 z 80, kolejność góra-dół bez zmian, liczby 95 z 95, slajdów tyle samo (43)'];
+    u.push.apply(u, BLEDY_OKNO);
+    u.push('Po obejrzeniu zrzutów poprawiłem układ slajdów: 12, 31', 'Sprawdź najpierw: slajd 12 - karta ma 62% wysokości pusta pod tekstem, a obok stoi wypełniona');
     if (opts.cel === 'rozwin') u.push('Dołożyłem puste slajdy z szablonu: 2 (nr 43, 44, przed zakończeniem). Uzupełnij teksty w [nawiasach] - sam program niczego nie dopisuje.');
     u.push('Pominięto 85 obrazów powtarzających się na slajdach (logo, ozdobniki) albo mniejszych niż 160 px.',
       'Slajd 4: dodałem wizualizacje z biblioteki produktów - Pralinowe: słownik: Pralinowe = deserowe (Banoffee kakao, Tiramisu czekolada kakao); Owocowe: linia owocowe (Czarna porzeczka, Figa z makiem, Malina). Sprawdź dobór.',
@@ -264,6 +276,9 @@
             'Wartości odżywcze wpisz ręcznie, jeśli chcesz mieć je w prezentacji.',
             'Slajdy z szablonu (1) mają podpowiedzi w [nawiasach] - uzupełnij je albo użyj przycisku Claude / ChatGPT / Gemini.'
           ].concat(wynik === 'bezpp' ? ['Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).'] : []),
+          bledy_okno: pp ? BLEDY_OKNO : [],
+          plansze_folder: pp && wynik !== 'bezpp' ? 'D:\\Marketing\\- POLSKA\\09 - PREZENTACJE\\Kulki z kreatyną\\plansze' : null,
+          prompt_agent: 'KROK 0: sprawdź skill /prezentacje… Dopracuj prezentację „' + name + '” według AGENTS.md (sekcja 3b).',
           prompt_ai: 'Mam prezentację PowerPoint „' + name + '” dla produktu Kulki z kreatyną (Dobra Kaloria). ' +
             'Pomóż mi ją dopracować: skróć teksty na slajdach, popraw literówki i zaproponuj mocniejsze nagłówki. ' +
             'Nie zmieniaj liczb ani nazw smaków. Odpowiadaj po polsku, krótko i konkretnie.'

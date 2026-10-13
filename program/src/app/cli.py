@@ -5,11 +5,16 @@
                    [--tekst mniej|standard|wiecej] [--sekcje okladka,smaki,...] [--film <link YouTube>]
                    [--claimy "Claim 1; Claim 2 – opis"] [--wyjscie <katalog>] [--bez-qa] [--json] [--tylko-analiza]
     stworz-cli.exe "<gotowa prezentacja.pptx>" [--cel wiernie|rozwin|skroc] [--sekcje r01,r02,...] [--slajdy N]
-                   [--dodaj t10,t58] [--bez-wizualizacji] [--wyjscie <katalog>] [--bez-qa] [--json] [--tylko-analiza]
+                   [--dodaj t10,t58] [--bez-wizualizacji] [--wyjscie <katalog>] [--robocze <katalog>] [--bez-qa]
+                   [--bez-oka] [--json] [--tylko-analiza]
         konwersja gotowej prezentacji na styl DK, slajd w slajd: te same teksty, kolejność i układ; cały tekst, tabele,
         wykresy i obrazy zostają; program sprawdza pokrycie treści i układ. --cel: wiernie (domyślnie), rozwin (baza +
         puste slajdy z --dodaj), skroc (baza do skrócenia). Rozdziały spoza --sekcje zostają w pliku jako slajdy UKRYTE.
         Wynik: "<nazwa> - nowy styl.pptx" (rozwin: "… - rozwinięta", skroc: "… - skrót") obok pliku albo w --wyjscie.
+        Po budowie program "ogląda" zrzuty slajdów (render w PowerPoint), zmienia układ slajdów z usterkami wyglądu
+        (pusty dół, puste karty, tekst przy krawędzi…) i buduje ponownie, najwyżej 2 rundy; --bez-oka wyłącza tę pętlę.
+        Podfolder "plansze" obok wyniku: obrazy slajdów (6 na planszę) do dołączenia w czacie bez dostępu do plików.
+        Raport (raport.json) ma gotowe polecenia dla AI: prompt_agent (agent z plikami) i prompt_ai (czat bez plików).
 Kod wyjścia 0 = gotowe. Raport także w <folder>\\_robocze\\raport.json (konwersja: <folder>\\_robocze\\<nazwa>\\raport.json).
 """
 import argparse
@@ -59,11 +64,17 @@ def main(argv=None):
     ap.add_argument("--claimy", default="", help="claimy produktowe rozdzielone średnikiem; 'Tytuł – opis'")
     ap.add_argument("--packshoty", default="", help="ręczne przypisanie packshotów: 'Arbuz=plik.png;Cola=plik2.png'")
     ap.add_argument("--wyjscie", default="", help="katalog na PPTX (domyślnie folder produktu)")
+    ap.add_argument("--robocze", default="", help="tylko .pptx: katalog roboczy konwersji (raport.json, spec, zrzuty, obrazy "
+                                                  "z oryginału); domyślnie <folder pliku>\\_robocze\\<nazwa>")
+    ap.add_argument("--bez-oka", action="store_true",
+                    help="tylko .pptx: nie poprawiaj układu po obejrzeniu zrzutów (domyślnie program ocenia zrzuty slajdów "
+                         "i zmienia układ slajdów z usterkami wyglądu)")
     ap.add_argument("--bez-qa", action="store_true", help="pomiń PowerPoint (czcionki, zrzuty, kontrola tekstu)")
     ap.add_argument("--json", action="store_true", help="na końcu wypisz pełny raport JSON")
     ap.add_argument("--tylko-analiza", action="store_true", help="tylko pokaż, co program znalazł w folderze")
     a = ap.parse_args(argv)
     import engine
+    engine.set_robocze(a.robocze)
     try:
         an = engine.analyze(a.folder)
     except Exception as e:
@@ -94,7 +105,7 @@ def main(argv=None):
         if a.cel == "rozwin":  # puste slajdy z szablonu (t10, t58...) idą tą samą listą co rozdziały
             sekcje += [s.strip() for s in a.dodaj.split(",") if s.strip()]
         opts = {"styl": a.styl, "sekcje": sekcje, "wyjscie": a.wyjscie or None, "bez_qa": a.bez_qa, "cel": a.cel,
-                "cel_slajdy": a.slajdy, "wizualizacje": not a.bez_wizualizacji,
+                "cel_slajdy": a.slajdy, "wizualizacje": not a.bez_wizualizacji, "oko": not a.bez_oka,
                 "szacowany_czas_s": an["szacowany_czas_s"]}
         return _run(engine, an, opts, a)
     dl = {"krotka": 0, "standard": 1, "pelna": 2}[a.dlugosc]
@@ -128,12 +139,19 @@ def _run(engine, an, opts, a):
     print("\nGOTOWE: %s (%d slajdów, %d s)" % (res["pptx"], res["slajdy"], res["czas_s"]))
     if res.get("tryb") == "pptx":
         print("Cel: %s | ukryte slajdy: %d | nowe slajdy z szablonu: %d" % (res["cel_nazwa"], res["ukryte"], len(res["nowe"])))
+        ok = res.get("oko") or {}
+        if ok.get("uruchomione"):
+            print("Oko programu: rundy %d, zmieniony układ slajdów: %s, cofnięte: %s, usterki do sprawdzenia: %d (%d s)" % (
+                ok["rundy"], ", ".join(str(n) for n in ok["zmienione"]) or "-", ", ".join(str(n) for n in ok["odrzucone"]) or "-",
+                len(ok["pozostale"]), ok["czas_s"]))
+        if res.get("plansze"):
+            print("Plansze dla czatu (%d): %s" % (len(res["plansze"]), res["plansze_folder"]))
     q = res["qa"]
     if q["wykonano"]:
         print("Kontrola tekstu w PowerPoint: %s" % ("0 problemów" if q["problemy"] == 0 else "%d problemów" % q["problemy"]))
         for s in q["szczegoly"]:
             print("   ", s)
-    for u in res["uwagi"]:
+    for u in res.get("uwagi_pelne") or res["uwagi"]:   # pełne brzmienie (okno dostaje krótszą listę w res["uwagi"])
         print(" - " + u)
     print("Raport: %s" % (res.get("raport") or os.path.join(res["folder"], "_robocze", "raport.json")))
     if a.json:

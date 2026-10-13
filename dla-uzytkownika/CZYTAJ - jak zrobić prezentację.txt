@@ -13,10 +13,14 @@ Plik o innej nazwie też zostanie odczytany: program oceni po treści, czy to te
 3. Wybierz styl, długość i ilość tekstu, kliknij "Stwórz prezentację".
 4. Po ok. 30-60 sekundach gotowy plik .pptx leży w folderze produktu.
 
+Plik "DK - szablon prezentacji.pptx" ma 7 slajdów - po jednej opcji (okładka, punkty, tekst i zdjęcie, produkt i zalety, trzy liczby
+i wniosek, porównanie, zakończenie). Więcej układów zrobi za Ciebie program albo AI.
+
 Masz tylko gotową prezentację? Upuść plik .pptx do okna programu - przełoży ją na styl Dobra Kaloria slajd w slajd:
 ten sam slajd, te same teksty i kolejność, nowy wygląd. Nic z niej nie zginie.
 W oknie wybierasz, co zrobić z prezentacją:
-  Zachowaj układ     ten sam slajd w nowym wyglądzie (zwykle to wystarczy)
+  Zachowaj układ     ten sam slajd w stylu marki: te same słowa i kolejność, ułożone w hasła, liczby i wnioski z szablonu
+                     (zwykle to wystarczy; program sam ogląda zrzuty i poprawia układ, a o błędach w tekście ostrzega)
   Rozwiń / dokończ   program dołoży puste slajdy z podpowiedziami w [nawiasach]; treść dopiszesz Ty albo AI
   Skróć              rozdziały, które wyłączysz, zostają w pliku jako slajdy ukryte; dalszy skrót zrobi AI
 Rozdział wyłączony przełącznikiem nie znika: jego slajdy są ukryte (nie widać ich w pokazie). Zanim wyślesz plik poza
@@ -29,8 +33,10 @@ sprawdzi, czy ma skill /prezentacje, zainstaluje go z tego folderu (jeśli trzeb
 folder produktu albo plik .pptx, a on zrobi prezentację. Ręcznie skill instaluje plik zainstaluj-skill.cmd.
 
 Chcesz, żeby AI dopracowało treść? Na ekranie "Gotowe" kliknij Claude, ChatGPT albo Gemini.
-Program skopiuje polecenie i otworzy czat. Wklej je tam (Ctrl+V) i naciśnij Enter.
-Najlepiej działa aplikacja Claude na komputerze w trybie Cowork albo Code, bo widzi pliki.
+Program skopiuje polecenie i otworzy czat. Wklej je tam (Ctrl+V) i naciśnij Enter. Do czatu bez dostępu do plików
+przeciągnij też obrazy z folderu "plansze" obok prezentacji - wtedy AI oceni także wygląd.
+Najlepiej działa agent z dostępem do plików (Claude na komputerze w trybie Cowork albo Code, Codex, Gemini CLI):
+kliknij "Polecenie dla agenta z plikami" i wklej je agentowi - sam otworzy pliki i dopracuje prezentację.
 
 Program sam sprawdza, czy jest nowsza wersja, i pokazuje przycisk "Zaktualizuj".
 Instrukcje dla AI w tym folderze: CLAUDE.md (Claude), AGENTS.md (ChatGPT / Codex), GEMINI.md (Gemini), GROK.md (Grok).

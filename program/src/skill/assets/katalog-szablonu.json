@@ -1,0 +1,1588 @@
+{
+ "wersja": 1,
+ "slajdy": [
+  {
+   "nr": 1,
+   "id": "t01",
+   "typ": "instructions",
+   "nazwa": "Instrukcja szablonu (ukryta)",
+   "grupa": "instrukcja",
+   "uzyj_gdy": "Tylko jako ściąga w pliku szablonu: kolory, czcionki, nawiasy [..], zasady treści. Slajd jest UKRYTY w pokazie.",
+   "nie_gdy": "Nigdy w prezentacji dla ludzi - usuń przed wysłaniem.",
+   "miesci": "2 kolumny drobnego tekstu pomocniczego",
+   "pola": "kicker, title, columns[2] [[nagłówek, treść], ...]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "instrukcja",
+    "szablon",
+    "pomoc"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 2,
+   "id": "t02",
+   "typ": "instructions",
+   "nazwa": "Instrukcja: film i edycja (ukryta)",
+   "grupa": "instrukcja",
+   "uzyj_gdy": "Tylko jako ściąga: jak wstawić film z zaokrąglonymi rogami, nazwy obiektów. UKRYTY w pokazie.",
+   "nie_gdy": "Nigdy w prezentacji dla ludzi - usuń przed wysłaniem.",
+   "miesci": "2 kolumny drobnego tekstu pomocniczego",
+   "pola": "kicker, title, columns[2]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "instrukcja",
+    "film",
+    "edycja"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 3,
+   "id": "t03",
+   "typ": "cover",
+   "nazwa": "Okładka: cała linia smaków",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Nowa linia 2-3 smaków: duże białe logo na zieleni, „NOWOŚĆ” i nazwa linii po prawej, pod spodem trzy paczki naraz.",
+   "nie_gdy": "Jeden produkt (weź t04 albo t05) albo prezentacja bez produktu (t07-t09).",
+   "miesci": "tytuł 1-2 linie Mindset; 3 paczki (packshot-trio)",
+   "pola": "variant 4, kicker, title, image (lista 3), props[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "linia",
+    "nowość",
+    "trzy smaki",
+    "smaki"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 4,
+   "id": "t04",
+   "typ": "cover",
+   "nazwa": "Okładka: paczka na granicy zieleni",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Nowość jednego produktu: duża paczka przecina granicę zieleni i bieli, po prawej tytuł, claim i trzy metki smaków. Najmocniejsze wejście.",
+   "nie_gdy": "Nie ma produktu / zdjęcia z packshotem (weź t07-t09); cała linia naraz (t03).",
+   "miesci": "tytuł do 3 linii; 1 zdanie claimu; do 3 metek smaków; 1 packshot",
+   "pola": "variant 1, kicker, title, subtitle, image, props[], flavors[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "produkt",
+    "nowość",
+    "packshot"
+   ],
+   "w_krotkim": true
+  },
+  {
+   "nr": 5,
+   "id": "t05",
+   "typ": "cover",
+   "nazwa": "Okładka: biały tytuł na zieleni",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Prezentacja produktu dla sieci handlowej: zielone tło z logo i dużym białym tytułem, paczka po jasnej stronie.",
+   "nie_gdy": "Brak packshotu (t08) albo ma być klasycznie, bez ryzyka (t06).",
+   "miesci": "tytuł do 3 linii; claim 1-2 linie; do 3 metek; 1 packshot",
+   "pola": "variant 2, kicker, title, subtitle, image, props[], flavors[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "handel",
+    "sieć",
+    "produkt"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 6,
+   "id": "t06",
+   "typ": "cover",
+   "nazwa": "Okładka klasyczna 50/50",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Najbezpieczniejszy wybór: połowa zielona z dużym logo na środku, połowa biała z tytułem, metkami smaków i paczką.",
+   "nie_gdy": "Gdy ma być mocniej (t04) albo nie ma produktu (t07).",
+   "miesci": "tytuł do 2 linii; do 3 metek; 1 packshot",
+   "pola": "variant 3, kicker, title, image, props[], flavors[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "klasyczna",
+    "50/50",
+    "produkt"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 7,
+   "id": "t07",
+   "typ": "cover_text",
+   "nazwa": "Okładka bez produktu 50/50",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Spotkanie, raport, prezentacja firmowa: lewa połowa zielona z logo, prawa biała z tytułem, kreską i jedną linią opisu.",
+   "nie_gdy": "Prezentacja produktu (t04-t06) albo wydarzenie o dużym wydźwięku (t08).",
+   "miesci": "tytuł do 3 linii; 1 linia opisu; autor i data w stopce",
+   "pola": "variant 1, kicker, title, subtitle, meta",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "spotkanie",
+    "raport",
+    "firmowa"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 8,
+   "id": "t08",
+   "typ": "cover_text",
+   "nazwa": "Okładka bez produktu na zieleni",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Otwarcie konferencji, szkolenia, eventu: cała zieleń marki, duży biały tytuł, drobne owoce przy krawędzi.",
+   "nie_gdy": "Raport lub podsumowanie (t09) albo produkt na okładce (t04-t06).",
+   "miesci": "tytuł do 3 linii; 1 linia daty i miejsca",
+   "pola": "variant 2, kicker, title, subtitle, meta, props[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "konferencja",
+    "szkolenie",
+    "event"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 9,
+   "id": "t09",
+   "typ": "cover_text",
+   "nazwa": "Okładka bez produktu, jasna",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Raporty, podsumowania kwartału, prezentacje wewnętrzne: jasne tło, zielony pas z logo na górze, bardzo duży tytuł.",
+   "nie_gdy": "Prezentacja produktu albo event (t04-t08).",
+   "miesci": "tytuł do 2 linii bardzo dużym pismem; 1 linia zakresu; autor i data",
+   "pola": "variant 3, kicker, title, subtitle, meta",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "okładka",
+    "raport",
+    "kwartał",
+    "wewnętrzna"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 10,
+   "id": "t10",
+   "typ": "agenda",
+   "nazwa": "Agenda",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Spis 3-8 punktów z numerami 01, 02...; od 5 punktów układ sam dzieli się na dwie kolumny.",
+   "nie_gdy": "Krótka prezentacja do 8 slajdów (agenda tylko spowalnia); lista z rozwinięciami (t17).",
+   "miesci": "3-8 punktów; tytuł punktu 1 linia, opis do 1 linii",
+   "pola": "kicker, title, items[] str albo {title, text}",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "agenda",
+    "spis treści",
+    "plan",
+    "punkty"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 11,
+   "id": "t11",
+   "typ": "section",
+   "nazwa": "Przerywnik rozdziału, ciemny",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Rozdziela główne części: zielone tło, nad tytułem etykieta rozdziału, pod nim jedno zdanie, co będzie w części.",
+   "nie_gdy": "Naprzemiennie z t12 (wybierz jeden wariant na całą prezentację); slajd z treścią.",
+   "miesci": "etykieta + tytuł 1-2 linie + 1 zdanie",
+   "pola": "variant dark, label / number, title, subtitle",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "przekładka",
+    "rozdział",
+    "przerywnik",
+    "ciemny"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 12,
+   "id": "t12",
+   "typ": "section",
+   "nazwa": "Przerywnik rozdziału z numerem",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Jasny przerywnik z gigantycznym bladym numerem (02) w rogu, tytuł rozdziału i jedno zdanie. Spokojniejsza wersja t11.",
+   "nie_gdy": "Razem z t11 w jednej prezentacji; bez numeracji rozdziałów (weź t11).",
+   "miesci": "numer 1-2 cyfry + tytuł 1-2 linie + 1 zdanie",
+   "pola": "variant light, number, title, subtitle",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "przekładka",
+    "rozdział",
+    "numer",
+    "jasny"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 13,
+   "id": "t13",
+   "typ": "lead",
+   "nazwa": "Wstęp z akapitem",
+   "grupa": "opis",
+   "uzyj_gdy": "Początek prezentacji albo rozdziału: duży akapit otwierający (2-3 zdania) i pod nim trzy krótkie rozwinięcia z kreską.",
+   "nie_gdy": "Więcej niż 3 rozwinięcia (t17); długi tekst (t15); jedna teza (t14).",
+   "miesci": "akapit 2-3 zdania; 3 kolumny: hasło + 1-2 zdania",
+   "pola": "kicker, title, lead, columns[3] {title, text}",
+   "uklad": "lead + cols 3 karty (h + p); akapit otwierający jako lead ink nad kartami",
+   "slowa_kluczowe": [
+    "wstęp",
+    "otwarcie",
+    "akapit",
+    "trzy rozwinięcia"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 14,
+   "id": "t14",
+   "typ": "statement",
+   "nazwa": "Jedno zdanie – teza",
+   "grupa": "cytaty",
+   "uzyj_gdy": "Jedna mocna teza, wniosek albo cytat z badania na środku kremowego slajdu, nad nim etykieta, pod nim opcjonalny podpis.",
+   "nie_gdy": "Teza wymaga dowodu na tym samym slajdzie (t37, t62); więcej niż jedno zdanie (t13, t61).",
+   "miesci": "1 zdanie do ok. 12 słów (pismo samo maleje od 60 pt); podpis 1 linia",
+   "pola": "kicker, text, note, bg, max_pt",
+   "uklad": "jedna karta (cols 1) z lead; >= 2 hasła razem -> karta fill brand + align c (S8)",
+   "slowa_kluczowe": [
+    "teza",
+    "hasło",
+    "wniosek",
+    "jedno zdanie",
+    "mocne"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 15,
+   "id": "t15",
+   "typ": "longtext",
+   "nazwa": "Tekst długi w dwóch kolumnach",
+   "grupa": "opis",
+   "uzyj_gdy": "Opis rynku, historii, strategii, gdy tekst naprawdę musi zostać akapitami: dwie kolumny drobnego Lato.",
+   "nie_gdy": "Da się skrócić do haseł (t17, t13, t61); ma być czytane z sali (za drobne).",
+   "miesci": "ok. 180 słów w 2 kolumnach po 1-3 akapity",
+   "pola": "kicker, title, columns [[akapity],[akapity]]",
+   "uklad": "cols 2 karty z p (R7); dłuższy tekst: typ flow",
+   "slowa_kluczowe": [
+    "tekst",
+    "akapity",
+    "opis rynku",
+    "historia",
+    "długi"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 16,
+   "id": "t16",
+   "typ": "article",
+   "nazwa": "Akapit w karcie",
+   "grupa": "opis",
+   "uzyj_gdy": "Edukacja i kontekst: tytuł-pytanie („Dlaczego warto…?”) i 1-3 akapity w kremowej karcie, drobne owoce w rogach.",
+   "nie_gdy": "Wniosek z liczbą (t62, t61); lista punktów (t17); ponad 3 akapity (podziel slajd).",
+   "miesci": "tytuł-pytanie do 2 linii; 1-3 akapity (pismo 16 -> 13 pt)",
+   "pola": "title, paragraphs[], props[] (do 4)",
+   "uklad": "cols 1 karta na całą szerokość z p; wyr = kolory źródła (R7, s16)",
+   "slowa_kluczowe": [
+    "akapit",
+    "pytanie",
+    "edukacja",
+    "składnik",
+    "błonnik"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 17,
+   "id": "t17",
+   "typ": "bullets",
+   "nazwa": "Punkty",
+   "grupa": "opis",
+   "uzyj_gdy": "Lista 3-6 haseł z jednym zdaniem rozwinięcia: zalety, warunki, ustalenia. Zielona kropka przy każdym haśle.",
+   "nie_gdy": "Hasła bez rozwinięć (t36 kafle, t32 ikony); kroki w kolejności (t19); liczby (t38).",
+   "miesci": "3-6 pozycji: hasło 1 linia + 1 zdanie",
+   "pola": "kicker, title, items[] {title, text}",
+   "uklad": "cols 1 karta: h + li (icon: check) albo wiersze b / li (R3, S7)",
+   "slowa_kluczowe": [
+    "lista",
+    "punkty",
+    "zalety",
+    "warunki",
+    "ustalenia"
+   ],
+   "w_krotkim": true
+  },
+  {
+   "nr": 18,
+   "id": "t18",
+   "typ": "bullets",
+   "nazwa": "Punkty ze zdjęciem",
+   "grupa": "opis",
+   "uzyj_gdy": "Lista 3 haseł z rozwinięciem i zdjęcie po prawej w kremowym polu (półka, event) - gdy punkty potrzebują kontekstu.",
+   "nie_gdy": "Więcej niż 3 punkty (t17); zdjęcie jest głównym bohaterem (t22, t26).",
+   "miesci": "3 pozycje: hasło + 1 zdanie; 1 zdjęcie",
+   "pola": "kicker, title, items[] {title, text}, with_image / image",
+   "uklad": "cols: karta li + img w całości (pics)",
+   "slowa_kluczowe": [
+    "punkty",
+    "zdjęcie",
+    "lista",
+    "półka"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 19,
+   "id": "t19",
+   "typ": "steps",
+   "nazwa": "Kroki / proces",
+   "grupa": "opis",
+   "uzyj_gdy": "3-5 etapów w kolejności: kółka 1-4 na linii, pod każdym kremowa karta z nazwą etapu i jednym zdaniem.",
+   "nie_gdy": "Etapy mają daty (t43); luźna lista bez kolejności (t17).",
+   "miesci": "3-5 kart: etap 1 linia + do 3 linii opisu",
+   "pola": "kicker, title, items[] {title, text}",
+   "uklad": "cols 3-5 równych kart: hero (numer) + h + p (R6)",
+   "slowa_kluczowe": [
+    "kroki",
+    "proces",
+    "etapy",
+    "wdrożenie",
+    "kolejność"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 20,
+   "id": "t20",
+   "typ": "quote",
+   "nazwa": "Cytat / opinia",
+   "grupa": "cytaty",
+   "uzyj_gdy": "Opinia klienta, partnera, konsumenta, influencera: duży kursywny cytat z zieloną kreską i autorem (imię, funkcja, firma).",
+   "nie_gdy": "Cytat bez autora (zamień w tezę t14); cytat + wniosek pod nim (t60).",
+   "miesci": "cytat 1-2 zdania; autor 1 linia + rola",
+   "pola": "kicker, quote, author, role",
+   "uklad": "wiersz quote {t, author, wyr} (R4)",
+   "slowa_kluczowe": [
+    "cytat",
+    "opinia",
+    "klient",
+    "influencer",
+    "autor"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 21,
+   "id": "t21",
+   "typ": "two_cols",
+   "nazwa": "Porównanie: dziś i propozycja",
+   "grupa": "opis",
+   "uzyj_gdy": "Dwie kolumny „dziś” kontra „z nami”: lewa kremowa z obserwacjami, prawa zielona (wyróżniona) z korzyściami.",
+   "nie_gdy": "Obie strony równorzędne, bez „lepszej” (t59); porównanie z konkurencją po cechach (t55).",
+   "miesci": "2 kolumny: nagłówek + 3-5 punktów",
+   "pola": "kicker, title, columns[2] {title, items[]}",
+   "uklad": "cols 2 karty: lewa card, prawa fill brand; li (icon: check)",
+   "slowa_kluczowe": [
+    "porównanie",
+    "dziś",
+    "propozycja",
+    "przed",
+    "korzyści"
+   ],
+   "w_krotkim": true
+  },
+  {
+   "nr": 22,
+   "id": "t22",
+   "typ": "text_image",
+   "nazwa": "Tekst i zdjęcie",
+   "grupa": "opis",
+   "uzyj_gdy": "Opis produktu, kampanii, eventu: tytuł, 2-4 zdania i 3 punkty po lewej; zdjęcie po prawej do krawędzi slajdu.",
+   "nie_gdy": "Zdjęcie ma być duże i samo (t26); tylko tekst (t13, t17).",
+   "miesci": "2-4 zdania + 3 punkty; 1 zdjęcie",
+   "pola": "side right, kicker, title, text, items[], image",
+   "uklad": "cols: karta tekstu + pics 1",
+   "slowa_kluczowe": [
+    "tekst",
+    "zdjęcie",
+    "opis",
+    "kampania",
+    "event"
+   ],
+   "w_krotkim": true
+  },
+  {
+   "nr": 23,
+   "id": "t23",
+   "typ": "text_image",
+   "nazwa": "Zdjęcie i tekst",
+   "grupa": "opis",
+   "uzyj_gdy": "Lustro t22: zdjęcie po lewej do krawędzi, tekst po prawej. Użyj na zmianę z t22 dla rytmu.",
+   "nie_gdy": "Dwa takie slajdy pod rząd po tej samej stronie (rytm).",
+   "miesci": "2-4 zdania + 3 punkty; 1 zdjęcie",
+   "pola": "side left, kicker, title, text, items[], image",
+   "uklad": "cols: pics 1 + karta tekstu",
+   "slowa_kluczowe": [
+    "zdjęcie",
+    "tekst",
+    "lustro",
+    "rytm"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 24,
+   "id": "t24",
+   "typ": "text_image",
+   "nazwa": "Tekst i produkt",
+   "grupa": "cechy",
+   "uzyj_gdy": "Opis produktu z 3 claimami po lewej, packshot po prawej na kremowym tle z drobnymi elementami smaku.",
+   "nie_gdy": "Claimy z ikonami (t31); zdjęcie kampanii zamiast packshotu (t22).",
+   "miesci": "tytuł do 2 linii; zdanie opisu; 3 claimy; 1 packshot",
+   "pola": "side right, title, text, items[], pack, props[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "produkt",
+    "packshot",
+    "claimy",
+    "opis"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 25,
+   "id": "t25",
+   "typ": "icon_list",
+   "nazwa": "Zalety z ikonami i zdjęciem",
+   "grupa": "cechy",
+   "uzyj_gdy": "Zdjęcie w zaokrąglonej kremowej karcie po lewej, po prawej tytuł z hasłem i 4 zalety, każda z ikoną i jednym zdaniem.",
+   "nie_gdy": "Zdjęcie nieistotne (t32 siatka ikon); ma być produkt (t31).",
+   "miesci": "3-4 zalety: ikona + nazwa + 1-2 zdania; 1 zdjęcie",
+   "pola": "kicker, title, items[] {icon, title, text}, image / pack, button",
+   "uklad": "cols: img + bloki icon + h + p",
+   "slowa_kluczowe": [
+    "zalety",
+    "ikony",
+    "zdjęcie",
+    "korzyści",
+    "hasło"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 26,
+   "id": "t26",
+   "typ": "full_image",
+   "nazwa": "Zdjęcie na cały slajd z podpisem",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Kadr z kampanii, półka w sklepie, event: zdjęcie na cały slajd, w rogu biała karta z podpisem (gdzie, kiedy, co widać).",
+   "nie_gdy": "Zdjęcie mówi samo za siebie (t27); dwa zdjęcia (t28, t51).",
+   "miesci": "1 zdjęcie + podpis 1 zdanie",
+   "pola": "image, title, caption",
+   "uklad": "pics 1 obraz w całości + podpis",
+   "slowa_kluczowe": [
+    "zdjęcie",
+    "kampania",
+    "półka",
+    "event",
+    "podpis"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 27,
+   "id": "t27",
+   "typ": "full_image",
+   "nazwa": "Zdjęcie na cały slajd",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Zdjęcie, które mówi samo za siebie: cały slajd, bez podpisu i bez tytułu.",
+   "nie_gdy": "Zdjęcie wymaga objaśnienia (t26).",
+   "miesci": "1 zdjęcie",
+   "pola": "image",
+   "uklad": "pics 1 obraz w całości",
+   "slowa_kluczowe": [
+    "zdjęcie",
+    "pełny kadr",
+    "bez podpisu"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 28,
+   "id": "t28",
+   "typ": "gallery",
+   "nazwa": "Galeria 3 zdjęć",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Trzy wysokie zdjęcia z podpisami: półki, POS, materiały.",
+   "nie_gdy": "Sześć zdjęć (t29); dwa obrazy (zrzuty) w całości (t63).",
+   "miesci": "3 zdjęcia + podpis 1 linia pod każdym",
+   "pola": "kicker, title, items[] {image, caption} (2-6)",
+   "uklad": "pics 3 (ws po równo), podpisy",
+   "slowa_kluczowe": [
+    "galeria",
+    "zdjęcia",
+    "trzy",
+    "półki",
+    "POS"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 29,
+   "id": "t29",
+   "typ": "gallery",
+   "nazwa": "Galeria 6 zdjęć",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Relacja z eventu, materiały od twórców, ekspozycje: siatka 3 x 2 niskich zdjęć z podpisami.",
+   "nie_gdy": "Mniej niż 4 zdjęcia (t28).",
+   "miesci": "6 zdjęć w 2 rzędach + podpisy",
+   "pola": "kicker, title, items[] {image, caption} (2-6)",
+   "uklad": "pics layout 1+siatka",
+   "slowa_kluczowe": [
+    "galeria",
+    "siatka",
+    "event",
+    "relacja",
+    "twórcy"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 30,
+   "id": "t30",
+   "typ": "product_hero",
+   "nazwa": "Anatomia produktu",
+   "grupa": "cechy",
+   "uzyj_gdy": "Główny slajd produktowy: paczka pośrodku, po 2 claimy z ikoną po każdej stronie.",
+   "nie_gdy": "Claimy z dłuższym opisem (t31); więcej niż 4 cechy (t32).",
+   "miesci": "4 claimy: ikona + hasło + 1 linia; 1 packshot",
+   "pola": "kicker, title, image, props, items[4] {title, text}",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "produkt",
+    "anatomia",
+    "claimy",
+    "packshot",
+    "wyróżnia"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 31,
+   "id": "t31",
+   "typ": "icon_list",
+   "nazwa": "Zalety z ikonami i produktem",
+   "grupa": "cechy",
+   "uzyj_gdy": "„Dlaczego ten produkt”: packshot w kremowej karcie po lewej, po prawej 4 claimy z karty wprowadzenia, każdy z ikoną.",
+   "nie_gdy": "Zdjęcie zamiast packshotu (t25); 5-6 cech bez produktu (t32).",
+   "miesci": "3-4 claimy: ikona + nazwa + 1 zdanie; 1 packshot",
+   "pola": "kicker, title, items[] {icon, title, text}, pack, props[]",
+   "uklad": "cols: img + bloki icon + h + p",
+   "slowa_kluczowe": [
+    "claimy",
+    "zalety",
+    "produkt",
+    "ikony",
+    "dlaczego"
+   ],
+   "w_krotkim": true
+  },
+  {
+   "nr": 32,
+   "id": "t32",
+   "typ": "icon_grid",
+   "nazwa": "Siatka cech z ikonami",
+   "grupa": "cechy",
+   "uzyj_gdy": "3-6 cech w siatce 3 x 2: ikona, zielony nagłówek, opis. Skład, oświadczenia żywieniowe, wartości marki.",
+   "nie_gdy": "Cechy z liczbą (t38, t44); jeden produkt i jego claimy (t30, t31).",
+   "miesci": "3-6 cech: ikona + nagłówek 1 linia + 1-2 linie",
+   "pola": "kicker, title, items[] {icon, title, text}, pack, source",
+   "uklad": "cols 3 x 2 kafli: icon + h + p (S4)",
+   "slowa_kluczowe": [
+    "cechy",
+    "skład",
+    "ikony",
+    "oświadczenia",
+    "wartości"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 33,
+   "id": "t33",
+   "typ": "flavor",
+   "nazwa": "Karta smaku",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Jeden smak na slajd: kolorowe tło smaku, nazwa Mindsetem, opis, trzy twarde dane (%, 0%, gramy) i EAN, paczka po prawej.",
+   "nie_gdy": "Porównanie kilku smaków obok siebie (t34).",
+   "miesci": "1 smak: nazwa 2 linie; opis 2 linie; 3 dane; EAN",
+   "pola": "key, kicker, name, text, facts[3] {value, label}, ean, tint, deep, image, props",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "smak",
+    "karta smaku",
+    "EAN",
+    "dane",
+    "paczka"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 34,
+   "id": "t34",
+   "typ": "line",
+   "nazwa": "Linia produktów",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Portfolio: 2-4 karty obok siebie, każda z packshotem, nazwą i zieloną metką z gramaturą.",
+   "nie_gdy": "Jeden smak ze szczegółami (t33); wartości odżywcze (t35).",
+   "miesci": "2-4 SKU: packshot + nazwa 1-2 linie + metka",
+   "pola": "title, items[] {key, name, title, meta, image, props, text?, badge?}",
+   "uklad": "cols 2-4 karty: img + h + meta",
+   "slowa_kluczowe": [
+    "linia",
+    "portfolio",
+    "SKU",
+    "gramatura",
+    "smaki"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 35,
+   "id": "t35",
+   "typ": "nutrition",
+   "nazwa": "Wartości odżywcze",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Packshot po lewej, po prawej tabela 100 g / porcja przepisana z karty wprowadzenia (8-9 wierszy).",
+   "nie_gdy": "Inne tabele (t42); konkurencja (t55).",
+   "miesci": "ok. 9 wierszy x 3 kolumny + przypis",
+   "pola": "kicker, title, image, props, head[3], rows[][3], note",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "wartości odżywcze",
+    "tabela",
+    "100 g",
+    "porcja",
+    "skład"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 36,
+   "id": "t36",
+   "typ": "tiles",
+   "nazwa": "Zalety w zielonych kaflach",
+   "grupa": "cechy",
+   "uzyj_gdy": "3-4 zielone kafle z obrazkiem owocu u góry, nazwą zalety i zdaniem (jak sekcja „Zalety” w sklepie).",
+   "nie_gdy": "Rozwinięcia dłuższe niż 1 zdanie (t17); ikony zamiast obrazków (t32).",
+   "miesci": "3-4 kafle: obrazek + nazwa 1-2 linie + 1 zdanie",
+   "pola": "title, items[] {title, text?, image, rot}",
+   "uklad": "cols 3-4 karty fill brand: icon + lead + p (S4, S8)",
+   "slowa_kluczowe": [
+    "zalety",
+    "kafle",
+    "zielone",
+    "sklep",
+    "hasła"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 37,
+   "id": "t37",
+   "typ": "hero_stat",
+   "nazwa": "Liczba-bohater",
+   "grupa": "dane",
+   "uzyj_gdy": "Jeden najważniejszy wynik: ogromna zielona liczba, pod nią opis, dwa małe kafle z liczbami pomocniczymi, packshot po prawej.",
+   "nie_gdy": "Kilka równorzędnych liczb (t38); kilka faktów z hasłami i wnioskiem w pasie (t62).",
+   "miesci": "1 liczba do ok. 5 znaków; opis 1 linia; 1-2 liczby pomocnicze",
+   "pola": "kicker, title, value, label, items[] (1-2), image, props, source",
+   "uklad": "karta: hero + lead (opis) + p; obok img (S2)",
+   "slowa_kluczowe": [
+    "liczba",
+    "wynik",
+    "najważniejszy",
+    "procent",
+    "bohater"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 38,
+   "id": "t38",
+   "typ": "kpis",
+   "nazwa": "Wskaźniki (KPI)",
+   "grupa": "dane",
+   "uzyj_gdy": "3-4 liczby obok siebie w kaflach, pierwszy zielony (wyróżniony); każda z krótkim opisem pod spodem.",
+   "nie_gdy": "Jedna liczba (t37); fakty z hasłem, dopiskiem i wnioskiem w pasie (t62); ponad 4 liczby (t45 albo tabela).",
+   "miesci": "3-4 kafle; liczba do ok. 8 znaków; opis do 3 linii",
+   "pola": "kicker, title, items[] {value, label, note}, highlight",
+   "uklad": "cols + hero + lead + p (S2, S14a, S14d)",
+   "slowa_kluczowe": [
+    "liczby",
+    "wyniki",
+    "procent",
+    "KPI",
+    "wskaźniki"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 39,
+   "id": "t39",
+   "typ": "bars",
+   "nazwa": "Wykres słupkowy",
+   "grupa": "dane",
+   "uzyj_gdy": "3-7 pozycji jako poziome słupki (zielone mocne, brązowe słabsze) z liczbą po prawej i kremową kartą wniosku.",
+   "nie_gdy": "Trend w czasie (t53); udział w całości (t52); dwie wartości A i B (t41).",
+   "miesci": "3-7 pozycji; podpis 1 linia; wniosek 1-2 zdania",
+   "pola": "kicker, title, items[] {label, value}, highlight[], insight, max, source",
+   "uklad": "bars w karcie + p (wniosek); automat tego nie robi (słupki z nazw i liczb: ręcznie)",
+   "slowa_kluczowe": [
+    "słupki",
+    "ranking",
+    "wykres",
+    "pozycje",
+    "porównanie liczb"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 40,
+   "id": "t40",
+   "typ": "segments",
+   "nazwa": "Dwie grupy wyników",
+   "grupa": "dane",
+   "uzyj_gdy": "Dwie karty obok siebie (segmenty, kanały, regiony): nagłówek, opis i w każdej 2 duże liczby z opisem.",
+   "nie_gdy": "Jedna grupa (t38); więcej niż 2 grupy (podziel na dwa slajdy lub t45).",
+   "miesci": "2 grupy x 2-4 wyniki; opis grupy 1 linia",
+   "pola": "kicker, title, groups[] {name, desc, metrics[] {value, label}}, source",
+   "uklad": "cols 2 karty (white + card): h + p + hero + p",
+   "slowa_kluczowe": [
+    "segmenty",
+    "grupy",
+    "kanały",
+    "regiony",
+    "wyniki"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 41,
+   "id": "t41",
+   "typ": "split",
+   "nazwa": "A kontra B",
+   "grupa": "dane",
+   "uzyj_gdy": "Jeden pasek dzieli dwie opcje: duże liczby po bokach, zielony i jasny odcinek, pod nim nazwy opcji i komentarz.",
+   "nie_gdy": "Więcej niż dwie części (t52); kilka pozycji (t39).",
+   "miesci": "2 wartości (liczba + nazwa) + 1 komentarz",
+   "pola": "kicker, title, a {value, label}, b, note, source",
+   "uklad": "bars z 2 pozycjami w karcie",
+   "slowa_kluczowe": [
+    "preferencja",
+    "udział",
+    "podział głosów",
+    "A kontra B",
+    "pasek"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 42,
+   "id": "t42",
+   "typ": "table",
+   "nazwa": "Tabela",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Asortyment, cennik, indeksy: nagłówek kolumn i wiersze naprzemiennie kremowe; liczby wyrównane do prawej.",
+   "nie_gdy": "Cechy z ✓ / ✗ (t55); wartości odżywcze (t35); 2-4 liczby (t38).",
+   "miesci": "do ok. 5 kolumn x 8 wierszy",
+   "pola": "kicker, title, head[], rows[][], widths[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "tabela",
+    "cennik",
+    "asortyment",
+    "indeks",
+    "EAN"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 43,
+   "id": "t43",
+   "typ": "timeline",
+   "nazwa": "Oś czasu",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "3-6 etapów z datami na poziomej osi; wypełnione kółko to bieżący etap, opisy na przemian nad i pod osią.",
+   "nie_gdy": "Etapy bez dat (t19); lista zadań z osobami (t58).",
+   "miesci": "3-6 etapów: data + nazwa + 1 linia",
+   "pola": "kicker, title, items[] {date, title, text}, current",
+   "uklad": "cols 3-6 kart: kv (data) + h + p",
+   "slowa_kluczowe": [
+    "oś czasu",
+    "harmonogram",
+    "daty",
+    "etapy",
+    "kampania"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 44,
+   "id": "t44",
+   "typ": "reasons",
+   "nazwa": "Argumenty dla handlu",
+   "grupa": "cechy",
+   "uzyj_gdy": "3-4 powody, by wprowadzić produkt: pierwsza karta zielona, w każdej numer, liczba, argument i uzasadnienie ze źródłem.",
+   "nie_gdy": "Argumenty bez liczb (t17, t36); logistyka (t45).",
+   "miesci": "3-4 karty: liczba + argument + uzasadnienie 2 linie",
+   "pola": "kicker, title, items[] {value, title, text}",
+   "uklad": "cols 3-4 karty (pierwsza fill brand): hero + lead + p (S2)",
+   "slowa_kluczowe": [
+    "argumenty",
+    "handel",
+    "powody",
+    "półka",
+    "liczby"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 45,
+   "id": "t45",
+   "typ": "facts",
+   "nazwa": "Logistyka",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Siatka 4 x 2 kafli: mała etykieta wersalikami i pod nią wartość Mindsetem (karton, paleta, termin, przechowywanie).",
+   "nie_gdy": "Dane z opisem (t38); tabela z wieloma kolumnami (t42).",
+   "miesci": "4-8 kafli: etykieta 1 linia + wartość 1 linia",
+   "pola": "kicker, title, items[] {label, value}",
+   "uklad": "cols kafli kv (R8, S6)",
+   "slowa_kluczowe": [
+    "logistyka",
+    "karton",
+    "paleta",
+    "termin",
+    "etykieta wartość",
+    "CT",
+    "TA"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 46,
+   "id": "t46",
+   "typ": "cards_images",
+   "nazwa": "Karty ze zdjęciem",
+   "grupa": "multimedia",
+   "uzyj_gdy": "3 kremowe karty z zielonym znaczkiem kanału, zdjęciem, nazwą działania i opisem: wsparcie marketingowe, POS, kanały.",
+   "nie_gdy": "Zdjęcia bez opisów (t28); telefony z postami (t57).",
+   "miesci": "3 karty: znaczek + zdjęcie + nazwa + 1-2 zdania",
+   "pola": "kicker, title, items[] {image, badge, title, text}",
+   "uklad": "cols 3 karty: tag + img + h + p (R2)",
+   "slowa_kluczowe": [
+    "karty",
+    "zdjęcia",
+    "wsparcie",
+    "POS",
+    "kanały"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 47,
+   "id": "t47",
+   "typ": "contact",
+   "nazwa": "Osoba kontaktowa",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Koniec spotkania handlowego: okrągłe zdjęcie, imię i rola Mindsetem, pod spodem telefon, e-mail, www.",
+   "nie_gdy": "Zwykłe zakończenie (t64, t65).",
+   "miesci": "1 osoba: imię, rola, 3 linie kontaktu",
+   "pola": "kicker, title, name, role, image, lines[]",
+   "uklad": "cols karta: img + h + kv (TELEFON / E-MAIL)",
+   "slowa_kluczowe": [
+    "kontakt",
+    "osoba",
+    "telefon",
+    "e-mail",
+    "opiekun"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 48,
+   "id": "t48",
+   "typ": "video",
+   "nazwa": "Film na cały slajd",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Spot, film produktowy, relacja z eventu: film na cały slajd z biała kartą tytułu; w pokazie klik odtwarza.",
+   "nie_gdy": "Film wymaga komentarza obok (t50) albo claimu (t49).",
+   "miesci": "1 film 16:9 + tytuł + 1 zdanie",
+   "pola": "variant full, link (YouTube) albo video + poster, title, caption",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "film",
+    "wideo",
+    "spot",
+    "YouTube",
+    "relacja"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 49,
+   "id": "t49",
+   "typ": "media",
+   "nazwa": "Claim i film",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Po lewej kremowa karta z elementem produktu i zielonym claimem („Co dobrego w kreatynie”), po prawej karta z tytułem i miniaturą filmu.",
+   "nie_gdy": "Sam film (t48); film z punktami (t50).",
+   "miesci": "1 claim (hasło + 1-2 zdania) + 1 film",
+   "pola": "title, claim_image, claim_title, text, media_title, link / video + poster",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "claim",
+    "film",
+    "podcast",
+    "składnik",
+    "YouTube"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 50,
+   "id": "t50",
+   "typ": "video",
+   "nazwa": "Film z tekstem",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Film 16:9 w zaokrąglonej ramce po prawej; po lewej opis (2-3 zdania) i 3 punkty. Gdy film trzeba skomentować.",
+   "nie_gdy": "Film ma mówić sam (t48).",
+   "miesci": "1 film + 2-3 zdania + 3 punkty",
+   "pola": "variant text, link / video + poster, kicker, title, text, items[]",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "film",
+    "komentarz",
+    "reklama",
+    "proces",
+    "punkty"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 51,
+   "id": "t51",
+   "typ": "before_after",
+   "nazwa": "Przed i po",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Dwa zdjęcia obok siebie ze znaczkami „Przed” i „Po”: półka przed i po, stare i nowe opakowanie, ekspozycja.",
+   "nie_gdy": "Dwa różne tematy bez porównania (t28); zrzuty ekranu w całości (t63).",
+   "miesci": "2 zdjęcia + podpis 1 linia pod każdym",
+   "pola": "kicker, title, items[2] {image, caption, badge}",
+   "uklad": "pics 2 obrazy + podpisy",
+   "slowa_kluczowe": [
+    "przed",
+    "po",
+    "porównanie zdjęć",
+    "półka",
+    "opakowanie"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 52,
+   "id": "t52",
+   "typ": "donut",
+   "nazwa": "Wykres pierścieniowy",
+   "grupa": "dane",
+   "uzyj_gdy": "Udział, struktura sprzedaży, podział grupy: edytowalny pierścień z liczbą w środku i legendą z procentami.",
+   "nie_gdy": "Dwie części (t41); ranking pozycji (t39); trend (t53).",
+   "miesci": "3-5 części; liczba w środku wpisana ręcznie",
+   "pola": "kicker, title, center, center_label, items[] {label, value, text, note}",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "udział",
+    "struktura",
+    "pierścień",
+    "wykres",
+    "podział"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 53,
+   "id": "t53",
+   "typ": "columns",
+   "nazwa": "Wykres kolumnowy",
+   "grupa": "dane",
+   "uzyj_gdy": "Trend w czasie (sprzedaż, dystrybucja, zasięg): edytowalne zielone kolumny z wartościami i karta wniosku.",
+   "nie_gdy": "Ranking pozycji bez czasu (t39).",
+   "miesci": "ok. 6 miesięcy / okresów; wniosek 1-2 zdania",
+   "pola": "kicker, title, categories[], series[] {name, values[]}, insight, number_format",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "trend",
+    "czas",
+    "sprzedaż",
+    "kolumny",
+    "dystrybucja"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 54,
+   "id": "t54",
+   "typ": "price",
+   "nazwa": "Cena i marża",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Dla handlu: packshot, zielona metka z rekomendowaną ceną detaliczną i 4 karty warunków (cena zakupu, marża, promocja, min. zamówienie).",
+   "nie_gdy": "Sama tabela cenowa wielu SKU (t42).",
+   "miesci": "1 produkt: cena + 4 karty wartość / etykieta",
+   "pola": "kicker, title, image, props, price, price_label, price_note, facts[4]",
+   "uklad": "cols: img + hero + kv",
+   "slowa_kluczowe": [
+    "cena",
+    "marża",
+    "handel",
+    "promocja",
+    "zamówienie"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 55,
+   "id": "t55",
+   "typ": "compare_table",
+   "nazwa": "Porównanie z konkurencją",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Cechy w wierszach, kolumny: nasz produkt (zielona, wyróżniona) i konkurenci, w komórkach ✓ lub ✗ albo wartość.",
+   "nie_gdy": "Dwie strony bez wzajemnej oceny (t21, t59).",
+   "miesci": "4-6 cech x 2-3 kolumny",
+   "pola": "kicker, title, columns[] , rows[] [cecha, True/False/tekst, ...]",
+   "uklad": "cols 2-3 karty (pierwsza fill brand) z li icon check",
+   "slowa_kluczowe": [
+    "konkurencja",
+    "porównanie",
+    "cechy",
+    "tak nie",
+    "przewaga"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 56,
+   "id": "t56",
+   "typ": "occasions",
+   "nazwa": "Okazje spożycia",
+   "grupa": "cechy",
+   "uzyj_gdy": "4 momenty dnia na osi z ikonami w kółkach: pora, okazja i jedno zdanie, dlaczego wtedy.",
+   "nie_gdy": "Etapy z datami (t43); kroki procesu (t19).",
+   "miesci": "4 momenty: ikona + pora + nazwa + 1-2 linie",
+   "pola": "kicker, title, items[4] {icon, time, title, text}",
+   "uklad": "cols 4 kafle: icon + kv + h + p",
+   "slowa_kluczowe": [
+    "okazje",
+    "pora dnia",
+    "moment",
+    "spożycie",
+    "ikony"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 57,
+   "id": "t57",
+   "typ": "social",
+   "nazwa": "Social media",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Trzy telefony z postami lub reelsami kampanii; pod każdym kanał i wynik (zasięg, wyświetlenia).",
+   "nie_gdy": "Zrzuty ekranu w całości, bez ramki telefonu (t63).",
+   "miesci": "3 zrzuty + kanał + wynik",
+   "pola": "kicker, title, items[3] {image, channel, result}",
+   "uklad": "pics 3 zrzuty + podpisy",
+   "slowa_kluczowe": [
+    "social",
+    "instagram",
+    "kampania",
+    "reels",
+    "zasięg"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 58,
+   "id": "t58",
+   "typ": "next_steps",
+   "nazwa": "Następne kroki",
+   "grupa": "szczegoly",
+   "uzyj_gdy": "Checklista po spotkaniu: zadanie, kto, termin; zaznaczony kwadrat = zrobione.",
+   "nie_gdy": "Etapy bez osób (t19, t43).",
+   "miesci": "do 5 wierszy: zadanie + osoba + termin",
+   "pola": "kicker, title, items[] {task, who, when, done}",
+   "uklad": "cols 1 karta z li (icon: check) + kv (termin)",
+   "slowa_kluczowe": [
+    "następne kroki",
+    "zadania",
+    "kto",
+    "termin",
+    "ustalenia"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 59,
+   "id": "t59",
+   "typ": "uklad",
+   "nazwa": "Dwie karty: dobra i zła wiadomość",
+   "grupa": "opis",
+   "uzyj_gdy": "Dwie równe karty obok siebie: nagłówek (zielony / czerwony) i jedno zdanie Mindsetem pod nim. Dwie strony jednej sprawy.",
+   "nie_gdy": "Dzisiejsza oferta kontra nasza (t21); liczby w kartach (t62).",
+   "miesci": "2 karty: nagłówek 1-3 słowa + 1 zdanie do ok. 12 słów",
+   "pola": "kicker, title, rows[] cols 2 karty {h, lead}",
+   "uklad": "cols 2 karty: h (zielony | czerwony) + lead ink (R6, R6a, S9)",
+   "slowa_kluczowe": [
+    "dobra wiadomość",
+    "zła wiadomość",
+    "dwie strony",
+    "kontrast"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 60,
+   "id": "t60",
+   "typ": "uklad",
+   "nazwa": "Cytat i wniosek",
+   "grupa": "cytaty",
+   "uzyj_gdy": "Cytat z autorem (kursywa, zielona kreska) i pod nim kremowa karta z 2-3 wyśrodkowanymi hasłami, ostatnie czerwone („= wniosek”).",
+   "nie_gdy": "Sam cytat (t20); sama teza (t14).",
+   "miesci": "cytat 1 zdanie; autor 1 linia; karta 2-3 hasła",
+   "pola": "rows: quote + cols 1 karta (lead)",
+   "uklad": "quote {t, author, wyr} + cols 1 karta z lead (R4, R5)",
+   "slowa_kluczowe": [
+    "cytat",
+    "wniosek",
+    "Byron Sharp",
+    "autor",
+    "teza"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 61,
+   "id": "t61",
+   "typ": "uklad",
+   "nazwa": "Akapit w karcie z wyróżnieniem",
+   "grupa": "opis",
+   "uzyj_gdy": "1-3 akapity Lato w kremowej karcie; 2-3 najważniejsze słowa w kolorze (czerwień = akcent, zieleń = marka). Dla tekstu, który musi zostać zdaniami.",
+   "nie_gdy": "Tekst da się skrócić do haseł (t13, t17, t59); tytuł-pytanie z edukacją (t16).",
+   "miesci": "1-3 akapity po 2-3 zdania; stopka ze źródłem",
+   "pola": "kicker, title, source, rows[] cols 1 karta {p, wyr}",
+   "uklad": "cols 1 karta: p + wyr (R7)",
+   "slowa_kluczowe": [
+    "akapit",
+    "wyróżnienie",
+    "kolor",
+    "tekst",
+    "źródło"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 62,
+   "id": "t62",
+   "typ": "uklad",
+   "nazwa": "Trzy fakty w kartach",
+   "grupa": "dane",
+   "uzyj_gdy": "2-4 fakty z liczbą: w każdej karcie liczba-bohater (zielona), pod nią hasło Mindsetem (do 12 słów) i krótki dopisek Lato; pod kartami wniosek w zielonym pasie.",
+   "nie_gdy": "Same liczby z etykietą, bez wniosku (t38); jedna liczba (t37); fakty bez liczb (t59, t13).",
+   "miesci": "3 karty (2-4); liczba do ok. 8 znaków; hasło do 12 słów; dopisek do 2 linii (max 18 pt); pas wniosku 1 zdanie, do 3 linii",
+   "pola": "kicker, title, source, rows[]: cols (card, kont, rwane_ok) items[].blocks[] hero + lead (color ink) + p (max_pt 18); band (fill brand)",
+   "uklad": "cols + hero + lead + p + band (S1, S2, S14a, S14d)",
+   "slowa_kluczowe": [
+    "fakty",
+    "liczby",
+    "hasło",
+    "wniosek",
+    "trzy karty",
+    "statystyki"
+   ],
+   "w_krotkim": true
+  },
+  {
+   "nr": 63,
+   "id": "t63",
+   "typ": "uklad",
+   "nazwa": "Zrzuty w całości i wniosek",
+   "grupa": "multimedia",
+   "uzyj_gdy": "Dwa obrazy bez kadrowania (zrzuty ekranu, wykresy, paczki) i pod nimi jedno zdanie Mindsetem w zieleni; źródło drobnym drukiem.",
+   "nie_gdy": "Zdjęcia, które można przyciąć (t28, t51); telefony z postami (t57).",
+   "miesci": "2 obrazy w całości + 1 zdanie wniosku",
+   "pola": "kicker, title, source, rows[] pics + sub",
+   "uklad": "pics 2 obrazy w całości + sub / band (R10a, R11)",
+   "slowa_kluczowe": [
+    "zrzuty",
+    "obrazy",
+    "wykres",
+    "wniosek",
+    "w całości"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 64,
+   "id": "t64",
+   "typ": "end",
+   "nazwa": "Zakończenie",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Standardowy ostatni slajd: zieleń marki, logo, #zawszedobra i adres kontaktowy.",
+   "nie_gdy": "Gdy kontakt do osoby ma zostać na ekranie (t65, t47).",
+   "miesci": "logo + hasztag + 1 linia kontaktu",
+   "pola": "variant brand, hashtag, title, subtitle, contact",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "zakończenie",
+    "koniec",
+    "hasztag",
+    "#zawszedobra"
+   ],
+   "w_krotkim": false
+  },
+  {
+   "nr": 65,
+   "id": "t65",
+   "typ": "end",
+   "nazwa": "Zakończenie z podziękowaniem",
+   "grupa": "naglowki",
+   "uzyj_gdy": "Jasne „DZIĘKUJEMY”, jedno zdanie na pożegnanie i zielony pas z logo oraz imieniem, telefonem, e-mailem. Dane zostają na ekranie w rozmowie.",
+   "nie_gdy": "Bez danych kontaktowych (t64).",
+   "miesci": "tytuł; 1 zdanie; 1 linia kontaktu",
+   "pola": "variant light, hashtag, title, subtitle, contact",
+   "uklad": null,
+   "slowa_kluczowe": [
+    "zakończenie",
+    "dziękujemy",
+    "kontakt",
+    "podziękowanie"
+   ],
+   "w_krotkim": true
+  }
+ ],
+ "ksztalty": [
+  {
+   "ksztalt": "jedna teza (1 zdanie do ok. 12 słów)",
+   "wez": [
+    "t14",
+    "t60"
+   ],
+   "uklad": "jedna karta (cols 1) z lead ink; >= 2 hasła razem = karta fill brand + align c",
+   "regula": "R5, S8",
+   "przyklad": "strategia slajd 3, 7"
+  },
+  {
+   "ksztalt": "2-4 krótkie hasła (do 6 słów, bez opisu)",
+   "wez": [
+    "t36",
+    "t32"
+   ],
+   "uklad": "rząd kafli: icon (align c, kółko) + lead ink; 4 hasła = 2 x 2, 5 = jeden rząd",
+   "regula": "R3, S4",
+   "przyklad": "strategia slajd 2, 9, 10"
+  },
+  {
+   "ksztalt": "lista 3-6 punktów, każdy z rozwinięciem",
+   "wez": [
+    "t17",
+    "t18",
+    "t13"
+   ],
+   "uklad": "karta: h + li (icon: check) albo wiersze b / li; pod pytaniem lub dwukropkiem",
+   "regula": "R3, S7",
+   "przyklad": "strategia slajd 15, 22"
+  },
+  {
+   "ksztalt": "2-4 fakty, każdy z liczbą",
+   "wez": [
+    "t62",
+    "t38",
+    "t44"
+   ],
+   "uklad": "rząd kart: hero (liczba z jednostką) + lead ink (hasło do 12 słów) + p max 18 pt (dopisek); pod kartami band brand (wniosek)",
+   "regula": "S1, S2, S14a, S14d",
+   "przyklad": "strategia slajd 18, 28"
+  },
+  {
+   "ksztalt": "jedna liczba-bohater (z opisem, ewentualnie 1-2 pomocnicze)",
+   "wez": [
+    "t37"
+   ],
+   "uklad": "karta: hero + lead (czego dotyczy) + p; obok img",
+   "regula": "S2",
+   "przyklad": "strategia slajd 12, 39"
+  },
+  {
+   "ksztalt": "porównanie dwóch stron: dobra i zła wiadomość",
+   "wez": [
+    "t59"
+   ],
+   "uklad": "2 równe karty: h (zielony | czerwony) + lead ink; ikona trending-up / trending-down",
+   "regula": "R6, R6a, S9",
+   "przyklad": "strategia slajd 6"
+  },
+  {
+   "ksztalt": "porównanie dwóch stron: dziś i nasza propozycja (strona wyróżniona)",
+   "wez": [
+    "t21",
+    "t55"
+   ],
+   "uklad": "2 karty: lewa kremowa, prawa fill brand; li (icon: check)",
+   "regula": "R6, S7",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "proces / kroki w kolejności (3-5)",
+   "wez": [
+    "t19",
+    "t43"
+   ],
+   "uklad": "3-5 równych kart: hero (numer) + h + p; z datami: kv (termin) + h + p",
+   "regula": "R6",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "cytat z autorem",
+   "wez": [
+    "t20",
+    "t60"
+   ],
+   "uklad": "wiersz quote {t, author}; autor = reszta wiersza z nawiasem",
+   "regula": "R4",
+   "przyklad": "strategia slajd 7"
+  },
+  {
+   "ksztalt": "zdjęcie + podpis",
+   "wez": [
+    "t26",
+    "t27",
+    "t22",
+    "t23"
+   ],
+   "uklad": "pics 1 obraz w całości + podpis; z tekstem: karta tekstu + pics 1",
+   "regula": "R11",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "2-3 obrazy (zrzuty, wykresy, zdjęcia)",
+   "wez": [
+    "t63",
+    "t51",
+    "t28"
+   ],
+   "uklad": "pics w całości (bez kadrowania); wniosek pod spodem jako sub / band",
+   "regula": "R10a, R11, S1, S3",
+   "przyklad": "strategia slajd 25, 35, 36, 38"
+  },
+  {
+   "ksztalt": "etykieta: wartość (CT: / TA: / Insight:)",
+   "wez": [
+    "t45"
+   ],
+   "uklad": "rząd kafli kv (label + t); linia Insight: jako band z ikoną lightbulb",
+   "regula": "R8, S6",
+   "przyklad": "strategia slajd 14, 37"
+  },
+  {
+   "ksztalt": "wniosek pod treścią (jedno zdanie po kartach lub obrazach)",
+   "wez": [
+    "t62",
+    "t63",
+    "t60"
+   ],
+   "uklad": "wiersz band (brand; accent = zła wiadomość) albo sub pod pics",
+   "regula": "R10, S1",
+   "przyklad": "strategia slajd 7, 10, 12, 14, 18, 36, 38, 41"
+  },
+  {
+   "ksztalt": "tabela (wiersze x kolumny)",
+   "wez": [
+    "t42",
+    "t55",
+    "t35"
+   ],
+   "uklad": "brak klocka tabeli: automat zostawia tabelę z oryginału; krótka (<= 4 wiersze) = kafle kv",
+   "regula": "-",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "wykres / słupki z liczbami",
+   "wez": [
+    "t39",
+    "t52",
+    "t53",
+    "t41"
+   ],
+   "uklad": "bars w karcie (podpis + liczba); trend w czasie i pierścień: tylko szablon (wykres edytowalny)",
+   "regula": "S (bars ręcznie)",
+   "przyklad": "strategia slajd 22 (słupki ręcznie)"
+  },
+  {
+   "ksztalt": "pytanie",
+   "wez": [
+    "t16",
+    "t14"
+   ],
+   "uklad": "pytanie jako tytuł karty-artykułu (R7) albo karta z ikoną nad hasłem-pytaniem",
+   "regula": "R7, R7b, S8",
+   "przyklad": "strategia slajd 23"
+  },
+  {
+   "ksztalt": "akapit do czytania (dopuszczalny, gdy tekst musi zostać zdaniami)",
+   "wez": [
+    "t61",
+    "t16",
+    "t15"
+   ],
+   "uklad": "cols 1 karta z p i wyr (kolor słów); > 180 słów: dwie kolumny / flow",
+   "regula": "R7, S5",
+   "przyklad": "strategia slajd 26, 41"
+  },
+  {
+   "ksztalt": "przekładka rozdziału",
+   "wez": [
+    "t11",
+    "t12"
+   ],
+   "uklad": "typ section (label zamiast numeru); jeden wariant na całą prezentację",
+   "regula": "R1",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "okładka",
+   "wez": [
+    "t04",
+    "t05",
+    "t06",
+    "t03",
+    "t07",
+    "t08",
+    "t09"
+   ],
+   "uklad": "typ cover (z produktem) albo cover_text (bez); pierwszy slajd z samym tekstem",
+   "regula": "R1",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "zakończenie",
+   "wez": [
+    "t64",
+    "t65"
+   ],
+   "uklad": "typ end; ostatni slajd z #hasztagiem",
+   "regula": "R1",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "spis treści / agenda",
+   "wez": [
+    "t10"
+   ],
+   "uklad": "typ agenda: 3-8 punktów",
+   "regula": "-",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "4-8 par: wartość + krótka etykieta (karton, paleta, termin)",
+   "wez": [
+    "t45"
+   ],
+   "uklad": "rząd kafli kv",
+   "regula": "S6",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "zalety / claimy produktu z ikonami",
+   "wez": [
+    "t31",
+    "t30",
+    "t25",
+    "t32"
+   ],
+   "uklad": "karty z icon (S13) + h + p; do 4 claimów obok produktu",
+   "regula": "S4, S13",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "film",
+   "wez": [
+    "t48",
+    "t49",
+    "t50"
+   ],
+   "uklad": "brak klocka: tylko szablon (link YouTube albo mp4)",
+   "regula": "-",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "daty i etapy w czasie",
+   "wez": [
+    "t43"
+   ],
+   "uklad": "cols kart: kv (termin) + h + p",
+   "regula": "R6",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "zadania po spotkaniu (kto, do kiedy)",
+   "wez": [
+    "t58"
+   ],
+   "uklad": "karta z li (icon: check) + kv (termin)",
+   "regula": "S7",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "kontakt do osoby",
+   "wez": [
+    "t47",
+    "t65"
+   ],
+   "uklad": "karta: img + h + kv (TELEFON, E-MAIL)",
+   "regula": "-",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "dwie krótkie myśli obok siebie, bez oceny dobra / zła",
+   "wez": [
+    "t59",
+    "t21"
+   ],
+   "uklad": "2 równe karty (h + lead)",
+   "regula": "R6",
+   "przyklad": "-"
+  },
+  {
+   "ksztalt": "trzy krótkie rozwinięcia pod jednym wstępem",
+   "wez": [
+    "t13"
+   ],
+   "uklad": "lead (akapit otwierający) + cols 3 karty h + p",
+   "regula": "R6, S5",
+   "przyklad": "-"
+  }
+ ]
+}
