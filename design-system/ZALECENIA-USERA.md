@@ -316,3 +316,16 @@ i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bi
 - **S61 grupy główne daleko od siebie (20.10.2026):** „Oddal o 100 px od siebie obszary. Nowy obszar ma być wyraźnie
   zaznaczony, większa czcionka.” Główne grupy (obszary) ~140 px odstępu, zielony pasek 4 px u góry karty, większy
   nagłówek grupy i tytuł; elementy opcjonalne bloku (np. komentarz) mają przełącznik wł./wył. w miejscu.
+- **S62 globalne style, nie lokalne (20.10.2026):** „Musisz stosować GLOBALNE style.” Zaznaczenie, przewijanie, przyciski
+  potwierdzenia biorą wygląd z jednej definicji w CSS globalnym (`src/index.css` / tokeny), nie z lokalnych wariantów.
+- **S63 paski przewijania w stylu DK (20.10.2026):** „scrolle są takie szare i beznadziejne.” Pasek przewijania globalnie:
+  cienki (8 px), tor jasny (L1), uchwyt zielony marki z zaokrągleniem, bez strzałek; `scrollbar-color` + `::-webkit-scrollbar`.
+  Treść nie wchodzi pod pasek: wewnętrzny odstęp po stronie paska (`scrollbar-gutter: stable` + padding).
+- **S64 zaznaczone = TYLKO zielony obrys (20.10.2026, przypomnienie S26):** zaznaczona pozycja listy/karty: biała,
+  zielony obrys 2 px, znacznik ✓; bez zielonego tła.
+- **S65 „Gotowe” żółte (20.10.2026):** przycisk zamykający/zatwierdzający panel wyboru (popover) = żółty `cta`.
+- **S66 ikony i bez powtórzeń (20.10.2026):** pozycje listy zestawów mają ikony (rozpoznawalność); w opisach pozycji nie
+  powtarzaj stałego wstępu (np. „7: Zgodne z oczekiwaniami.”), pokaż samą treść.
+- **S67 kolejność i oddech w nagłówku bloku (20.10.2026):** przyciski nagłówka (Zwiń, Dobierz z banku) w jednym rzędzie
+  z tytułem, nigdy nie „wędrują” pod napisy; akcja dotycząca listy stoi NAD pytaniem do respondenta, a pytanie ma
+  ~50 px odstępu od góry. Gdy mało miejsca: więcej oddechu, nie ciaśniej.

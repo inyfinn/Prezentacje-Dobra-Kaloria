@@ -88,15 +88,20 @@ def cutout_dark(src, dst, thr=34, max_side=700):
     """Zdjęcie na czarnym tle (np. kulki z sesji) -> PNG z alfą. Tło = ciemne piksele połączone z krawędzią
     (zalewanie), więc ciemne miejsca wewnątrz produktu zostają. Miękka krawędź: rozmycie maski + zmniejszenie."""
     import numpy as np
-    from scipy import ndimage
     im = Image.open(src).convert("RGB")
     a = np.asarray(im).astype(np.int16)
     dark = a.max(axis=2) < thr
-    lab, _ = ndimage.label(dark)
-    edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
-    bg = np.isin(lab, list(edge))
-    bg = ndimage.binary_opening(bg, iterations=2)
-    alpha = Image.fromarray(((~bg) * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1.6))
+    # 20.10.2026: bez scipy (program jej nie ma w paczce - grafiki na czarnym tle były pomijane): zalewanie ciemnych
+    # pikseli od krawędzi = ImageDraw.floodfill, otwarcie maski = MinFilter + MaxFilter (jak binary_opening x2)
+    m = Image.fromarray((dark * 255).astype(np.uint8), "L").copy()  # .copy(): bez niej floodfill nic nie zmienia
+    w, h = m.size
+    px = m.load()
+    for x, y in [(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)] + [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)]:
+        if px[x, y] == 255:
+            ImageDraw.floodfill(m, (x, y), 128)
+    bg = Image.fromarray(((np.asarray(m) == 128) * 255).astype(np.uint8), "L")
+    bg = bg.filter(ImageFilter.MinFilter(5)).filter(ImageFilter.MaxFilter(5))
+    alpha = bg.point(lambda v: 0 if v > 127 else 255).filter(ImageFilter.GaussianBlur(1.6))
     out = im.convert("RGBA")
     out.putalpha(alpha)
     bb = alpha.point(lambda v: 255 if v > 20 else 0).getbbox()
