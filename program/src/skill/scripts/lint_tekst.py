@@ -5,6 +5,10 @@
     uwagi = lint_tekst.sprawdz([(12, ["... komunikacjaod anti-agingu ..."]), ...])
     for u in uwagi: print(lint_tekst.opis(u))
 
+Reguly (rodzaje): sklejone, literowka (tez wersaliki z mala litera w srodku: PORTOFOLiO), powtorzenie, interpunkcja
+(brak przecinka przed "ale"/"lecz", przecinek na koncu pola "CT: 35-55,", pole urwane myslnikiem, "80.,", ".." / "...." / "….",
+"X I Y"), spacje (podwojne, "hiper - czlowieka"), nawias. Nie do zrobienia bez AI: bledy odmiany i zgody ("KIERUNKU ROZWOJU"),
+nazwy wlasne malymi literami ("mastercard"), wlasciwy przyimek ("o weglowodanow"), zbyt podobne formy ("zbudowanie").
 Program NIE poprawia tekstu (zasada 1:1) - tylko ostrzega; poprawia czlowiek albo AI.
 Zasada nadrzedna: falszywy alarm jest gorszy niz pominiecie. Dlatego:
   * slowo jest "poprawne", gdy jest na liscie czestych form, w filtrze Blooma ze WSZYSTKIMI formami slownika sjp.pl
@@ -239,7 +243,10 @@ def _literowka(w):
     sas = [c for c in _edits1(w)
            if c in rank and rank[c] < 100000 and c[0].translate(_OGONKI) == w[0].translate(_OGONKI)
            and c[:-1] != w[:-1] and c != w[:-1] and c[:-1] != w]  # zmiana ostatniej litery = raczej inna forma / obce slowo
-    return sas[0] if len(sas) == 1 else None
+    if len(sas) > 1:  # kilku kandydatow: bierzemy wyraznie najczestszego (3x czestszy od drugiego i w pierwszych 30 tys.)
+        sas.sort(key=rank.get)
+        return sas[0] if rank[sas[0]] < 30000 and rank[sas[1]] > 3 * rank[sas[0]] else None
+    return sas[0] if sas else None
 
 
 def _adres_obok(tekst, a, b):
@@ -314,12 +321,17 @@ _REGULY = [  # (wzorzec miejsca bledu, co wstawic zamiast dopasowania)
     (rf"(?<=[{_MAL}{_DUZ}])[ \t]+(?=\.(?!\.)(?:\s|$))", ""),
     # dwie kropki zamiast "…"
     (r"(?<![.])\.\.(?![.])", "…"),
+    # cztery i wiecej kropek, "…." / "….." / ".…" -> jedno "…" (trzy kropki "..." zostaja: tak pisze wielu autorow)
+    (r"(?<![.])\.{4,}(?![.])", "…"),
+    (r"(?<=…)[.…]+", ""),  # ".…" po skrocie ("itd.…") zostaje: kropka skrotu
+    # liczba porzadkowa bez slowa: "po 80.," (brak np. "roku zycia"); skroty z litera ("m.in.,") sa poprawne
+    (r"(?<=\d)\.(?=,)", "", "srednia"),
 ]
 
 
 def _interpunkcja(nr, tekst, uw):
     t = _ADRES.sub(lambda m: "x" * len(m.group()), tekst)  # kropki w adresach to nie blad
-    for rx, wstaw in _REGULY:
+    for rx, wstaw, *pew in _REGULY:
         for m in re.finditer(rx, t):
             a = m.start()
             l, r = a, m.end()
@@ -328,7 +340,7 @@ def _interpunkcja(nr, tekst, uw):
             while r < len(t) and not t[r].isspace():
                 r += 1
             uw.append((a, nr, "interpunkcja", tekst[l:r], tekst[l:a] + wstaw + tekst[m.end():r], _ctx(tekst, l, r),
-                       "wysoka"))
+                       pew[0] if pew else "wysoka"))
     for m in re.finditer(r"(\S+)([ ]{2,})(\S+)", tekst):
         uw.append((m.start(), nr, "spacje", m.group(), m.group(1) + " " + m.group(3), _ctx(tekst, m.start(), m.end()),
                    "srednia"))
@@ -356,6 +368,89 @@ def _nawiasy(nr, tekst, uw):
         uw.append((i, nr, "nawias", '"', "", _ctx(tekst, i, i + 1, 25), "srednia"))
 
 
+# --- przecinek przed "ale", wielkosc liter w wyrazie, laczniki, urwane pola ---------------------------------------
+_ALE = re.compile(rf"(?<=[{_MAL}{_DUZ}\d%])([ \t\n]+)(ale|lecz|ALE|LECZ)\b(?!\s*[,.!?…])")
+# przed "ale" / "lecz" bez przecinka bywa tylko po tych slowach ("i ale", "a lecz", "nie ale")
+PRZED_ALE_OK = set("i a oraz lub czy no ani albo tak nie to ale lecz bo że więc jednak".split())
+_PRZEDROSTKI = ("hiper|super|mega|ultra|anty|pseudo|quasi|semi|makro|mikro|mini|multi|poli|mono|neo|proto|wice|kontr|"
+                "wielo|eko")
+_LACZNIK = re.compile(rf"(?<![\w-])((?i:{_PRZEDROSTKI}))[ \t]+[-–][ \t]+(?=[{_MAL}{_DUZ}])")
+_MIESZANE = re.compile(rf"[{_DUZ}]{{2,}}[{_MAL}]{{1,2}}[{_DUZ}]+")  # PORTOFOLiO: male litery w srodku wyrazu z wersalikow
+_X_I_Y = re.compile(rf"(?<![\w-])([{_DUZ}]) I ([{_DUZ}])(?![\w-])")  # "X I Y" -> "X i Y"
+
+
+def _slowo_przed(tekst, i):
+    """Ostatnie slowo (male litery) tekstu przed pozycja i."""
+    m = re.search(rf"([{_MAL}{_DUZ}]+)[ \t\n]*$", tekst[:i])
+    return m.group(1).lower() if m else ""
+
+
+def _dodatkowe(nr, tekst, uw):
+    """Reguly w obrebie jednego akapitu: brak przecinka przed "ale", wielkosc liter w wyrazie, "hiper - czlowieka", "X I Y"."""
+    t = _ADRES.sub(lambda m: "x" * len(m.group()), tekst)
+    for m in _ALE.finditer(t):
+        w = _slowo_przed(t, m.start())
+        if w in PRZED_ALE_OK or _angielskie(w):
+            continue
+        if not w or (m.group(2).isupper() and not _wersaliki(tekst)):
+            continue
+        a = m.start() - len(w)
+        poprz = tekst[a:m.start()]
+        uw.append((a, nr, "interpunkcja", f"{poprz} {m.group(2)}", f"{poprz}, {m.group(2)}", _ctx(tekst, a, m.end()), "wysoka"))
+    for m in _LACZNIK.finditer(t):
+        r = re.match(rf"[{_MAL}{_DUZ}]+", t[m.end():])
+        nast = r.group() if r else ""
+        uw.append((m.start(), nr, "spacje", f"{m.group(1)} - {nast}", f"{m.group(1)}-{nast}",
+                   _ctx(tekst, m.start(), m.end() + len(nast)), "srednia"))
+    for r, a, b, _poczatek in _tokeny(t):
+        if _MIESZANE.fullmatch(r):
+            w = r.lower()
+            n = w if w in _dane()["rank"] else (_literowka(w) or w)  # filtr Blooma uznaje czesc literowek za slowa
+            uw.append((a, nr, "literowka", r, n.upper(), _ctx(tekst, a, b), "wysoka"))
+    for m in _X_I_Y.finditer(t):
+        uw.append((m.start(), nr, "interpunkcja", m.group(), f"{m.group(1)} i {m.group(2)}",
+                   _ctx(tekst, m.start(), m.end()), "srednia"))
+
+
+def _urwane(tekst):
+    """(koncowka akapitu do 3 slow z znakiem, ta sama bez znaku, znak) dla akapitu konczacego sie przecinkiem / srednikiem /
+    myslnikiem po spacji; inaczej None."""
+    s = tekst.rstrip()
+    if s[-1:] in (",", ";"):
+        znak, cialo = s[-1], s[:-1].rstrip()
+    elif re.search(r"\s[-–—]$", s):
+        znak, cialo = s[-1], s[:-1].rstrip()
+    else:
+        return None
+    bez = " ".join(cialo.split()[-3:])
+    return (bez + (znak if znak in ",;" else " " + znak)), bez, znak
+
+
+def _pola(nr, teksty, uw):
+    """Reguly na kolejnych akapitach slajdu: wiszacy przecinek / myslnik na koncu pola, brak przecinka na zawinieciu przed "ale"."""
+    for i, t in enumerate(teksty):
+        s = t.rstrip()
+        nast = next((x.strip() for x in teksty[i + 1:] if x.strip()), "")
+        u = _urwane(s)
+        if u and not (u[2] in ",;" and (nast[:1].islower() or re.search(r"\d\.[,;]$", s))):  # "80.," ma wlasna regule
+            jest, bez, znak = u
+            if znak in ",;":
+                # przecinek na koncu akapitu to zwykle zawiniety wiersz zdania; wiszacy jest tylko w zamknietym polu
+                # "etykieta: wartosc," (krotkie, z dwukropkiem) albo na koncu ostatniego akapitu slajdu
+                if not nast or (len(s) <= 25 and ":" in s[:-1] and not nast[:1].islower()):
+                    uw.append((i * 10, nr, "interpunkcja", jest, bez, _ctx(s, max(0, len(s) - 40), len(s)), "srednia"))
+            elif len(bez) >= 2 and s.count("[") <= s.count("]"):  # urwane haslo ("BIALKO –"); wiersz zlozony z samego myslnika to ozdoba
+                uw.append((i * 10, nr, "interpunkcja", jest, bez, _ctx(s, max(0, len(s) - 40), len(s)), "srednia"))
+        # zawiniety wiersz zaczyna sie od "ale", a poprzedni konczy sie slowem bez przecinka
+        pierwsze = re.match(r"(ale|lecz)\b", s)
+        if pierwsze and i:
+            poprz = next((x.rstrip() for x in reversed(teksty[:i]) if x.strip()), "")
+            m = re.search(rf"([{_MAL}{_DUZ}\d%]+)$", poprz)
+            if m and m.group(1).lower() not in PRZED_ALE_OK and not _angielskie(m.group(1).lower()):
+                uw.append((i * 10 + 1, nr, "interpunkcja", f"{m.group(1)} {pierwsze.group()}",
+                           f"{m.group(1)}, {pierwsze.group()}", _ctx(poprz + " " + s, len(poprz) - 20, len(poprz) + 6), "wysoka"))
+
+
 # --- API ---------------------------------------------------------------------------------------------------------
 def sprawdz(slajdy):
     """slajdy: [(nr_slajdu, [tekst, ...]), ...] -> lista uwag (patrz doc modulu), po slajdach i miejscu w tekscie."""
@@ -367,10 +462,12 @@ def sprawdz(slajdy):
         for t, uw in [(t, []) for t in teksty] + [(None, [])]:
             if t is None:  # nawiasy: na calym slajdzie
                 _nawiasy(nr, "\n".join(teksty), uw)
+                _pola(nr, teksty, uw)
             else:
                 _slowa(nr, t, licz, uw)
                 _powtorzenia(nr, t, uw)
                 _interpunkcja(nr, t, uw)
+                _dodatkowe(nr, t, uw)
             for _poz, n, rodzaj, jest, prop, kon, pew in sorted(uw, key=lambda x: x[0]):
                 if (rodzaj, jest) in widziane:
                     continue

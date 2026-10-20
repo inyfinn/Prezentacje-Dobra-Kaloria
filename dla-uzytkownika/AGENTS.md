@@ -131,9 +131,30 @@ wstawił. Pokaż tę listę użytkownikowi: słownik nazw linii (`skill-prezenta
 
 Twoja część po konwersji (pary stary | nowy, poprawki, kontrola, lista „DO DECYZJI”): sekcja 3b niżej.
 
+## 3a-2. Dokument zamiast prezentacji (.docx, .doc, .rtf, .odt, .pdf, .txt, .md)
+
+Użytkownik podał dokument tekstowy? Ten sam program zrobi z niego prezentację w stylu Dobra Kaloria:
+
+```
+& "<folder programu>\pliki programu\stworz-cli.exe" "<plik.docx>" [--slajdy N] [--rozdzialy N]
+```
+
+Bez `--slajdy` i `--rozdzialy` program bierze wartości domyślne (dobre w większości przypadków). `--rozdzialy 0` = bez
+przekładek. Program niczego nie dopisuje i nie gubi (wiersz „Treść: 100%”); o możliwych błędach w tekście dokumentu
+tylko ostrzega. Skan bez tekstu nie zostanie odczytany - powiedz to użytkownikowi. Wynik dopracowujesz tak samo jak
+po konwersji (sekcja 3b).
+
+## 3a-3. Plik już w stylu Dobra Kaloria (szablon, wynik programu)
+
+Takiego pliku program nie konwertuje drugi raz. `stworz-cli.exe "<plik.pptx>"` wypisze przegląd: możliwe błędy
+w tekście, slajdy z podpowiedziami w [nawiasach], usterki wyglądu - i NIE zmieni pliku. Dopracowujesz go sam według
+sekcji 3b, na kopii `<nazwa> - dopracowana.pptx`. `--mimo-to` wymusza konwersję (prawie nigdy nie jest potrzebne).
+
 ## 3b. Konwersja gotowej prezentacji: jak dopracować wynik
 
 W razie sprzeczności wygrywa `skill-prezentacje\references\dopracowanie.md` (pełna metoda; poniżej jej skrót w tej samej kolejności). Starsze zapisy „zdania w Lato”, „bez wyjmowania liczb do kafli”, „akapit = karta-artykuł” są nieaktualne od 13.10.2026.
+
+Na końcu raportu przypomnij użytkownikowi: „Masz Claude na komputerze? Otwórz plik w PowerPoincie i użyj wtyczki Claude (Claude for Microsoft 365) - wklej to samo polecenie, poprawi slajdy od razu w pliku.”
 
 Program robi **szkic** (ten sam slajd w stylu marki, 100% treści, hasła i liczby wstępnie wyciągnięte, układ z klocków szablonu). Dopracowujesz go Ty - a o firmie nic nie wiesz, więc oto skąd brać wiedzę, według czego oceniać i czego nie wolno ruszać. **Dobra Kaloria** = polska marka przekąsek (kulki, batony…); jej prezentacje to deck handlowy i strategiczny, a wzorem wyglądu jest sklep dobrakaloria.pl.
 

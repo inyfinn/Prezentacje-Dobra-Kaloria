@@ -7,6 +7,7 @@ Czesc 1 - jednostkowe, na sztucznych wierszach (bez plikow). Czesc 2 - integracy
 (pomijane, gdy pliku nie ma na tym komputerze). Zadne z nich nie uruchamia PowerPointa ani modeli AI.
 """
 import collections
+import json
 import os
 import sys
 import tempfile
@@ -416,7 +417,7 @@ def _zbuduj_szablon(nazwa, tmp_path_factory):
     build_dk.build(spec, os.path.join(rob, "wynik.pptx"))
     pptx = build_dk.build.last_out
     cov = pc.coverage(plik, pptx, spec["mapa"], rob=rob)
-    wier = pc.wiernosc(model, pptx, spec["mapa"])
+    wier = pc.wiernosc(model, pptx, spec["mapa"], zdjete=pc.zdjete_znaki(spec))  # jak CLI: znaki zdjęte z haseł (K1 / K2) są zadeklarowane
     _CACHE[klucz] = (model, spec, cov, wier)
     return _CACHE[klucz]
 
@@ -789,7 +790,7 @@ def test_s10_temat_pas_i_lista_pod_naglowkiem():
          "wieku 60–70 lat i ponad 50% po 80., a w badaniu IŻŻ ponad połowa 70-letnich kobiet jadła za mało białka")
     w = "a" + "-" * (len(t.split()) - 1)
     n, _d = _stosuj([_cols(_it(_b("p", t, wyr=w)))])
-    assert n["rows"][0]["k"] == "band" and n["rows"][0]["t"] == "Białko –" and n["rows"][0]["icon"]
+    assert n["rows"][0]["k"] == "band" and n["rows"][0]["t"] == "Białko" and n["rows"][0]["icon"]  # K1: pas bez urwanego „–”
     assert n["rows"][1]["k"] == "cols" and len(n["rows"][1]["items"]) == 2
     n, _d = _stosuj([_cols(_it(_b("h", "2 kierunki poszukiwań:"), _b("lead", "Odpowiedź na potrzeby obecnych konsumentów"),
                                _b("lead", "Pozyskanie szczególnie młodych konsumentów")))])
@@ -826,7 +827,8 @@ def test_s14a_haslo_ze_zdania_trzy_przypadki():
     # (2) dłuższe z przecinkiem po 4-15 słowach: lead do przecinka, reszta = p max_pt 18
     n, _d = _stosuj([_cols(_it(_b("p", "Polacy wydali na leki GLP-1 w 2025 r. ok. 3,4 mld zł, wobec 1,8 mld w 2024. Użytkownicy jedzą mniej.")),
                            _it(_b("p", "Inna krótka karta tutaj.")))], wstrzymane={"S15"})  # S15 rozdzieliłaby zdania na kafle
-    assert _bloki(n, "lead")[0]["t"].endswith("3,4 mld zł,")
+    assert _bloki(n, "lead")[0]["t"] == "Polacy wydali na leki GLP-1 w 2025 r."  # K2: „ok. 3,4 mld zł,” przeszło do hero, przecinek (K1) zniknął
+    assert _bloki(n, "hero")[0]["t"] == "ok. 3,4 mld zł"
     p = _bloki(n, "p")[0]
     assert p["t"] == "wobec 1,8 mld w 2024. Użytkownicy jedzą mniej." and p["max_pt"] == 18  # kolejne zdania zostają p
     # (3) bez przecinka: przed pierwszym spójnikiem i / oraz / ale / wobec / czyli na pozycji 4-15
@@ -899,12 +901,12 @@ def test_s14h_naglowek_do_myslnika_na_slajdzie_z_3_wierszami():
                   _it(_b("p", "Główna kawiarnia w PL to żabka a poza Mcdonaldsem to costa coffee (110)")))
     pas = {"k": "p", "t": "Ważna kwestia – żabka się otwiera na X I Y", "po_kartach": True, "pt": 17}
     n, _d = _stosuj([karty, kv, pas])
-    assert n["rows"][0]["k"] == "h" and n["rows"][0]["color"] == "brand" and n["rows"][0]["t"].endswith("Manifest –")
+    assert n["rows"][0]["k"] == "h" and n["rows"][0]["color"] == "brand" and n["rows"][0]["t"] == "Matcha to nie tylko smak ale pewien Manifest"  # K1: bez „–”
     assert _rodzaje(n) == ["h", "cols", "cols", "band"] and not _bloki(n, "icon")  # karty bez ikon (ikony zabierały wysokość)
     # slajd z 2 wierszami (karty + obrazy): nagłówek zostaje w karcie (s34)
     pics = {"k": "pics", "items": [{"image": "a.png", "caption": ""}]}
     n, _d = _stosuj([_cols(karty["items"][0]), pics])
-    assert n["rows"][0]["k"] == "cols" and _bloki(n, "h")[0]["t"].endswith("Manifest –")
+    assert n["rows"][0]["k"] == "cols" and _bloki(n, "h")[0]["t"] == "Matcha to nie tylko smak ale pewien Manifest"  # K1: bez „–”
 
 
 def test_karta_z_5_akapitami_zostaje_lista_bez_hasel():
@@ -986,7 +988,8 @@ def test_s15_s12_jedno_zdanie_jeden_kafel_trzy_kafle_i_pas(monkeypatch):
     assert _rodzaje(n) == ["cols", "band"] and n["rows"][1]["t"].startswith("Konsumenci")
     k = n["rows"][0]["items"]
     assert len(k) == 3  # 7,8 % | komunikacjaod… | Wzrost napędza kolagen + dopisek
-    assert [b["k"] for b in k[0]["blocks"]][:2] == ["hero", "lead"] and k[0]["blocks"][0]["t"] == "7,8%"
+    assert [b["k"] for b in k[0]["blocks"]][:2] == ["hero", "lead"] and k[0]["blocks"][0]["t"] == "o 7,8%"  # K2: przyimek z liczbą w hero
+    assert k[0]["blocks"][1]["t"] == "Wydatki Polaków na beauty wzrosły w 2025 r."  # hasło domknięte, bez „o 7,8%,”
     assert k[1]["blocks"][0]["k"] == "icon" and k[1]["blocks"][0]["name"] == "megaphone"  # kafel bez liczby = ikona (S13)
     assert k[1]["blocks"][1]["t"] == "komunikacjaod anti-agingu do prewencji i longevity."
     assert [b["k"] for b in k[2]["blocks"] if b["k"] != "icon"] == ["h", "p"] and k[2]["blocks"][-2]["t"] == "Wzrost napędza kolagen."
@@ -999,10 +1002,10 @@ def test_s15_s31_cztery_kafle_siatka_2x2_kolejnosc_wierszami(monkeypatch):
                               _b("p", "Wydatki na słone przekąski spadły w tej grupie o 10,1%.")))])
     assert _rodzaje(n) == ["cols", "cols"] and [len(r["items"]) for r in n["rows"]] == [2, 2]
     kafle = [it for r in n["rows"] for it in r["items"]]
-    assert [next((b["t"] for b in it["blocks"] if b["k"] == "hero"), None) for it in kafle] == ["3,4 mld zł", None, "40%", "10,1%"]
+    assert [next((b["t"] for b in it["blocks"] if b["k"] == "hero"), None) for it in kafle] == ["ok. 3,4 mld zł", None, "40%", "o 10,1%"]
     assert kafle[1]["blocks"][0] == {"k": "icon", "name": "users", "bg": True}  # „Użytkownicy jedzą mniej…” bez liczby = ikona
     l1 = next(b for b in kafle[1]["blocks"] if b["k"] == "lead")
-    assert l1["t"] == "Użytkownicy jedzą mniej, przechodzą na białko i świeże produkty,"  # hasło do przecinka po 4-15 słowach
+    assert l1["t"] == "Użytkownicy jedzą mniej, przechodzą na białko i świeże produkty"  # hasło do przecinka po 4-15 słowach (przecinek zdjęty: K1)
     assert sum(1 for it in kafle for b in it["blocks"] if b["k"] == "p" and b["max_pt"] == 18) == 3
 
 
@@ -1614,7 +1617,7 @@ def test_tabela_regresji(nazwa):
     build_dk.build(spec, os.path.join(rob, "wynik.pptx"))
     pptx = build_dk.build.last_out
     cov = pc.coverage(plik, pptx, spec["mapa"], rob=rob)
-    wier = pc.wiernosc(model, pptx, spec["mapa"])
+    wier = pc.wiernosc(model, pptx, spec["mapa"], zdjete=pc.zdjete_znaki(spec))  # jak CLI
     sl = spec["slides"]
     uk = [s for s in sl if s["type"] == "uklad"]
     typy = collections.Counter(s["type"] for s in sl)
@@ -1671,3 +1674,893 @@ def test_przelotka_polecenia_cele_i_polecenie_ai_biora_tresc_z_polecenia_py(monk
     assert "około 10 slajdów" in "\n".join(pc.polecenie_ai("skroc", dane))
     monkeypatch.setitem(sys.modules, "polecenia", None)  # brak modułu: stare teksty z CELE (zapas)
     assert any("%(cel_slajdy)s" not in p and "około 10 slajdów" in p for p in pc.polecenie_ai("skroc", dane))
+
+
+# --- v14 (13.10): rozpoznanie pliku i klasy błędów widoczne na przekonwertowanym szablonie ------------------------------
+def _deck(tmp_path, slajdy, nazwa="t.pptx", nazwy=None):
+    """Sztuczny deck 33,87 x 19,05 cm. slajdy = [[kształt, ...]], kształt = ("t", x, y, w, h, tekst[, pt]) pole tekstu |
+    ("f", x, y, w, h) wypełniony kształt (kropka / tło pigułki) | ("o", x, y, w, h) owal | ("p", x, y, w, h) obraz PNG.
+    nazwy: {nr slajdu: [nazwa kształtu, ...]} nadpisuje nazwy kolejnych kształtów (do testów rozpoznania)."""
+    from PIL import Image
+    from pptx import Presentation
+    from pptx.dml.color import RGBColor
+    from pptx.enum.shapes import MSO_SHAPE
+    from pptx.util import Emu, Pt
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    png = str(tmp_path / "pack.png")
+    Image.new("RGBA", (600, 800), (200, 30, 30, 255)).save(png)
+    ikona = str(tmp_path / "ikona.png")
+    Image.new("RGBA", (256, 256), (10, 120, 60, 255)).save(ikona)
+    for k, ksz in enumerate(slajdy, 1):
+        s = prs.slides.add_slide(prs.slide_layouts[6])
+        for j, it in enumerate(ksz):
+            typ, x, y, w, h = it[:5]
+            if typ == "t":
+                sh = s.shapes.add_textbox(Emu(int(x * cmE)), Emu(int(y * cmE)), Emu(int(w * cmE)), Emu(int(h * cmE)))
+                sh.text_frame.text = it[5]
+                if len(it) > 6:
+                    for p in sh.text_frame.paragraphs:
+                        for r in p.runs:
+                            r.font.size = Pt(it[6])
+            elif typ == "p":
+                sh = s.shapes.add_picture(png, Emu(int(x * cmE)), Emu(int(y * cmE)), Emu(int(w * cmE)), Emu(int(h * cmE)))
+            elif typ == "i":  # mała ikona 256 px
+                sh = s.shapes.add_picture(ikona, Emu(int(x * cmE)), Emu(int(y * cmE)), Emu(int(w * cmE)), Emu(int(h * cmE)))
+            else:
+                sh = s.shapes.add_shape(MSO_SHAPE.OVAL if typ in ("o", "O") else MSO_SHAPE.RECTANGLE, Emu(int(x * cmE)), Emu(int(y * cmE)),
+                                        Emu(int(w * cmE)), Emu(int(h * cmE)))
+                sh.fill.solid()
+                sh.fill.fore_color.rgb = RGBColor(0x0F, 0x76, 0x3E)
+                sh.line.fill.background()
+                if len(it) > 5:  # kształt z własnym tekstem (np. owal-etykieta)
+                    sh.text_frame.text = it[5]
+            if nazwy and k in nazwy and j < len(nazwy[k]):
+                sh.name = nazwy[k][j]
+    p = str(tmp_path / nazwa)
+    prs.save(p)
+    return p
+
+
+def test_rozpoznaj_szablon_wynik_programu_i_obca(tmp_path):
+    tekst = lambda t: ("t", 2, 2, 10, 1, t)  # noqa: E731
+    obca = _deck(tmp_path, [[tekst("Zwykły slajd")], [tekst("Drugi slajd")]], "obca.pptx")
+    r = pc.rozpoznaj(obca)
+    assert r["rodzaj"] == "obca" and r["konwertowac"] is True and "obcym stylu" in r["powod"]
+    # szablon: podpowiedzi w [nawiasach] + pole „OPIS - …” na każdym slajdzie (jak make_template)
+    szab = _deck(tmp_path, [[tekst("[Tytuł]"), tekst("[Hasło]"), tekst("opis slajdu")]] * 3, "szab.pptx",
+                 {k: ["Tytuł slajdu", "Tekst: [Hasło]", "OPIS - tresc"] for k in (1, 2, 3)})
+    r = pc.rozpoznaj(szab)
+    assert r["rodzaj"] == "szablon_dk" and r["konwertowac"] is False and r["tryb"] == "dopracowanie" and r["podpowiedzi"] == 6
+    assert "szablon z podpowiedziami w nawiasach (6 pól do wypełnienia)" in r["powod"] and "nie ma czego" not in r["powod"]
+    # wynik programu: nazwy kształtów buildera nowego stylu
+    wynik = _deck(tmp_path, [[tekst("Tytuł"), tekst("tekst")]] * 3, "wynik.pptx", {k: ["!!title", "!!logo_small"] for k in (1, 2, 3)})
+    r = pc.rozpoznaj(wynik)
+    assert r["rodzaj"] == "wynik_programu" and r["tryb"] == "dopracowanie" and r["konwertowac"] is False
+    assert "zrobiona już przez ten program" in r["powod"] and "nie przerabiam slajdów" in r["powod"]
+    # stary styl buildera (!!pas, !!tytul, !!logo_pas) to obca prezentacja do konwersji
+    stary = _deck(tmp_path, [[tekst("Tytuł"), tekst("tekst"), tekst("pas")]] * 3, "stary.pptx",
+                  {k: ["!!tytul", "!!pas", "!!logo_pas"] for k in (1, 2, 3)})
+    assert pc.rozpoznaj(stary) == {"rodzaj": "obca", "tryb": "konwersja", "konwertowac": True, "spec": None, "podpowiedzi": 0,
+                                   "powod": "To prezentacja w obcym stylu - zamienię ją na styl Dobra Kaloria."}
+    # nazwa pliku podejrzana, ale w środku brak śladów: obca z ostrzeżeniem (fałszywe „nie konwertować” jest gorsze)
+    r = pc.rozpoznaj(_deck(tmp_path, [[tekst("Zwykły slajd")]], "Prezentacja - nowy styl.pptx"))
+    assert r["rodzaj"] == "obca" and r["konwertowac"] is True and "Uwaga" in r["powod"]
+    # plik nie do odczytu: obca z wyjaśnieniem, bez wyjątku
+    zly = tmp_path / "zepsuty.pptx"
+    zly.write_bytes(b"to nie jest zip")
+    r = pc.rozpoznaj(str(zly))
+    assert r["rodzaj"] == "obca" and r["konwertowac"] is True and r["tryb"] == "konwersja" and "Nie umiem rozpoznać" in r["powod"]
+
+
+PLIKI_ROZPOZNANIE = [  # (rodzaj, plik) - prawdziwe pliki; pomijane, gdy nie ma ich na tym komputerze
+    ("obca", PLIKI["co_dalej"]), ("obca", PLIKI["datesy"]),
+    ("obca", os.path.join(PREZ, "24.09.2026 - KULKI z kreatyną", "KULKI z kreatyną - stary styl.pptx")),
+    ("szablon_dk", os.path.join(PREZ, "DK - szablon prezentacji.pptx")),
+    ("szablon_dk", os.path.join(PREZ, "— SZABLON AI - skrypt", "DK - szablon prezentacji - pełen.pptx")),
+    ("szablon_dk", PLIKI["onlien"]),
+    ("wynik_programu", os.path.join(PREZ, "24.09.2026 - KULKI z kreatyną", "KULKI z kreatyną - nowy styl.pptx")),
+    ("wynik_programu", os.path.join(PREZ, "06.10.2026 - strategia", "DK_co_dalej_update - dopracowana ze źródłami.pptx")),
+]
+
+
+@pytest.mark.parametrize("rodzaj,plik", PLIKI_ROZPOZNANIE)
+def test_rozpoznaj_prawdziwe_pliki(rodzaj, plik):
+    if not os.path.isfile(plik):
+        pytest.skip("brak pliku na tym komputerze: " + plik)
+    r = pc.rozpoznaj(plik)
+    assert r["rodzaj"] == rodzaj and r["konwertowac"] == (rodzaj == "obca"), r
+    assert r["tryb"] == ("konwersja" if rodzaj == "obca" else "dopracowanie"), r
+
+
+def test_cli_dopracowanie_przeglada_bez_konwersji_a_mimo_to_konwertuje(tmp_path, capsys):
+    szab = _deck(tmp_path, [[("t", 2, 2, 10, 1, "[Tytuł]"), ("t", 2, 4, 10, 1, "[Hasło]"), ("t", 2, 6, 10, 1, "komunikacjaod w tekście")]] * 3,
+                 "szab.pptx", {k: ["Tytuł slajdu", "OPIS - tresc"] for k in (1, 2, 3)})
+    kod = pc.main([szab, "--bez-qa", "--wyjscie", str(tmp_path / "w"), "--robocze", str(tmp_path / "rob")])
+    wyj = capsys.readouterr().out
+    assert kod == 0 and "Tryb: dopracowanie" in wyj and "szablon z podpowiedziami" in wyj and "--mimo-to" in wyj
+    assert "podpowiedzi w nawiasach: 6" in wyj
+    assert not (tmp_path / "w").exists()  # nic nie zbudowano
+    assert pc.main([szab, "--bez-qa", "--mimo-to", "--bez-wizualizacji", "--wyjscie", str(tmp_path / "w"),
+                    "--robocze", str(tmp_path / "rob")]) in (0, 1)  # z --mimo-to konwertuje jak obcą
+    assert (tmp_path / "w").exists()
+
+
+def test_przeglad_pliku_w_stylu_dk_bez_budowania(tmp_path, monkeypatch):
+    szab = _deck(tmp_path, [[("t", 2, 2, 10, 1, "[Tytuł listy]"), ("t", 2, 4, 10, 1, "Zwykły tekst slajdu"), ("t", 2, 6, 10, 1, "[Hasło 1]")],
+                            [("t", 2, 2, 10, 1, "[Tytuł 2]")]], "szab.pptx", {1: ["Tytuł slajdu", "OPIS - tresc"], 2: ["Tytuł slajdu", "OPIS - tresc"]})
+    pr = pc.przeglad(szab, str(tmp_path / "rob"))
+    assert pr["slajdy"] == 2 and pr["podpowiedzi"] == [(1, "[Tytuł listy]"), (1, "[Hasło 1]"), (2, "[Tytuł 2]")]
+    assert pc.rozpoznaj(szab)["podpowiedzi"] == len(pr["podpowiedzi"])  # jedna funkcja licząca (`_podpowiedzi`) w obu
+    assert [n for n, _ps in pr["teksty"]] == [1, 2] and "Zwykły tekst slajdu" in pr["teksty"][0][1]
+    assert any("Podpowiedzi w nawiasach kwadratowych: 3 pól na 2 slajdach" in u for u in pr["uwagi"])
+    assert not list((tmp_path).glob("*nowy styl*"))  # przegląd niczego nie buduje
+    # lint dostaje teksty slajdów; błąd z lintu trafia do `bledy_tekstu` i do uwag
+    atrapa = _LintAtrapa([_u(1, "komunikacjaod", "komunikacja od")])
+    monkeypatch.setitem(sys.modules, "lint_tekst", atrapa)
+    pr = pc.przeglad(szab, str(tmp_path / "rob"))
+    assert pr["bledy_tekstu"] == [_u(1, "komunikacjaod", "komunikacja od")] and any(u.startswith("Możliwe błędy w tekście: 1") for u in pr["uwagi"])
+    assert "Zwykły tekst slajdu" in str(atrapa.wywolania[0][0])
+
+
+def test_przeglad_prawdziwego_szablonu_i_wyniku_programu():
+    szablon = os.path.join(PREZ, "DK - szablon prezentacji.pptx")
+    wynik = os.path.join(PREZ, "24.09.2026 - KULKI z kreatyną", "KULKI z kreatyną - nowy styl.pptx")
+    for plik in (szablon, wynik):
+        if not os.path.isfile(plik):
+            pytest.skip("brak pliku na tym komputerze: " + plik)
+    with tempfile.TemporaryDirectory() as rob:
+        pr = pc.przeglad(szablon, os.path.join(rob, "a"))
+        assert pr["slajdy"] == 7 and len(pr["podpowiedzi"]) >= 40 and any("Podpowiedzi w nawiasach" in u for u in pr["uwagi"])
+        assert pc.rozpoznaj(szablon)["podpowiedzi"] == len(pr["podpowiedzi"])  # krótki szablon: tyle samo w obu (46 = 46)
+        pr = pc.przeglad(wynik, os.path.join(rob, "b"))
+        assert pr["slajdy"] == 9 and pr["podpowiedzi"] == [] and pr["teksty"] and pr["teksty"][0][0] == 1
+        assert pc.rozpoznaj(wynik)["tryb"] == "dopracowanie"
+
+
+def test_rozpoznaj_spec_obok_pliku(tmp_path):
+    p = _deck(tmp_path, [[("t", 2, 2, 10, 1, "Tytuł"), ("t", 2, 4, 10, 1, "tekst")]] * 3, "Prezentacja - nowy styl.pptx",
+              {k: ["!!title", "!!logo_small"] for k in (1, 2, 3)})
+    assert pc.rozpoznaj(p)["spec"] is None
+    rob = tmp_path / "_robocze" / "Prezentacja"
+    rob.mkdir(parents=True)
+    (rob / "spec_konwersja.json").write_text("{}", encoding="utf-8")
+    assert pc.rozpoznaj(p)["spec"] == str(rob / "spec_konwersja.json")
+
+
+def test_numer_strony_nie_jest_trescia_i_nie_liczy_sie_jako_brak(tmp_path):
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Tytuł slajdu pierwszego", 32), ("t", 30, 18, 1.5, 0.6, "01", 10)],
+                         [("t", 2, 2, 20, 2, "Drugi slajd z treścią", 32), ("t", 2, 6, 20, 1, "Akapit treści", 18),
+                          ("t", 30, 18, 1.5, 0.6, "02", 10)],
+                         [("t", 2, 2, 20, 2, "Trzeci slajd", 32), ("t", 2, 8, 6, 3, "7", 60), ("t", 30, 18, 3, 0.6, "3 / 20", 10)]])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    teksty = [[b["paras"][0]["t"] for b in s["texts"]] for s in m["slajdy"]]
+    assert teksty[0] == ["Tytuł slajdu pierwszego"] and teksty[1] == ["Drugi slajd z treścią", "Akapit treści"]
+    assert teksty[2] == ["Trzeci slajd", "7"]  # „7” to treść (duża liczba-bohater, nie równa numerowi slajdu, nie w stopce)
+    assert m["numery_stron"] == [1, 2, 3] and any("Pominąłem numery stron" in u for u in m["uwagi"])
+    assert pc._numer_strony({"paras": [{"t": "strona 5"}], "y": 1.0, "h": 0.5}, 5, 19.05)
+    assert not pc._numer_strony({"paras": [{"t": "5"}], "y": 5.0, "h": 0.5}, 3, 19.05)  # liczba w środku slajdu, inna niż numer
+    assert not pc._numer_strony({"paras": [{"t": "2025"}], "y": 18.0, "h": 0.5}, 3, 19.05)  # rok nie jest numerem strony
+    # kontrola: numer strony źródła nie jest „brakującą liczbą” w wyniku
+    spec = pc.compose(m, {"wizualizacje": False, "wyjscie": str(tmp_path)})
+    build_dk.build(spec, spec["output"])
+    wier = pc.wiernosc(m, build_dk.build.last_out, spec["mapa"])
+    assert not [u for u in wier["usterki"] if "liczby" in u and ("„1”" in u or "„2”" in u or "„3”" in u)], wier["usterki"]
+
+
+def test_pigulki_w_rzedzie_to_chipsy_a_kropki_to_punkty_listy(tmp_path):
+    pill = lambda x, t: [("f", x, 12, 2.8, 0.9), ("t", x, 12, 2.8, 0.9, t, 11)]  # noqa: E731
+    lista = [("t", 2, 2, 25, 2, "Lista z kropkami", 40)]
+    for i in range(4):
+        lista += [("o", 2.5, 6.8 + 2.2 * i, 0.3, 0.3), ("t", 3.3, 6.5 + 2.2 * i, 20, 0.9, "Punkt %d" % (i + 1), 20)]
+    p = _deck(tmp_path, [[("t", 2, 2, 25, 2, "Okładka testowa", 40)],
+                         [("t", 2, 2, 25, 2, "Tytuł z metkami", 40), ("t", 2, 6, 25, 1, "Krótki opis nad metkami", 20)]
+                         + pill(2, "SMAK 1") + pill(5.2, "SMAK 2") + pill(8.4, "SMAK 3"), lista])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    assert [b["pill"] for b in m["slajdy"][1]["texts"] if "SMAK" in b["paras"][0]["t"]] == [True, True, True]
+    assert all(b["dot"] and b["paras"][0]["li"] for b in m["slajdy"][2]["texts"] if b["paras"][0]["t"].startswith("Punkt"))
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    r0 = spec["slides"][1]["rows"]
+    ch = [r for r in r0 if r["k"] == "chips"]
+    assert len(ch) == 1 and ch[0]["items"] == ["SMAK 1", "SMAK 2", "SMAK 3"]  # jeden wiersz chipsów, w kolejności
+    wiersze = spec["slides"][2]["rows"]
+    assert [r["k"] for r in wiersze] != ["chips"] and sum(1 for r in wiersze if r.get("li")) >= 3  # punkty, nie metki
+
+
+def test_ostatnie_pola_kolumny_nie_sa_metkami_gdy_sa_kolejnymi_punktami(tmp_path):
+    # dwie karty-kolumny z hasłem i trzema punktami o tym samym piśmie (kropki kształtem): bez „tag / meta” z ostatnich dwóch
+    ksz = [("t", 2, 2, 25, 2, "Porównanie", 40)]
+    for x, nazwa in ((2.4, "Dziś"), (17.3, "Z nami")):
+        ksz.append(("t", x, 5.6, 12, 1.4, nazwa, 28))
+        for i in range(3):
+            ksz += [("o", x + 0.1, 7.6 + 1.25 * i, 0.3, 0.3), ("t", x + 0.7, 7.4 + 1.25 * i, 11, 0.8, "%s pozycja %d" % (nazwa, i + 1), 16)]
+    p = _deck(tmp_path, [[("t", 2, 2, 25, 2, "Okładka testowa", 40)], ksz])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    cols = [r for s in spec["slides"] for r in s.get("rows", []) if r["k"] == "cols"]
+    assert cols and not any(it.get("tag") or it.get("meta") for r in cols for it in r["items"]), cols
+
+
+def test_okladka_produktu_z_metkami_smakow_to_cover(tmp_path):
+    pill = lambda x, t: [("f", x, 13.3, 2.8, 0.9), ("t", x, 13.3, 2.8, 0.9, t, 11)]  # noqa: E731
+    p = _deck(tmp_path, [[("p", 7.6, 4.7, 11, 13.9), ("t", 21.8, 4.6, 9.7, 1.7, "Nowość", 40), ("t", 21.8, 6.4, 9.7, 4, "Kulki z kreatyną", 58),
+                          ("t", 21.8, 10.9, 9.7, 1.9, "Jedno zdanie opisu produktu", 19)] + pill(21.8, "ARBUZ") + pill(24.9, "COLA") +
+                         pill(28.1, "MANGO"), [("t", 2, 2, 20, 2, "Drugi slajd", 32)]])
+    spec = pc.compose(pc.extract(p, str(tmp_path / "rob")), {"wizualizacje": False, "wyjscie": str(tmp_path)})
+    c = spec["slides"][0]
+    assert c["type"] == "cover" and c["variant"] == 1 and c["title"] == "Kulki z kreatyną" and c["kicker"] == "Nowość"
+    assert [f["name"] for f in c["flavors"]] == ["ARBUZ", "COLA", "MANGO"] and c["subtitle"] == "Jedno zdanie opisu produktu"
+    assert os.path.isfile(c["image"])
+
+
+def test_slajd_koncowy_z_podziekowaniem_to_end_a_numer_przerywnika_zostaje(tmp_path):
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Pierwszy slajd treści", 32), ("t", 2, 6, 20, 1, "Akapit", 18)],
+                         [("t", 2, 2, 20, 2, "01", 40), ("t", 6, 2, 20, 2, "ZDROWE PRZEKĄSKI", 28)],
+                         [("t", 2, 3, 24, 4, "Dziękujemy", 96), ("t", 2, 8, 22, 2, "Do usłyszenia przy kolejnym projekcie", 20),
+                          ("t", 8, 15.6, 20, 2, "jan.kowalski@example.pl · +48 600 100 200", 16)]])
+    spec = pc.compose(pc.extract(p, str(tmp_path / "rob")), {"wizualizacje": False, "wyjscie": str(tmp_path)})
+    sek, koniec = spec["slides"][1], spec["slides"][2]
+    assert sek["type"] == "section" and sek["number"] == "01" and sek["title"].lower().startswith("zdrowe")
+    assert koniec["type"] == "end" and koniec["variant"] == "light" and koniec["title"] == "Dziękujemy"
+    assert koniec["subtitle"] == "Do usłyszenia przy kolejnym projekcie" and "jan.kowalski@example.pl" in koniec["contact"]
+    # zwykły ostatni slajd nie jest „zakończeniem”
+    p2 = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Pierwszy", 32)], [("t", 2, 2, 20, 2, "Wnioski z projektu", 32), ("t", 2, 6, 20, 1, "treść", 18)]], "n.pptx")
+    assert pc.compose(pc.extract(p2, str(tmp_path / "rob2")), {"wizualizacje": False, "wyjscie": str(tmp_path)})["slides"][-1]["type"] != "end"
+
+
+def test_naglowek_grupy_to_akapit_nad_punktami_w_kazdej_grupie():
+    it = lambda t, li, bi=1, pt=14: {"t": t, "li": li, "bi": bi, "pt": pt, "url": None}  # noqa: E731
+    items = [it("Pierwszy temat z dłuższym opisem", False), it("punkt a", True), it("punkt b", True),
+             it("Drugi temat też z dłuższym opisem grupy", False), it("punkt c", True),
+             it("Zwykłe zdanie bez punktów pod spodem, kończy się kropką.", False)]
+    k = [b["k"] for b in pc._blocks_of(items)]
+    assert k == ["h", "li", "li", "h", "li", "p"], k  # oba nagłówki grup w tym samym stylu; zdanie z kropką zostaje akapitem
+
+
+def test_szeroka_tabela_zostaje_tabela_dk_a_wiersze_tabeli_nie_psuja_czyszczenia():
+    wiersze = [["", "A", "B", "C", "D", "E", "F", "G", "H", "I"]] + [["%d" % i] + ["%d%%" % (50 + i + j) for j in range(9)] for i in range(5)]
+    sp = pc._table_specs({"rows": wiersze}, None, None)
+    assert sp and sp[0]["type"] == "table" and len(sp[0]["head"]) == 10
+    pc._czysc(sp[0])  # wiersze tabeli to listy komórek: nie wolno traktować ich jak słowników
+
+
+def test_motyw_powtarzany_na_wielu_slajdach_to_ozdobnik_a_wykres_bez_danych_nie_wywala_konwersji(tmp_path):
+    ksz = lambda k: [("p", 0.3 + 0.5 * (k % 3), 0.2 + 3 * (k % 2), 3.3, 6.1), ("t", 8, 6, 18, 1, "Treść slajdu %d" % k, 24)]  # noqa: E731
+    p = _deck(tmp_path, [ksz(k) for k in range(8)])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    assert all(not s["obrazy"] for s in m["slajdy"])  # ten sam obraz w kilku położeniach na 8 slajdach = ozdobnik
+    assert any("motyw powtarzany" in u or "Pominięto" in u for u in m["uwagi"])
+
+    class _Ch:
+        chart_type = "XY_SCATTER"
+        has_title = False
+        plots = [type("P", (), {"categories": [], "series": []})()]
+    uw = []
+    sh = type("S", (), {"chart": _Ch()})()
+    assert pc._chart(sh, {"x": 0, "y": 0, "w": 1, "h": 1, "id": 1, "name": "x"}, uw, 4) is None and "bez danych" in uw[0]
+
+
+def test_agenda_i_kroki_to_typy_szablonu_a_zwykla_lista_nie(tmp_path):
+    ok = ("t", 2, 2, 20, 2, "Okładka testowa", 40)
+    agenda = [("t", 2, 2, 25, 2, "Agenda", 40)] + [("t", 3, 6 + 1.5 * i, 20, 1, t, 20) for i, t in enumerate(
+        ["Wyniki badania", "Wnioski dla marki", "Plan działań", "Następne kroki"])]
+    kroki = [("t", 2, 2, 25, 2, "Jak to działa", 40)] + [("t", 3, 6 + 2.2 * i, 25, 1, t, 20) for i, t in enumerate(
+        ["1. Zbieramy dane: z ankiet i sprzedaży", "2. Analizujemy wyniki", "3. Wybieramy działania: trzy najważniejsze"])]
+    zwykla = [("t", 2, 2, 25, 2, "Nasze wartości", 40)] + [("t", 3, 6 + 1.5 * i, 20, 1, t, 20) for i, t in enumerate(
+        ["Naturalność", "Prostota", "Smak"])]
+    lista_zdan = [("t", 2, 2, 25, 2, "Plan", 40)] + [("t", 3, 6 + 1.5 * i, 20, 1, t, 20) for i, t in enumerate(
+        ["Zrobimy to szybko i dobrze.", "Potem sprawdzimy wynik.", "Na końcu podsumujemy:"])]
+    p = _deck(tmp_path, [[ok], agenda, kroki, zwykla, lista_zdan, [("t", 2, 2, 25, 2, "Wnioski", 40), ("t", 2, 6, 20, 1, "treść", 18)]])
+    spec = pc.compose(pc.extract(p, str(tmp_path / "rob")), {"wizualizacje": False, "wyjscie": str(tmp_path)})
+    typy = [s["type"] for s in spec["slides"]]
+    assert typy[1] == "agenda" and spec["slides"][1]["items"] == ["Wyniki badania", "Wnioski dla marki", "Plan działań", "Następne kroki"]
+    st = spec["slides"][2]
+    assert st["type"] == "steps" and [i["title"] for i in st["items"]] == ["Zbieramy dane", "Analizujemy wyniki", "Wybieramy działania"]
+    assert st["items"][0]["text"] == "z ankiet i sprzedaży" and "text" not in st["items"][1]
+    assert typy[3] == "uklad" and typy[4] == "uklad"  # zwykła lista i „Plan” ze zdaniami (kropki) zostają układem
+    build_dk.build(spec, spec["output"])  # typy agenda / steps budują się bez wyjątku
+
+
+def test_siatka_pol_tekstu_to_tabela_a_panel_obok_i_nieregularne_pola_nie(tmp_path):
+    ksz = [("t", 2, 2, 20, 2, "Sierpień 2026", 32)]
+    for c, d in enumerate(["Pon", "Wt", "Śr", "Czw", "Pt", "So", "Nd"]):
+        ksz.append(("t", 2 + 2.2 * c, 5.0, 1.6, 0.6, d, 11))
+    dzien = 0
+    for r in range(5):  # kolejne tygodnie
+        for c in range(7):
+            dzien += 1
+            if dzien <= 31 and not (r == 0 and c < 4):
+                ksz.append(("t", 2 + 2.2 * c, 6.5 + 1.3 * r, 1.6, 0.6, str(dzien - (0 if r else 0)), 12))
+    ksz.append(("t", 2.0, 6.5 + 1.3 * 5, 1.6, 0.6, "31", 12))  # ostatni wiersz tylko z jednym polem
+    for i, tx in enumerate(["Start", "Mailing", "Konkurs"]):  # panel obok: inne odstępy, nie część siatki
+        ksz.append(("t", 20, 6.2 + 1.9 * i, 6, 0.8, tx, 14))
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)], ksz, [("t", 2, 2, 20, 2, "Zwykły", 32), ("t", 2, 6, 20, 1, "tekst", 18)]])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    s = pc._tabela_z_pol(m["slajdy"][1], m["h_cm"])
+    assert s is not None
+    rows = s["tables"][0]["rows"]
+    assert rows[0] == ["Pon", "Wt", "Śr", "Czw", "Pt", "So", "Nd"] and len(rows) >= 6 and rows[-1][0] == "31"
+    assert [pc._text_of(b) for b in s["texts"] if pc._text_of(b) in ("Start", "Mailing", "Konkurs")] == ["Start", "Mailing", "Konkurs"]
+    assert pc._tabela_z_pol(m["slajdy"][2], m["h_cm"]) is None
+    spec = pc.compose(m, {"wizualizacje": False, "wyjscie": str(tmp_path)})
+    typy = [x["type"] for x in spec["slides"]]
+    assert "table" in typy and any("siatkę" in u for u in spec["uwagi"])
+
+
+def test_placeholdery_w_nawiasach_w_kartach_nie_dostaja_hasel_ani_liczb():
+    import szablonuj as sz
+    sp = {"type": "uklad", "title": "[Tytuł]", "rows": [
+        {"k": "cols", "items": [{"blocks": [{"k": "h", "t": "00%"}, {"k": "p", "t": "[Fakt 1: hasło, do 12 słów]"}]},
+                                {"blocks": [{"k": "h", "t": "7,8%"}, {"k": "p", "t": "[Dopisek: kontekst]"}]}]},
+        {"k": "lead", "t": "[Wniosek z trzech faktów jednym zdaniem]"}]}
+    nowy, dec = sz.stosuj(sp, 5)
+    assert (nowy is None or nowy == sp) and dec == []
+
+
+def test_ikona_przy_tekscie_to_ozdobnik_a_logo_i_zdjecie_zostaja(tmp_path):
+    from PIL import Image
+    ikona = str(tmp_path / "ikona.png")
+    Image.new("RGBA", (256, 256), (10, 120, 60, 255)).save(ikona)
+    from pptx import Presentation
+    from pptx.util import Emu
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    s0 = prs.slides.add_slide(prs.slide_layouts[6])
+    s0.shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Okładka"
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Karty z ikonami"
+    for i in range(3):  # ikona po lewej tytułu karty
+        s.shapes.add_picture(ikona, Emu(int((2 + 9 * i) * cmE)), Emu(6 * cmE), Emu(int(1.1 * cmE)), Emu(int(1.1 * cmE)))
+        s.shapes.add_textbox(Emu(int((3.4 + 9 * i) * cmE)), Emu(6 * cmE), Emu(6 * cmE), Emu(1 * cmE)).text_frame.text = "Tytuł %d" % (i + 1)
+    s.shapes.add_picture(ikona, Emu(2 * cmE), Emu(10 * cmE), Emu(int(5 * cmE)), Emu(int(5 * cmE)))  # duży obraz: zostaje
+    s.shapes.add_textbox(Emu(8 * cmE), Emu(10 * cmE), Emu(8 * cmE), Emu(1 * cmE)).text_frame.text = "Opis zdjęcia obok"
+    p = str(tmp_path / "ikony.pptx")
+    prs.save(p)
+    m = pc.extract(p, str(tmp_path / "rob"))
+    assert len(m["slajdy"][1]["obrazy"]) == 1 and m["slajdy"][1]["obrazy"][0]["w"] >= 4.5  # zostało tylko duże zdjęcie
+    assert any("Pominąłem 3 małych ikon" in u for u in m["uwagi"])
+    assert pc._ikona_przy_tekscie({"x": 2, "y": 6, "w": 1.1, "h": 1.1, "px": (256, 256)},
+                                  [{"x": 3.4, "y": 6, "w": 6, "h": 1}], [], []) is True
+    assert pc._ikona_przy_tekscie({"x": 2, "y": 6, "w": 1.1, "h": 1.1, "px": (256, 256)}, [{"x": 3.4, "y": 6, "w": 6, "h": 1}],
+                                  [{"rows": []}], []) is False  # slajd z tabelą: obrazy zostają
+    assert pc._ikona_przy_tekscie({"x": 2, "y": 6, "w": 2.6, "h": 2.6, "px": (256, 256)}, [{"x": 5, "y": 6, "w": 6, "h": 1}], [], []) is False
+    assert pc._ikona_przy_tekscie({"x": 2, "y": 6, "w": 1.1, "h": 1.1, "px": (256, 256)}, [{"x": 20, "y": 15, "w": 6, "h": 1}], [], []) is False
+
+
+def test_dwie_grupy_haslo_i_punkty_nie_robia_z_podtytulu_naglowka_karty():
+    r = lambda k, t, li=False: {"k": k, "t": t, "li": li, "_w": 3}  # noqa: E731
+    g = [r("b", "Efekt disruption"), r("p", "punkt jeden", True), r("b", "Szeroka atrakcyjność"), r("p", "punkt dwa", True)]
+    k = pc._karta7(g)
+    assert [b["k"] for b in k["items"][0]["blocks"]].count("h") == 0
+    k1 = pc._karta7(g[:2])  # jedna grupa: pierwszy podtytuł to nagłówek karty (jak dotąd)
+    assert k1["items"][0]["blocks"][0]["k"] == "h"
+
+
+def test_przyspiesz_pomiar_jest_idempotentne_i_nie_zmienia_wynikow():
+    import build_deck
+    import szablonuj as sz
+    wzorzec = (build_dk.lines_for("Ala ma kota i psa, który lubi spacery po parku", 16, 6000000),
+               build_dk.display_lines("Kluczowe przesłanki dla strategii marki", 40, 9000000))
+    sz.przyspiesz_pomiar(build_dk)
+    f1, g1 = build_dk.lines_for, build_deck.text_w_emu
+    sz.przyspiesz_pomiar(build_dk)  # drugi raz nie opakowuje ponownie
+    assert build_dk.lines_for is f1 and build_deck.text_w_emu is g1 and getattr(f1, "_dk_memo", False)
+    wyn = build_dk.lines_for("Ala ma kota i psa, który lubi spacery po parku", 16, 6000000)
+    assert (wyn, build_dk.display_lines("Kluczowe przesłanki dla strategii marki", 40, 9000000)) == wzorzec
+    wyn.append("zmiana wołającego")  # kopia: pamięć nie ulega zepsuciu
+    assert build_dk.lines_for("Ala ma kota i psa, który lubi spacery po parku", 16, 6000000) == wzorzec[0]
+
+
+def _kalendarz(ksz, x0=2.0, y0=5.0):
+    """Kalendarz z pól tekstu (nagłówki dni + 5 tygodni) dopisany do listy kształtów `ksz` (zob. `_deck`)."""
+    for c, d in enumerate(["Pon", "Wt", "Śr", "Czw", "Pt", "So", "Nd"]):
+        ksz.append(("t", x0 + 2.2 * c, y0, 1.6, 0.6, d, 11))
+    for r in range(5):
+        for c in range(7):
+            ksz.append(("t", x0 + 2.2 * c, y0 + 1.5 + 1.3 * r, 1.6, 0.6, str(r * 7 + c + 1), 12))
+    return ksz
+
+
+def test_panel_dat_obok_kalendarza_to_karty_z_tytulem_a_nie_przerywnik(tmp_path):
+    ksz = [("t", 2, 2, 20, 2, "Sierpień 2026", 32), ("t", 2, 1, 6, 0.6, "HARMONOGRAM", 12)]
+    _kalendarz(ksz)
+    ksz.append(("t", 20, 5.0, 8, 0.6, "KLUCZOWE DATY", 12))
+    for i, (d, tx) in enumerate([("17", "Start współpracy"), ("24", "Konkurs na IG")]):
+        ksz += [("t", 20, 6.2 + 2.2 * i, 1.4, 0.9, d, 14), ("t", 22.2, 6.2 + 2.2 * i, 9, 0.9, tx, 16),
+                ("t", 22.2, 7.0 + 2.2 * i, 9, 0.6, "Opis punktu %d" % (i + 1), 11)]
+    ksz.append(("t", 2, 17.5, 20, 0.6, "Przypis pod kalendarzem", 12))
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)], ksz, [("t", 2, 2, 20, 2, "Wnioski", 32), ("t", 2, 6, 20, 1, "treść", 18)]])
+    spec = pc.compose(pc.extract(p, str(tmp_path / "rob")), {"wizualizacje": False, "wyjscie": str(tmp_path)})
+    m = spec["mapa"]["2"]
+    sps = [spec["slides"][i] for i in m]
+    assert [s["type"] for s in sps] == ["table", "uklad"], [s["type"] for s in sps]  # tabela + osobny slajd panelu, nie `section` / `statement`
+    pan = sps[1]
+    assert pan["title"] == "Sierpień 2026" and pan.get("kicker") == "KLUCZOWE DATY"  # tytuł kalendarza powtórzony, nagłówek panelu jako kicker
+    karty = [r for r in pan["rows"] if r["k"] == "cols"]
+    assert [r["items"][0]["blocks"][0] for r in karty] == [{"k": "hero", "t": "17", "color": "brand"}, {"k": "hero", "t": "24", "color": "brand"}]
+    assert karty[0]["items"][1]["blocks"][0] == {"k": "lead", "t": "Start współpracy"}  # para data -> opis (hasło + dopisek), nie luźne akapity
+    assert any(r["k"] == "p" and "Przypis" in r["t"] for r in pan["rows"])  # przypis pod kartami
+    assert all(s.get("title") for s in sps)
+
+
+def test_slajd_tresci_ma_tytul_etykieta_nad_haslem_tytul_w_kolumnie_i_dziedziczenie(tmp_path):
+    # (a) etykieta (<= 4 słowa) nad większym hasłem i nic więcej = statement z kickerem
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)],
+                         [("t", 10, 7, 14, 0.8, "CELE I WYNIKI", 14), ("t", 6, 8.5, 22, 3, "Jakie mamy oczekiwania względem wyników współpracy", 30)],
+                         [("t", 2, 2, 20, 2, "Wnioski", 32), ("t", 2, 6, 20, 1, "treść", 18)]])
+    sp = pc.compose(pc.extract(p, str(tmp_path / "rob")), {"wizualizacje": False, "wyjscie": str(tmp_path)})["slides"][1]
+    assert sp["type"] == "statement" and sp["kicker"] == "CELE I WYNIKI" and sp["text"].startswith("Jakie mamy oczekiwania")
+    # (b) tytuł w wąskiej lewej kolumnie (kilka linii wysoki, <= 10 słów, wyraźnie większy od reszty) to tytuł slajdu, nie akapit
+    p2 = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)],
+                          [("t", 1.4, 1.9, 7, 4.9, "Kontekst powstania wyostrzonego strategii pozycjonowania marki", 30),
+                           ("t", 9.8, 1.9, 21, 12, "Pierwszy punkt treści slajdu. Drugi punkt, dłuższy, z opisem.", 18),
+                           ("t", 9.8, 9, 21, 3, "Kolejny akapit treści, żeby slajd miał treść poza tytułem.", 18)]], "kol.pptx")
+    s2 = pc.compose(pc.extract(p2, str(tmp_path / "rob2")), {"wizualizacje": False, "wyjscie": str(tmp_path)})["slides"][1]
+    assert (s2.get("title") or "").startswith("Kontekst powstania") or (s2.get("kicker") or "").startswith("Kontekst powstania"), s2
+    # (c) wydzielona część slajdu źródła bez tytułu dostaje tytuł poprzedniej części (nic nie wymyślamy)
+    specs = [{"type": "table", "kicker": "HARMONOGRAM", "title": "Sierpień 2026 (1/2)"}, {"type": "uklad", "rows": []},
+             {"type": "statement", "text": "hasło"}, {"type": "uklad", "rows": [], "title": "Własny"}]
+    pc._dziedzicz_tytul(specs)
+    assert specs[1]["title"] == "Sierpień 2026" and specs[1]["kicker"] == "HARMONOGRAM"  # bez „(1/2)”
+    assert "title" not in specs[2] and specs[3]["title"] == "Własny"  # statement nie ma tytułu; własny tytuł zostaje
+
+
+def test_etykieta_w_kole_staje_sie_naglowkiem_karty_a_osierocona_trafia_do_chipsow(tmp_path):
+    ksz = [("t", 1.4, 1.9, 7, 2.1, "Kluczowe przesłanki dla marki", 30)]
+    for x, y, nazwa, tx, tx_xy in [(16.4, 1.1, "marka", "Zasoby marki i wyzwania do adresowania", (24.3, 2.6)),
+                                   (11.4, 10.3, "konsument", "Potrzeby i zachowania w kategorii", (8.0, 7.3)),
+                                   (21.1, 10.3, "konkurencja", "Szanse i zagrożenia z otoczenia", (22.8, 16.0))]:
+        ksz += [("o", x, y, 6.8, 6.8), ("t", x + 0.5, y + 2.9, 5.7, 1.0, nazwa, 24), ("t", tx_xy[0], tx_xy[1], 8, 2.4, tx, 20)]
+    ksz.append(("O", 1.1, 14.0, 6.8, 3.7, "kategoria"))  # owal z własnym tekstem, daleko od treści: osierocona etykieta
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)], ksz])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    samotne = [b["paras"][0]["t"] for b in m["slajdy"][1]["texts"] if len(b["paras"]) == 1]
+    assert "marka" not in samotne and "konsument" not in samotne and "konkurencja" not in samotne  # dołączone do pól, przy których stoją
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    rows = spec["slides"][1]["rows"]
+    nagl = [bl["t"] for r in rows if r["k"] == "cols" for it in r["items"] for bl in it["blocks"] if bl["k"] in ("h", "b")]
+    assert {"marka", "konsument", "konkurencja"} <= set(nagl), rows
+    puste = [r for r in rows if r["k"] == "cols" and len(r["items"]) == 1 and len(r["items"][0]["blocks"]) == 1 and
+             r["items"][0]["blocks"][0]["t"] in ("marka", "konsument", "konkurencja")]
+    assert not puste  # żadnej pustej karty z samą etykietą
+    chips = [r for r in rows if r["k"] == "chips"]
+    assert chips and "Kategoria" in chips[0]["items"][0]  # osierocona etykieta: rząd chipsów (pod tytułem), nie osobna karta
+
+
+def test_trzy_karty_z_krotkim_naglowkiem_nie_sa_etykietami_owalnymi(tmp_path):
+    # regres z rundy 5 (Szpaki s2): karta (prostokąt z wypełnieniem) zawierająca krótki nagłówek nie jest „etykietą w kole” - nagłówek zostaje
+    # osobnym polem, karty zostają kartami z nagłówkiem + hasłem + dopisek, a ikony nad nagłówkami to ozdobnik
+    ksz = [("t", 2, 1.6, 22, 1.5, "Dlaczego robimy to razem", 27), ("t", 2, 3.3, 22, 1.3, "Łączymy dwie marki o wspólnych wartościach.", 14)]
+    for x, nazwa, opis in [(2.0, "Wspólne wartości", "Naturalność, świadomy styl życia i rzemiosło."),
+                           (9.8, "Dopasowana społeczność", "Docieramy do osób, które już cenią naturalne wybory."),
+                           (17.6, "Model bez ryzyka", "Każdy sprzedaje tylko ze swojego sklepu.")]:
+        ksz += [("f", x, 5.6, 6.6, 6.0), ("i", x + 0.8, 6.1, 0.9, 0.9), ("t", x + 0.2, 7.8, 5.6, 1.0, nazwa, 14), ("t", x + 0.2, 8.7, 5.6, 2.2, opis, 11)]
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)], ksz])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    s = m["slajdy"][1]
+    assert not s["obrazy"] and sum(1 for b in s["texts"] if len(b["paras"]) == 1 and pc._text_of(b) in
+                                   ("Wspólne wartości", "Dopasowana społeczność", "Model bez ryzyka")) == 3  # nagłówki osobnymi polami, ikony pominięte
+    assert not any("Etykiety w owalach" in u for u in m["uwagi"])
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    cols = [r for r in spec["slides"][1]["rows"] if r["k"] == "cols"]
+    karty = [r for r in cols if len(r["items"]) == 3]
+    assert karty, spec["slides"][1]["rows"]  # trzy pola obok siebie = jeden wiersz trzech kart
+    for it, nazwa in zip(karty[0]["items"], ("Wspólne wartości", "Dopasowana społeczność", "Model bez ryzyka")):
+        assert it["blocks"][0]["k"] == "h" and it["blocks"][0]["t"] == nazwa and len(it["blocks"]) >= 2  # nagłówek + treść
+    assert not any(r["k"] == "pics" for r in spec["slides"][1]["rows"])  # nie „obrazy z podpisami” zlanymi z treścią
+
+
+def _deck_wykres(tmp_path, typ_wykresu, cats, serie, nazwa="wykres.pptx", tytul="Udział w sprzedaży"):
+    """Deck: okładka + slajd z natywnym wykresem (python-pptx) i tytułem."""
+    from pptx import Presentation
+    from pptx.chart.data import CategoryChartData
+    from pptx.util import Emu
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    s0 = prs.slides.add_slide(prs.slide_layouts[6])
+    s0.shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Okładka"
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_textbox(Emu(2 * cmE), Emu(1 * cmE), Emu(24 * cmE), Emu(2 * cmE)).text_frame.text = tytul
+    cd = CategoryChartData()
+    cd.categories = cats
+    for n, v in serie:
+        cd.add_series(n, v)
+    s.shapes.add_chart(typ_wykresu, Emu(3 * cmE), Emu(4 * cmE), Emu(24 * cmE), Emu(12 * cmE), cd)
+    p = str(tmp_path / nazwa)
+    prs.save(p)
+    return p
+
+
+def test_wykres_kolowy_to_donut_skumulowany_zostaje_skumulowany(tmp_path):
+    from pptx.enum.chart import XL_CHART_TYPE
+    p = _deck_wykres(tmp_path, XL_CHART_TYPE.PIE, ["Sklep własny", "Marketplace", "Hurt"], [("Sprzedaż", (50, 30, 20))])
+    m = pc.extract(p, str(tmp_path / "rob"))
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    d = spec["slides"][1]
+    assert d["type"] == "donut" and [i["label"] for i in d["items"]] == ["Sklep własny", "Marketplace", "Hurt"]
+    assert [i["text"] for i in d["items"]] == ["50%", "30%", "20%"] and d["center"] == "50%" and d["center_label"] == "Sprzedaż"
+    build_dk.build(spec, spec["output"])  # donut buduje się bez wyjątku
+    cov = pc.coverage(p, build_dk.build.last_out, spec["mapa"], rob=str(tmp_path / "rob"))
+    assert cov["procent"] == 100.0, cov["brakuje"]  # kategorie i nazwa serii są tekstem slajdu
+    # pierścieniowy tak samo; za dużo części (> 6) albo wartości ujemne = kolumny (nic nie ginie)
+    p2 = _deck_wykres(tmp_path, XL_CHART_TYPE.DOUGHNUT, ["A", "B"], [("Udział", (0.7, 0.3))], "d.pptx")
+    assert pc.compose(pc.extract(p2, str(tmp_path / "rob2")), {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})["slides"][1]["type"] == "donut"
+    p3 = _deck_wykres(tmp_path, XL_CHART_TYPE.PIE, list("ABCDEFG"), [("S", (1, 2, 3, 4, 5, 6, 7))], "e.pptx")
+    assert pc.compose(pc.extract(p3, str(tmp_path / "rob3")), {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})["slides"][1]["type"] == "columns"
+    # skumulowany (też 100%) zostaje skumulowany: spec ma `stacked` (i `percent`), zwykły słupkowy nie
+    for typ, st, pr in ((XL_CHART_TYPE.COLUMN_STACKED, True, None), (XL_CHART_TYPE.BAR_STACKED_100, True, True), (XL_CHART_TYPE.COLUMN_CLUSTERED, None, None)):
+        pp = _deck_wykres(tmp_path, typ, ["Q1", "Q2"], [("Tak", (30, 40)), ("Nie", (70, 60))], "s%s.pptx" % typ)
+        c = pc.compose(pc.extract(pp, str(tmp_path / ("r%s" % typ))), {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})["slides"][1]
+        assert c["type"] == "columns" and c.get("stacked") == st and c.get("percent") == pr, (typ, c)
+
+
+def test_wykres_skumulowany_z_prawdziwego_slajdu_wizerunku():
+    plik = os.path.join(r"D:\Marketing\- POLSKA\04 - PROCESY\badania_2026_logo_wizerunek", "Wizerunek marki Dobra Kaloria_raport_27042026.pptx")
+    if not os.path.isfile(plik):
+        pytest.skip("brak pliku na tym komputerze: " + plik)
+    with tempfile.TemporaryDirectory() as rob:
+        m = pc.extract(plik, rob)
+        sl = m["slajdy"][15]  # slajd 16: 4 skumulowane wykresy 100% z etykietami z tabeli
+        specs = [pc._chart_spec(c, None, None) for c in sl["charts"]]
+        assert specs and all(s["type"] == "columns" and s["stacked"] and s["percent"] for s in specs)
+        assert all(len(s["categories"]) >= 3 and len(s["series"]) >= 3 for s in specs)
+
+
+def test_okladka_obcej_prezentacji_z_logo_tlem_i_ozdobnikiem(tmp_path):
+    from PIL import Image
+    from pptx import Presentation
+    from pptx.util import Emu
+    cmE = 360000
+    logo = str(tmp_path / "logo.png")
+    Image.new("RGBA", (400, 400), (20, 40, 120, 255)).save(logo)  # logo partnera (granatowe, nie zielone DK)
+    tlo = str(tmp_path / "tlo.png")
+    Image.new("RGB", (800, 450), (200, 180, 160)).save(tlo)
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_picture(tlo, 0, 0, Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE)))  # tło-zdjęcie na cały slajd
+    s.shapes.add_picture(logo, Emu(int(10.5 * cmE)), Emu(int(1.6 * cmE)), Emu(int(4.4 * cmE)), Emu(int(4.4 * cmE)))  # logo partnera
+    s.shapes.add_picture(logo, 0, 0, Emu(int(3.3 * cmE)), Emu(int(14 * cmE)))  # wąski ozdobnik przy krawędzi
+    for y, h, tx, pt in ((6.2, 0.8, "BRIEF WSPÓŁPRACY", 12), (7.1, 1.8, "4 Szpaki × Dobra Kaloria", 40), (9.0, 0.8, "Plan komunikacji na wrzesień", 16)):
+        tb = s.shapes.add_textbox(Emu(int(5 * cmE)), Emu(int(y * cmE)), Emu(int(15 * cmE)), Emu(int(h * cmE)))
+        tb.text_frame.text = tx
+        for r in tb.text_frame.paragraphs[0].runs:
+            from pptx.util import Pt
+            r.font.size = Pt(pt)
+    s2 = prs.slides.add_slide(prs.slide_layouts[6])
+    s2.shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Drugi slajd"
+    p = str(tmp_path / "okl.pptx")
+    prs.save(p)
+    m = pc.extract(p, str(tmp_path / "rob"))
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    c = spec["slides"][0]
+    assert c["type"] == "cover_text" and c["title"] == "4 Szpaki × Dobra Kaloria"
+    assert c["kicker"] == "BRIEF WSPÓŁPRACY" and c["subtitle"] == "Plan komunikacji na wrzesień"
+    assert os.path.isfile(c["logo"])  # logo partnera zostało obrazem w całości (klucz `logo`); tło i ozdobnik pominięte
+    assert any("okładka z jednym dużym tytułem" in u and "logo obcej marki" in u for u in spec["uwagi"])
+    # bez logo (samo tło + ozdobnik): cover_text, nic z obrazów nie zostaje; dwa logo albo szeroki pasek: zwykła droga (niczego nie gubimy)
+    s.shapes._spTree.remove(s.shapes[1]._element)
+    prs.save(p)
+    m2 = pc.extract(p, str(tmp_path / "rob2"))
+    c2 = pc.compose(m2, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})["slides"][0]
+    assert c2["type"] == "cover_text" and c2["title"] == "4 Szpaki × Dobra Kaloria" and "logo" not in c2
+    szeroki = str(tmp_path / "pasek.png")
+    Image.new("RGBA", (1000, 150), (20, 40, 120, 255)).save(szeroki)
+    s.shapes.add_picture(szeroki, Emu(int(5 * cmE)), Emu(int(15 * cmE)), Emu(int(14 * cmE)), Emu(int(2 * cmE)))
+    prs.save(p)
+    m3 = pc.extract(p, str(tmp_path / "rob3"))
+    assert pc.compose(m3, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})["slides"][0]["type"] not in ("cover", "cover_text")
+
+
+def test_poprawka_zdjecie_urwanego_znaka_na_koncu_pola():
+    for a, b in (("BIAŁKO –", "BIAŁKO"), ("pewien manifest –", "pewien manifest"), ("mln,", "mln"), ("Białko:", "Białko"),
+                 ("Białko;", "Białko"), ("Białko —", "Białko"), ("Białko -", "Białko")):
+        assert pc.poprawka_w_granicach(a, b), (a, b)
+    for a, b in (("BIAŁKO – i", "BIAŁKO i"), ("BIAŁKO –", "BIAŁKO."), ("a - b", "a b"), ("–", ""), ("BIAŁKO –", "BIAŁKA"),
+                 ("7,7 mln,", "7,8 mln")):
+        assert not pc.poprawka_w_granicach(a, b), (a, b)  # środek pola, inny znak, puste jest, zmiana cyfry: nie
+
+
+def test_zdjecie_konca_stosowane_i_raportowane_tylko_na_koncu_pola(tmp_path):
+    p = [{"slajd": 1, "bylo": "BIAŁKO –", "jest": "BIAŁKO", "powod": "urwane hasło"}]
+    assert pc._popraw_tekst("Mocne BIAŁKO –", 1, [dict(p[0], status="przyjeta")]) == "Mocne BIAŁKO"
+    assert pc._popraw_tekst("BIAŁKO – to podstawa", 1, [dict(p[0], status="przyjeta")]) == "BIAŁKO – to podstawa"  # w środku: bez zmian
+    zrodlo, wynik = _mini(tmp_path, "z.pptx", "Mocne BIAŁKO –"), _mini(tmp_path, "w.pptx", "Mocne BIAŁKO")
+    model = pc.extract(zrodlo, str(tmp_path / "rob"))
+    mapa = {"1": [0]}
+    cov, wier = pc.coverage(zrodlo, wynik, mapa, rob=str(tmp_path / "rob"), poprawki=p), pc.wiernosc(model, wynik, mapa, poprawki=p)
+    assert cov["poprawki"][0]["status"] == "przyjeta" and cov["procent"] == 100.0 and wier["usterki"] == [] and wier["znaki"] == []
+    # zdjęcie bez wpisu w `poprawki`: coverage liczy tokeny, a `wiernosc` nie zgłasza końcowego znaku z listy jako braku znaku
+    assert pc.coverage(zrodlo, wynik, mapa, rob=str(tmp_path / "rob"))["procent"] == 100.0
+    w0 = pc.wiernosc(model, wynik, mapa)
+    assert w0["znaki"] == [] and w0["usterki"] == []
+    # poprawka z końcowym znakiem, którego `bylo` stoi w środku pola źródła: poza granicami (nie jest stosowana)
+    z2 = _mini(tmp_path, "z2.pptx", "BIAŁKO – to podstawa")
+    cov2 = pc.coverage(z2, _mini(tmp_path, "w2.pptx", "BIAŁKO to podstawa"), mapa, rob=str(tmp_path / "rob2"), poprawki=p)
+    assert cov2["poprawki"][0]["status"] == "poza_granicami"
+    # inny znak (kropka, nawias) zdjęty z końca pola nadal jest brakiem znaku
+    z3, w3 = _mini(tmp_path, "z3.pptx", "To koniec."), _mini(tmp_path, "w3.pptx", "To koniec")
+    m3 = pc.extract(z3, str(tmp_path / "rob3"))
+    assert pc.wiernosc(m3, w3, mapa)["znaki"]
+
+
+def _deck_heatmapa(tmp_path):
+    """Deck: okładka + slajd z mapą cieplną (tabela 5 x 4 z różnymi kolorami komórek), tytuł, wniosek i przypis pod tabelą."""
+    from pptx import Presentation
+    from pptx.dml.color import RGBColor
+    from pptx.util import Emu, Pt
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    s0 = prs.slides.add_slide(prs.slide_layouts[6])
+    s0.shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Okładka"
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    tb = s.shapes.add_textbox(Emu(2 * cmE), Emu(1 * cmE), Emu(28 * cmE), Emu(2 * cmE))
+    tb.text_frame.text = "Wizerunek racjonalny jest zbliżony do konkurencji, ale wyższy w jakości."
+    gt = s.shapes.add_table(5, 4, Emu(2 * cmE), Emu(5 * cmE), Emu(28 * cmE), Emu(8 * cmE))
+    for r in range(5):
+        for c in range(4):
+            cell = gt.table.cell(r, c)
+            cell.text = "%d%%" % (30 + r * 7 + c * 3)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = RGBColor(40 + r * 40, 220 - c * 45, 80 + r * 20)
+    pr = s.shapes.add_textbox(Emu(2 * cmE), Emu(16.5 * cmE), Emu(20 * cmE), Emu(0.8 * cmE))
+    pr.text_frame.text = "N=1156 przypis pod tabelą"
+    p = str(tmp_path / "heat.pptx")
+    prs.save(p)
+    from PIL import Image
+    kat = tmp_path / "render"
+    kat.mkdir()
+    Image.new("RGB", (1600, 900), (230, 240, 230)).save(str(kat / "s02.png"))  # atrapa renderu slajdu 2 źródła
+    return p, str(kat)
+
+
+def test_mapa_cieplna_bez_renderu_to_uwaga_a_z_renderem_zrzut_i_tekst_w_notatkach(tmp_path):
+    p, kat = _deck_heatmapa(tmp_path)
+    m = pc.extract(p, str(tmp_path / "rob"))
+    assert m["slajdy"][1]["tables"][0]["kolory"] >= 6  # wiele kolorów wypełnienia komórek = mapa cieplna
+    spec0 = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    assert any("mapa cieplna" in u and "render_zrodla" in u for u in spec0["uwagi"])  # bez renderu: uwaga, zwykła tabela
+    assert any(s["type"] == "table" for s in spec0["slides"])
+    spec = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path), "render_zrodla": kat})
+    sl = spec["slides"][spec["mapa"]["2"][0]]
+    assert sl["type"] == "uklad" and not any(s["type"] == "table" for s in spec["slides"])
+    pics = [r for r in sl["rows"] if r["k"] == "pics"]
+    assert len(pics) == 1 and os.path.isfile(pics[0]["items"][0]["image"])  # zrzut obszaru jako obraz w całości
+    assert "[Tekst z obszaru zrzutu" in sl["notes"] and "30%" in sl["notes"] and "N=1156" in sl["notes"]  # komórki i przypis w notatkach
+    assert any("zrzut obszaru z oryginału" in u for u in spec["uwagi"])
+    build_dk.build(spec, spec["output"])
+    cov = pc.coverage(p, build_dk.build.last_out, spec["mapa"], rob=str(tmp_path / "rob"))
+    assert cov["procent"] == 100.0, cov["brakuje"]  # tekst zrzutu liczy się przez notatki
+    wier = pc.wiernosc(m, build_dk.build.last_out, spec["mapa"])
+    assert wier["liczby"][0] == wier["liczby"][1], wier["usterki"]
+
+
+def test_render_zrodla_katalog_i_cli_opcja(tmp_path):
+    from PIL import Image
+    Image.new("RGB", (10, 10)).save(str(tmp_path / "s03.png"))
+    Image.new("RGB", (10, 10)).save(str(tmp_path / "s104.png"))
+    assert pc._render_zrodla(str(tmp_path), 3) == str(tmp_path / "s03.png") and pc._render_zrodla(str(tmp_path), 4) is None
+    assert pc._render_zrodla(str(tmp_path), 104) == str(tmp_path / "s104.png")
+    assert pc._render_zrodla(str(tmp_path / "brak"), 3) is None
+
+
+def test_samotny_napis_to_przerywnik_a_liczba_pod_tabela_idzie_do_notatek(tmp_path):
+    # (a) slajd z jednym krótkim napisem (typowy pełnotłowy przerywnik) = section (<= 6 słów) / statement (7-10), nie tytuł nad pustą stroną
+    p = _deck(tmp_path, [[("t", 2, 2, 20, 2, "Okładka", 40)], [("t", 5, 8, 20, 2, "Obsada | VIDEO + FOTO", 40)],
+                         [("t", 3, 8, 24, 2, "Obsada to trzech aktorów, którzy wystąpią w pięciu filmach", 32)],
+                         [("t", 2, 2, 20, 2, "Zwykły slajd", 32), ("t", 2, 6, 20, 1, "treść", 18)],
+                         [("t", 2, 8, 20, 2, "Dziękujemy", 60)]])
+    spec = pc.compose(pc.extract(p, str(tmp_path / "rob")), {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    typy = [s["type"] for s in spec["slides"]]
+    assert typy[1] == "section" and spec["slides"][1]["title"] == "Obsada | VIDEO + FOTO"
+    assert typy[2] == "statement" and typy[3] == "uklad" and typy[4] == "end"  # zwykły slajd i zakończenie bez zmian
+    # (b) sama liczba leżąca na tabeli (plakietka za tabelą) nie jest tytułem: trafia do notatek, a tytuł zostaje tytułem
+    from pptx import Presentation
+    from pptx.util import Emu
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    prs.slides.add_slide(prs.slide_layouts[6]).shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Okładka"
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_textbox(Emu(2 * cmE), Emu(cmE), Emu(26 * cmE), Emu(2 * cmE)).text_frame.text = "Struktura próby opcja I"
+    s.shapes.add_table(3, 2, Emu(2 * cmE), Emu(4 * cmE), Emu(14 * cmE), Emu(4 * cmE))
+    s.shapes.add_textbox(Emu(8 * cmE), Emu(5 * cmE), Emu(cmE), Emu(2 * cmE)).text_frame.text = "2"  # plakietka za tabelą
+    pp = str(tmp_path / "plak.pptx")
+    prs.save(pp)
+    m = pc.extract(pp, str(tmp_path / "rob2"))
+    assert not any(pc._text_of(b) == "2" for b in m["slajdy"][1]["texts"]) and "[Pole liczbowe pod tabelą" in m["slajdy"][1]["notes"]
+    sp = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    assert "2" not in [x.get("title") for x in sp["slides"]] and "Pole liczbowe pod tabelą" in sp["slides"][sp["mapa"]["2"][0]]["notes"]
+
+
+# --- runda 7: slajd z samą listą / akapitami idzie przez te same klocki co dokument (karty, kafle, hasła Mindset) -------------
+def _li(t, pole=1, **kw):
+    return _row("p", t, pole, li=True, **kw)
+
+
+def test_lista_a_krotkie_punkty_to_kafle():
+    # a) 2-6 krótkich punktów (<= 6 słów): kafle z ikoną (wiersze `b` z `li`), nie goła lista Lato
+    out = pc._pojemniki([_li("Duży wybór smaków"), _li("Szybka dostawa"), _li("Bez konserwantów"), _li("Cena jak w sklepie")])
+    assert len(out) == 4 and all(r["k"] == "b" and r.get("li") for r in out)
+
+
+def test_lista_b_grupy_naglowek_i_punkty_to_karta_na_grupe():
+    # b) grupy „nagłówek + punkty” (oferta MP s7 / s10): jedna karta na grupę, nagłówek Mindset (`h`), punkty `li` Lato, karty obok siebie
+    out = pc._pojemniki([_row("b", "Segment 1 i 2", 1), _li("Wiek 25-45 lat"), _li("Kobiety i mężczyźni 50-50%"),
+                         _row("b", "Segment 3", 2), _li("Wiek 35-49 lat"), _li("Rodziny z dziećmi")])
+    assert len(out) == 1 and out[0]["kont"] and len(out[0]["items"]) == 2
+    for it, glowa in zip(out[0]["items"], ("Segment 1 i 2", "Segment 3")):
+        assert it["blocks"][0] == {"k": "h", "t": glowa} and all(b["k"] == "li" for b in it["blocks"][1:]) and len(it["blocks"]) == 3
+    assert not any("•" in b["t"] for it in out[0]["items"] for b in it["blocks"])  # punktor autora nie zostaje w tekście obok ikony
+
+
+def test_lista_c_jeden_dwa_dluzsze_punkty_to_karty_z_haslem_i_dopiskiem():
+    # c) 1-2 dłuższe punkty (MP s8 / s11): karty z blokiem `p` (hasło + dopisek robi S14 w szablonowaniu), nie dwie linie Lato
+    d1 = "Marka Dobra Kaloria jest liderem kategorii roślinnych zamienników mięsa w Polsce i rośnie szybciej niż rynek"
+    d2 = "Wizerunek opakowań wymaga zmiany, bo obecne nie wyróżniają się na półce na tle konkurencji w sklepach"
+    out = pc._pojemniki([_li(d1), _li(d2)])
+    assert len(out) == 1 and out[0]["kont"] and len(out[0]["items"]) == 2
+    assert [it["blocks"][0]["t"] for it in out[0]["items"]] == [d1, d2] and out[0]["items"][0]["blocks"][0]["k"] == "p"
+    out1 = pc._pojemniki([_li(d1)])
+    assert len(out1) == 1 and out1[0]["kont"] and len(out1[0]["items"]) == 1
+
+
+def test_lista_d_dwie_grupy_z_posrednim_naglowkiem_i_dlugie_listy_w_dwoch_kartach():
+    # d) lista 7+ punktów: pośredni nagłówek („Percepcja kulek RAW:”) zaczyna drugą kartę; bez nagłówków podział po słowach na dwie karty
+    out = pc._pojemniki([_row("p", "Ocena nowych opakowań na wymiarach:", 1)] + [_li("Wymiar numer %d oceny opakowania" % i) for i in range(6)] +
+                        [_row("p", "Percepcja kulek RAW:", 2)] + [_li("Skojarzenie %d z produktem" % i) for i in range(3)])
+    assert len(out) == 1 and len(out[0]["items"]) == 2
+    assert [it["blocks"][0]["t"] for it in out[0]["items"]] == ["Ocena nowych opakowań na wymiarach:", "Percepcja kulek RAW:"]
+    assert [len(it["blocks"]) - 1 for it in out[0]["items"]] == [6, 3]
+    dlugie = pc._pojemniki([_li("Punkt numer %d z dłuższym opisem, który ma kilka słów więcej" % i) for i in range(8)])
+    assert len(dlugie) == 1 and len(dlugie[0]["items"]) == 2
+    assert sorted(len(it["blocks"]) for it in dlugie[0]["items"]) == [4, 4] and sum(b["k"] == "li" for it in dlugie[0]["items"] for b in it["blocks"]) == 8
+
+
+def test_lista_e_akapit_przed_lista_to_karta_a_lista_kafle():
+    # e) akapit + lista (MP s3): akapit w karcie nad listą (hasło + dopisek), punkty w kaflach poniżej
+    wstep = "Celem badania jest sprawdzenie, jak konsumenci oceniają nowe opakowania marki Dobra Kaloria na tle konkurencji."
+    out = pc._pojemniki([_row("p", wstep, 1), _li("Atrakcyjność ogólna", 2), _li("Walory smakowe", 2), _li("Wyróżnialność", 2)])
+    assert out[0]["kont"] and out[0]["items"][0]["blocks"][0]["t"] == wstep
+    assert [r["k"] for r in out[1:]] == ["b", "b", "b"] and all(r.get("li") for r in out[1:])
+
+
+def test_lista_z_naglowkiem_typu_lead_i_wspolny_poczatek_punktow():
+    # nagłówek grupy bywa `lead` (Mindset z autora), a punkty o tym samym początku („Znajomość marki (z logo): …”) mają go raz, w nagłówku
+    out = pc._pojemniki([_row("lead", "Ton komunikacji", 1), _li("Żywy, intensywny, barwny"), _li("Kuszący na wymiarze sensorycznym")])
+    assert out[0]["kont"] and out[0]["items"][0]["blocks"][0] == {"k": "h", "t": "Ton komunikacji"}
+    p = ["Znajomość marki (z logo): Marka kupiona przynajmniej raz", "Znajomość marki (z logo): Marka kupiona w ostatnich 3 miesiącach",
+         "Znajomość marki (z logo): Najczęściej kupowana marka"]
+    assert pc._wspolny_naglowek(p) == ("Znajomość marki (z logo):", ["Marka kupiona przynajmniej raz", "Marka kupiona w ostatnich 3 miesiącach",
+                                                                       "Najczęściej kupowana marka"])
+    assert pc._wspolny_naglowek(["A: raz", "B: dwa"]) is None and pc._wspolny_naglowek(["Raz", "Dwa"]) is None
+    out2 = pc._pojemniki([_li(x) for x in p])
+    assert len(out2) == 1 and len(out2[0]["items"]) == 1 and out2[0]["items"][0]["blocks"][0] == {"k": "h", "t": "Znajomość marki (z logo):"}
+
+
+def test_akapity_bez_punktorow_to_karty_z_naglowkiem_grupy():
+    # opis osoby (stylista): „Bartek, 35-40” + akapit + „Występuje: …” = jedna karta z nagłówkiem h; kilka akapitów bez nagłówków = karty
+    opis = "Wrażliwy na ciele i twarzy, czyli raczej delikatnej budowy, choć nie chudzielec. Fajnie jakby był dość charakterystyczny"
+    out = pc._akapity_na_karty([_row("p", "Bartek, 35-40", 1), _row("p", opis, 1), _row("p", "Występuje: Grill, park", 1)], None, None)
+    assert len(out) == 1 and out[0]["kont"] and len(out[0]["items"]) == 1
+    assert [b["k"] for b in out[0]["items"][0]["blocks"]] == ["h", "p", "p"] and out[0]["items"][0]["blocks"][0]["t"] == "Bartek, 35-40"
+    dwa = pc._akapity_na_karty([_row("p", opis, 1), _row("p", "Drugi akapit opisuje inną cechę, równie długi jak ten pierwszy tutaj", 2)], None, None)
+    assert len(dwa) == 1 and len(dwa[0]["items"]) == 2
+    sze = pc._akapity_na_karty([_row("p", "Akapit numer %d ma kilka słów i kończy się kropką." % i, i) for i in range(6)], None, None)
+    assert len(sze) == 1 and len(sze[0]["items"]) == 2
+    assert pc._akapity_na_karty([_row("p", "Za krótko", 1)], None, None) is None  # < 14 słów: zostaje starą drogą
+    assert pc._akapity_na_karty([_row("p", opis, 1)], "karta", None) is None  # akapit po karcie = komentarz pod kartami (stara reguła)
+    assert pc._akapity_na_karty([_row("p", "Źródło: raport", 1), _row("p", opis, 2)], None, None) is None
+
+
+def test_metryczka_ankiety_idzie_drobnym_drukiem_pod_karty():
+    # „P2.” + pytanie i „N=1156” na końcu ciągu nie są treścią karty (hasło „P2.”): drobny druk pod kartami, tekst bez zmian
+    run = [_row("p", "Konsumenci są otwarci na różne przekąski – zarówno słodkie, jak i słone.", 1), _row("p", "P2.", 2),
+           _row("p", "Które z nich jadłeś przynajmniej raz w ciągu miesiąca?", 2), _row("p", "N=1156", 3)]
+    out = pc._pojemniki(run)
+    assert [(r["k"], r["t"]) for r in out[-2:]] == [("small", "P2. Które z nich jadłeś przynajmniej raz w ciągu miesiąca?"), ("small", "N=1156")]
+    assert any(r.get("kont") for r in out[:-2])
+    glowa, ogon = pc._ogon_meta([_row("p", "Po produktach roślinnych sięgają młodzi.", 1), _row("p", "Po co tak?", 2)])
+    assert ogon == [] and len(glowa) == 2  # „Po ...” to nie kod pytania
+    glowa2, ogon2 = pc._ogon_meta([_row("p", "ZP11. Kiedy myślisz o zdrowych przekąskach?", 1), _row("p", "N=948", 2)])
+    assert ogon2 == [] and len(glowa2) == 2  # sama metryczka: nic by nie zostało, więc bez zmian
+
+
+def test_reszta_listy_po_podziale_to_karta_nie_goly_punkt():
+    sp = {"type": "uklad", "rows": [dict(_li("Receptury dające sensoryczną satysfakcję i przyjemność smaku – roślinne zamienniki mięsa oraz zdrowe przekąski, "
+                                             "które umiejętnie naśladują smak i teksturę potraw", 1), k="p")], "title": "BENEFITY: (3/3)"}
+    out = pc._akapity_w_czesci(sp)
+    assert out["rows"][0]["kont"] and out["rows"][0]["items"][0]["blocks"][0]["k"] == "p"
+    gole = {"type": "uklad", "rows": [{"k": "p", "t": "Krótko"}]}
+    assert pc._akapity_w_czesci(gole) is gole
+
+
+def test_logo_dk_po_ksztalcie_napisu_a_nie_po_kolorze(tmp_path):
+    # (g) małe stare logo DK (inny kolor / płytka / wersja) to nie „logo obcej marki”; obce logo (inny kształt) nim jest
+    from PIL import Image, ImageDraw
+    assets = os.path.join(HERE, "..", "assets")
+    for nazwa in ("logo_green_box.png", "logo_green_letters.png", "logo_white_box.png"):
+        assert pc._logo_dk_ksztalt(os.path.join(assets, nazwa)), nazwa
+    obce = Image.new("RGBA", (400, 400), (20, 40, 120, 255))
+    d = ImageDraw.Draw(obce)
+    d.ellipse((60, 60, 340, 340), outline=(255, 255, 255, 255), width=30)
+    d.line((60, 340, 340, 60), fill=(255, 220, 0, 255), width=24)
+    p = str(tmp_path / "obce.png")
+    obce.save(p)
+    assert not pc._logo_dk_ksztalt(p)
+    jednolite = str(tmp_path / "zielone.png")
+    Image.new("RGBA", (400, 300), (15, 118, 62, 255)).save(jednolite)
+    assert not pc._logo_dk_ksztalt(jednolite)  # zielone pole bez napisu to nie logo
+
+
+def test_kolumny_bez_wartosci_w_tabeli_ida_do_notatek_a_nie_na_slajd(tmp_path):
+    # (f) zdanie „Kolumny bez wartości w tabeli: D1…” nie jest treścią slajdu (harmonogram zaznaczony kolorem komórek): notatki; coverage liczy notatki
+    from pptx import Presentation
+    from pptx.util import Emu
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    prs.slides.add_slide(prs.slide_layouts[6]).shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Okładka"
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_textbox(Emu(2 * cmE), Emu(cmE), Emu(26 * cmE), Emu(2 * cmE)).text_frame.text = "Harmonogram badania"
+    tb = s.shapes.add_table(3, 17, Emu(cmE), Emu(4 * cmE), Emu(31 * cmE), Emu(4 * cmE)).table
+    tb.cell(0, 0).text = "Zadanie"
+    for c in range(1, 17):
+        tb.cell(0, c).text = "D%d" % c
+    tb.cell(1, 0).text = "Przygotowanie i akceptacja screenera"
+    tb.cell(2, 0).text = "Realizacja wywiadów"
+    p = str(tmp_path / "harm.pptx")
+    prs.save(p)
+    m = pc.extract(p, str(tmp_path / "rob"))
+    sp = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    sl = sp["slides"][sp["mapa"]["2"][0]]
+    assert "Kolumny bez wartości" not in json.dumps({k: v for k, v in sl.items() if k != "notes"}, ensure_ascii=False)
+    assert "[Kolumny bez wartości w tabeli]" in sl["notes"] and "D1, D2" in sl["notes"] and "D16" in sl["notes"]
+    assert "Przygotowanie i akceptacja screenera" in json.dumps(sl, ensure_ascii=False)
+
+
+def test_tekst_obok_wykresu_idzie_przez_uklad_a_nie_goly_flow(tmp_path):
+    # tekst pozostały po wykresie (wnioski, pytanie ankiety, N=...) = slajd `uklad` z kartami / drobnym drukiem; tytuł dziedziczy z wykresu
+    from pptx import Presentation
+    from pptx.chart.data import CategoryChartData
+    from pptx.enum.chart import XL_CHART_TYPE
+    from pptx.util import Emu
+    cmE = 360000
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Emu(int(33.867 * cmE)), Emu(int(19.05 * cmE))
+    prs.slides.add_slide(prs.slide_layouts[6]).shapes.add_textbox(Emu(2 * cmE), Emu(2 * cmE), Emu(20 * cmE), Emu(2 * cmE)).text_frame.text = "Okładka"
+    s = prs.slides.add_slide(prs.slide_layouts[6])
+    s.shapes.add_textbox(Emu(2 * cmE), Emu(cmE), Emu(24 * cmE), Emu(2 * cmE)).text_frame.text = "Częstotliwość sięgania po przekąski"
+    cd = CategoryChartData()
+    cd.categories = ["Raz dziennie", "Raz w tygodniu", "Raz w miesiącu"]
+    cd.add_series("Total", (0.3, 0.5, 0.2))
+    s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Emu(2 * cmE), Emu(4 * cmE), Emu(14 * cmE), Emu(12 * cmE), cd)
+    tx = s.shapes.add_textbox(Emu(18 * cmE), Emu(4 * cmE), Emu(14 * cmE), Emu(8 * cmE))
+    tx.text_frame.text = "Konsumenci produktów bezmięsnych są bardziej otwarci na różne rodzaje przekąsek, zarówno słodkie, jak i słone.\nP2.\nKtóre z nich jadłeś w ostatnim miesiącu?\nN=1156"
+    p = str(tmp_path / "wykres_tekst.pptx")
+    prs.save(p)
+    m = pc.extract(p, str(tmp_path / "rob"))
+    sp = pc.compose(m, {"wizualizacje": False, "szablonuj": False, "wyjscie": str(tmp_path)})
+    czesci = [sp["slides"][i] for i in sp["mapa"]["2"]]
+    assert czesci[0]["type"] == "columns" and czesci[-1]["type"] == "uklad" and czesci[-1].get("title")  # tytuł: wykres / treść, nie pusty
+    wiersze = czesci[-1]["rows"]
+    assert any(r.get("kont") for r in wiersze) and wiersze[-1]["k"] == "small" and wiersze[-1]["t"] == "N=1156"
+    assert wiersze[-2]["k"] == "small" and wiersze[-2]["t"].startswith("P2. Które z nich")
+
+
+def test_punkt_z_opisem_pod_spodem_to_karta_haslo_i_dopisek_a_wzorce_szablonu_bez_zmian():
+    # punkt, pod nim opis bez punktora, znów punkt i opis: karta na parę (hasło Mindset + dopisek Lato), nie „opis jako nagłówek następnego punktu”
+    wiersze = []
+    for i in range(1, 5):
+        wiersze += [_li("Hasło numer %d" % i, 2 * i), _row("p", "Jedno zdanie rozwinięcia hasła numer %d." % i, 2 * i + 1)]
+    out = pc._pojemniki(wiersze)
+    assert len(out) == 2 and all(len(r["items"]) == 2 for r in out)  # 4 karty: 2 x 2
+    assert out[0]["items"][0]["blocks"][0] == {"k": "h", "t": "Hasło numer 1"} and out[0]["items"][0]["blocks"][1]["t"].startswith("Jedno zdanie")
+    # pole-wzorzec szablonu („[Hasło 1]”) zostaje po staremu: użytkownik i tak wpisze własny tekst
+    wz = pc._pojemniki([_li("[Hasło 1]", 1), _row("p", "[Jedno zdanie rozwinięcia]", 2), _li("[Hasło 2]", 3), _row("p", "[Jedno zdanie rozwinięcia]", 4)])
+    assert not any(r.get("_z_listy") for r in wz)
+    assert pc._akapity_na_karty([_row("p", "[Tytuł]", 1), _row("p", "[Opis: dwa lub trzy zdania o tym, co widać na slajdzie i dlaczego]", 1)], None, None) is None

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tokeny Dobra Kaloria 2.0.9 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
+"""Tokeny Dobra Kaloria 2.0.10 dla Qt/QSS - PLIK GENEROWANY z tokens.json. Użycie: QSS_SZABLON.format(**T).
 
 T              program (biała kartka) - pełny zestaw: kolory, odstępy, czcionki, drabina, tagi
 T_KREM_JASNY   Dobra Kaloria 2 · krem, jasny   (role + drabina + tagi; nazwy jak w T)
@@ -252,7 +252,7 @@ T = {
     "color_switch_knob": '#FFFFFF',
     "color_btn2_bg": '#FFFFFF',
     "color_btn2_text": '#222222',
-    "color_btn2_border": '#222222',
+    "color_btn2_border": '#868E96',
     "color_btn2_hover_bg": '#F6F2EF',
     "color_step_active_bg": '#007936',
     "color_step_active_text": '#FFFFFF',
@@ -356,7 +356,7 @@ T_KREM_JASNY = {  # krem-jasny (semantic-krem-jasny): role kolorów, drabina, ta
     "color_switch_knob": '#FFFFFF',
     "color_btn2_bg": '#FFFFFF',
     "color_btn2_text": '#222222',
-    "color_btn2_border": '#222222',
+    "color_btn2_border": '#868E96',
     "color_btn2_hover_bg": '#F6F2EF',
     "color_step_active_bg": '#007936',
     "color_step_active_text": '#FFFFFF',
@@ -460,7 +460,7 @@ T_ZIELEN_JASNY = {  # zielen-jasny (semantic-zielen-jasny): role kolorów, drabi
     "color_switch_knob": '#FFFFFF',
     "color_btn2_bg": '#FFFFFF',
     "color_btn2_text": '#222222',
-    "color_btn2_border": '#222222',
+    "color_btn2_border": '#868E96',
     "color_btn2_hover_bg": '#F6F2EF',
     "color_step_active_bg": '#007936',
     "color_step_active_text": '#FFFFFF',

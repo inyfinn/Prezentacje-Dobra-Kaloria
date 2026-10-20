@@ -38,6 +38,20 @@ NEGATYWNE = re.compile(r"ślepy zaułek|odjechał|zła wiadomość|zagroż", re.
 _JEDN = r"(?:(?:mln|mld|tys\.?)(?:\s?zł)?|%|zł|g/kg|kg|g|lat)"
 _LICZBA = re.compile(r"[+~≈]?\d+(?:[.,]\d+)?(?:\s?[–-]\s?\d+(?:[.,]\d+)?)?\s?" + _JEDN + r"(?![\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ/])", re.I)
 
+# 13.10 (K1 / K2): hasło nie kończy się urwanym znakiem („BIAŁKO –”, „…TO 7,7 MLN,”) i nie powtarza liczby-bohatera stojącej nad nim.
+# Interpunkcję liczy kontrola wierności (`pptx_convert.wiernosc`, linia „Kontrola układu: … znaki N”; testy i bramka „znaki 0”),
+# więc zdejmowanie przecinka / myślnika z hasła zostaje WYŁĄCZONE, dopóki ta kontrola nie zna zdjętych znaków. Włączone
+# (ZDEJMIJ_ZNAKI = True): końcowy przecinek / myślnik hasła i pasa znika, a liczba z przyimkiem („o 7,8%”) przechodzi do hero.
+# Wyłączone: zdejmowane jest tylko to, co nie rusza interpunkcji (liczba z początku hasła, liczba z końca bez przecinka).
+ZDEJMIJ_ZNAKI = True
+MYSLNIKI = ("-", "–", "—")
+PRZYIMKI_Z_LICZBA = ("o", "do", "ok.", "około", "ponad", "blisko", "prawie", "niemal", "z", "ze", "od", "na", "po", "za")  # przechodzą do hero z liczbą
+KONIEC_ZLY = {"to", "jest", "są", "wynosi", "wynoszą", "ma", "mają", "był", "była", "było", "były", "będzie", "się", "by", "i", "a", "oraz",
+              "że", "lub", "albo", "ale", "czy", "który", "która", "które", "co", "jak", "gdy", "ten", "ta", "te"} | set(PRZYIMKI_Z_LICZBA) | \
+    {"w", "we", "u", "dla", "przez", "pod", "nad", "przy", "bez", "między"}  # hasło po zdjęciu liczby nie może się na tym kończyć
+SKROTY_KONCA = {"mln", "mld", "tys", "zł", "lat", "proc", "szt", "kg"}  # skróty z < 4 liter, które domykają frazę
+KRAWEDZIE = ".,;:!?…–—-"  # znaki brzegowe pomijane przy porównaniu zestawów słów (slowa) - dla zdjętych w K1 / K2
+
 CALE = 12
 HMIN = 4
 HMAX = 15
@@ -179,6 +193,72 @@ def liczba_bohater(p):
     return (m3 or wyb).group(0).strip()
 
 
+def _koniec_ok(w):
+    """Czy hasło może się kończyć na tym słowie: nie czasownik-łącznik / spójnik / zaimek / przyimek (lista zamknięta `KONIEC_ZLY`),
+    a samo słowo ma >= 4 litery albo jest skrótem z kropką („r.”, „tys.”) / z listy `SKROTY_KONCA` („mln”, „zł”)."""
+    x = w.strip(",;:").lower()
+    if not x or x in KONIEC_ZLY:
+        return False
+    lit = sum(1 for c in x if c.isalpha())
+    return lit >= 4 or (x.endswith(".") and lit >= 1) or x.rstrip(".") in SKROTY_KONCA
+
+
+def bez_liczby(p, liczba, zdejmij=None):
+    """K2 (zawężone w rundzie 2): hasło (t, wyr) nie powtarza liczby-bohatera `liczba` (tekst ze `liczba_bohater`) pod `hero` TYLKO wtedy,
+    gdy po jej zdjęciu zostaje domknięta fraza. Zwraca (t, wyr, tekst_hero) albo None (wtedy hasło zostaje z liczbą, a hero się powtarza).
+    (a) liczba (pojedyncza, nie zakres) na KOŃCU hasła poprzedzona przyimkiem z `PRZYIMKI_Z_LICZBA` („o 7,8%”, „do 30%”, „ok. 30%”, „ponad
+        50%”): przyimek przechodzi z liczbą do hero, a ostatnie słowo hasła spełnia `_koniec_ok`; „z X do Y” zostaje. Końcowa kropka zostaje
+        przy poprzednim słowie, końcowy przecinek / średnik / dwukropek znika tylko przy `zdejmij` (inaczej None: interpunkcja).
+    (b) liczba na POCZĄTKU hasła z myślnikiem („80% - grupa 1 jak powyżej” -> „Grupa 1 jak powyżej”): tylko przy `zdejmij` (myślnik znika).
+    Czasownik przed liczbą („wynosi 23%”, „to 7,7 mln”), liczba w środku zdania, zakres - bez zmian. zdejmij=None -> `ZDEJMIJ_ZNAKI`.
+    Słowa nie giną: tekst hero jest częścią zestawu słów (`slowa`, klucz `zast`)."""
+    zd = ZDEJMIJ_ZNAKI if zdejmij is None else zdejmij
+    t, w = p
+    toks = t.split()
+    lt = liczba.split()
+    n = len(lt)
+    if not lt or len(toks) < n + 2 or re.search(r"\d\s?[\u2013\u2014-]\s?\d", liczba):  # zakres („21–22 mln”) zostaje w haśle
+        return None
+
+    def kon(x):  # token bez końcowej interpunkcji
+        return x.rstrip(".,;:!?…")
+
+    def zgodne(seg):
+        return len(seg) == n and [x.lower() for x in seg[:-1]] == [x.lower() for x in lt[:-1]] and kon(seg[-1]).lower() == lt[-1].lower()
+
+    def wyr(a, b):
+        return w[a:b] if w else None
+    # --- (b) początek z myślnikiem ---
+    if zgodne(toks[:n]):
+        if not zd or toks[n - 1] != kon(toks[n - 1]) or n >= len(toks) or toks[n] not in MYSLNIKI:
+            return None
+        reszta = toks[n + 1:]
+        if len(reszta) < 2:
+            return None
+        reszta = [reszta[0][:1].upper() + reszta[0][1:]] + reszta[1:]
+        nw = wyr(n + 1, len(toks))
+        return " ".join(reszta), (nw if nw and set(nw) != {"-"} else None), liczba
+    # --- (a) koniec poprzedzony przyimkiem ---
+    if zgodne(toks[-n:]):
+        ogon = toks[-1][len(kon(toks[-1])):]
+        przed = toks[:-n]
+        if len(przed) < 4 or przed[-1].lower() not in PRZYIMKI_Z_LICZBA:
+            return None
+        if przed[-1].lower() == "do" and przed[-3].lower() in ("z", "od"):  # „z 4,2% do 11,6%”
+            return None
+        prep = przed[-1]
+        przed = przed[:-1]
+        if not _koniec_ok(przed[-1]):
+            return None
+        if any(c in ",;:" for c in ogon) and not zd:
+            return None
+        if ogon[:1] in (".", "!", "?"):
+            przed = przed[:-1] + [przed[-1] + ogon[0]]  # kropka kończąca zdanie zostaje przy poprzednim słowie
+        nw = wyr(0, len(przed))
+        return " ".join(przed), (nw if nw and set(nw) != {"-"} else None), prep + " " + liczba
+    return None
+
+
 def tekst_karty(item):
     return " ".join(b.get("t", "") for b in item["blocks"] if b["k"] in ("h", "lead", "p", "b", "li", "hero"))
 
@@ -254,6 +334,65 @@ def opis_wzorow(decyzje, limit=12):
     return "; ".join(wid[:limit]) + ("; …i %d innych (decyzje-szablon.json)" % reszta if reszta > 0 else "")
 
 
+def _znaki(sp, bez_hero=False):
+    """Liczniki znaków interpunkcji (jak `pptx_convert._interp`: bez liter, cyfr i spacji; myślniki -> „-”, „…” -> „...”) ze wszystkich
+    tekstów slajdu `uklad` (t, title, kicker, author, label), także z hero."""
+    out = collections.Counter()
+
+    def walk(o):
+        if isinstance(o, dict):
+            if bez_hero and o.get("k") == "hero":
+                return
+            for kk, v in o.items():
+                if kk in ("t", "title", "kicker", "author", "label") and isinstance(v, str):
+                    t = re.sub(r"[–—−‑]", "-", v.lower().replace("\xa0", " ")).replace("…", "...")
+                    out.update(re.findall(r"[^\w\s]", t))
+                elif kk in ("rows", "items", "blocks"):
+                    walk(v)
+        elif isinstance(o, list):
+            for x in o:
+                walk(x)
+    walk({"title": sp.get("title"), "kicker": sp.get("kicker"), "rows": sp.get("rows", [])})
+    return out
+
+
+def _bez_konca(t, wyr=None):
+    """K1: tekst bez urwanego końca: końcowy myślnik (osobny token) i końcowy przecinek / średnik znikają. (tekst, wyr)."""
+    toks = t.split()
+    w = wyr if wyr and len(wyr) == len(toks) else None
+    while len(toks) > 1 and toks[-1] in MYSLNIKI:
+        toks.pop()
+        w = w[:-1] if w else None
+    if toks:
+        toks[-1] = toks[-1].rstrip(",;") or toks[-1]
+    return " ".join(toks), (w if w and set(w) != {"-"} else None)
+
+
+def _k1(rows):
+    """K1 (tylko `ZDEJMIJ_ZNAKI`): pasy `band`, nagłówki `h` i hasła `lead` nie kończą się myślnikiem ani przecinkiem. Liczba zmian."""
+    ile = 0
+
+    def bloki(o):
+        nonlocal ile
+        for b in o:
+            if b.get("k") in ("lead", "h", "band") and isinstance(b.get("t"), str) and b["t"].strip():
+                t, w = _bez_konca(b["t"], b.get("wyr"))
+                if t != b["t"]:
+                    b["t"] = t
+                    b.pop("wyr", None)
+                    if w:
+                        b["wyr"] = w
+                    ile += 1
+    if not ZDEJMIJ_ZNAKI:
+        return 0
+    bloki(rows)
+    for r in rows:
+        if r.get("k") == "cols":
+            for it in r["items"]:
+                bloki(it["blocks"])
+    return ile
+
+
 def _placeholder(sp):
     """Slajd z placeholderami szablonu: jakikolwiek tekst z „[” albo „]” (prezentacja „onlien”: „[Tytuł z hasłem]”). Taki slajd
     zostaje jak przed szablonowaniem - nic nie hasłujemy, nie robimy z tego kafli ani liczb."""
@@ -315,6 +454,10 @@ def stosuj(sp, n=0, wstrzymane=None, ikony_kart=True, opcje=None):
     rows = _s6_kv(rows, note)
     rows = _s1_wiersze(rows, note)
     rows = _karty(new, rows, note, st)
+    if dec and _k1(rows):
+        # K1 nie jest osobnym wzorem szablonu: decyzja dostaje wzór reguły, na której stoi slajd (kontrakt: każda decyzja ma `wzor`)
+        wz1 = next((d["wzor"] for d in dec if d.get("wzor")), None) or wzor("haslowanie")
+        dec.append({"slajd": n, "wzorzec": "urwane-haslo", "wzor": wz1, "opis": "hasło / pas bez końcowego myślnika i przecinka (K1)"})
     if not dec:
         return None, []
     if ikony_kart and "IKONY-TAK" not in st and "BEZ-IKON" not in st and len(rows) >= 4:
@@ -326,15 +469,24 @@ def stosuj(sp, n=0, wstrzymane=None, ikony_kart=True, opcje=None):
     new["valign"] = "t"  # S12: treść startuje pod tytułem, wolne miejsce zostaje na dole (jak s21 / s38 szablonu)
     if slowa(sp) != slowa(new):
         return None, []
+    if ZDEJMIJ_ZNAKI:  # K1 / K2: które znaki interpunkcji zniknęły ze slajdu (do kontroli wierności: `zdjete_znaki`, napis)
+        brak = _znaki(sp) - _znaki(new)
+        if brak:
+            new["zdjete_znaki"] = "".join(c * k for c, k in sorted(brak.items()))
     return new, dec
 
 
 # --- kontrola: zadne slowo nie zginelo i nie doszlo (poza liczba-bohaterem, ikonami i slupkami) ------------------------
 def slowa(sp):
+    """Zestaw słów slajdu (posortowany, małe litery, bez brzegowej interpunkcji `KRAWEDZIE`) bez hero / słupków / ikon / obrazów.
+    Wyjątek: hero z `zast` (liczba wyjęta z hasła, K2) liczy się jak słowa hasła, z którego ją wyjęto."""
     out = []
 
     def walk(o):
         if isinstance(o, dict):
+            if o.get("k") == "hero" and o.get("zast"):
+                out.extend((o.get("t") or "").split())
+                return
             if o.get("k") in ("hero", "bars", "icon", "img"):
                 return
             for kk, v in o.items():
@@ -347,7 +499,8 @@ def slowa(sp):
                 out.extend(x.replace("\xa0", " ").split()) if isinstance(x, str) else walk(x)
 
     walk({"title": sp.get("title"), "kicker": sp.get("kicker"), "rows": sp.get("rows", [])})
-    return sorted(w.lower() for w in out)
+    norm = (w.strip(KRAWEDZIE).lower() for w in out)
+    return sorted(w for w in norm if w)
 
 
 # --- S3: nagłówek slajdu na tytuł --------------------------------------------------------------------------------------
@@ -910,7 +1063,16 @@ def _bohaterowie(items, note):
         if not liczba:
             continue
         i = next(j for j, b in enumerate(it["blocks"]) if b["k"] == "lead")
-        it["blocks"].insert(i, {"k": "hero", "t": liczba})
+        hero = {"k": "hero", "t": liczba}
+        r2 = bez_liczby(para(it["blocks"][i]), liczba)  # K2: liczba stoi nad hasłem, nie powtarza się w nim
+        if r2:
+            lead = dict(it["blocks"][i], t=r2[0])
+            lead.pop("wyr", None)
+            if r2[1]:
+                lead["wyr"] = r2[1]
+            it["blocks"][i] = lead
+            hero = {"k": "hero", "t": r2[2], "zast": True}
+        it["blocks"].insert(i, hero)
         he.add(k)
     note("fakt-z-liczba", "%d karty obok siebie, liczba z jednostką w haśle %d -> liczba-bohater nad hasłem" % (n, len(he)))
     return he
@@ -1064,7 +1226,32 @@ def _liczba_h(it):
 
 
 # --- S12: wysokość kart -------------------------------------------------------------------------------------------------
+PUSTY_PAS_MAX = 0.35  # K4: pusty pas pod treścią najwyżej tyle pola treści; więcej -> blok treści wyśrodkowany w pionie
+
+
 def rozloz(sp, build_dk):
+    """S12 + K4: `min_h` kart (`_rozloz_kart`), a gdy pod treścią i tak zostaje > 35% pola, blok treści stoi na środku pola
+    (`valign: m`) - o ile pasy nad i pod nie robią z tego „pływającej treści” (PLYWAJACA_TRESC)."""
+    return _wysrodkuj(_rozloz_kart(sp, build_dk), build_dk)
+
+
+def _wysrodkuj(sp, build_dk):
+    """K4 (13.10): pojedyncza karta / krótka treść nie zostawia pustego dołu slajdu > PUSTY_PAS_MAX pola treści: `valign: m`, gdy
+    wolne miejsce da się rozdzielić tak, że pas nad i pod treścią jest < PLYWA_PAS wysokości slajdu. Slajd z wierszem
+    elastycznym (obrazy) wypełnia pole sam, bez zmian."""
+    ms, _f = build_dk.uklad_layout(sp)
+    H = getattr(build_dk, "H", None)
+    if ms is None or not H or sp.get("valign") == "m" or any(m.get("flex") for m in ms):
+        return sp
+    avail = build_dk.CB - build_dk.uklad_top(sp) - (build_dk.cm(0.25) if sp.get("source") else 0)
+    total = sum(m["h"] for m in ms) + sum(m["gap"] for m in ms[1:])
+    wolne = avail - total
+    if avail <= 0 or wolne / avail <= PUSTY_PAS_MAX or wolne / 2 >= PLYWA_PAS * H:
+        return sp
+    return dict(sp, valign="m")
+
+
+def _rozloz_kart(sp, build_dk):
     """S12: `valign: t` (ustawione w stosuj) i `min_h` kart tak, by karty + pasy zajęły >= 65% pola treści (bez rozciągania
     kart z obrazami). Zwraca slajd z `min_h` albo ten sam, gdy układ się nie mieści / nie ma czego rozciągać."""
     ms, f = build_dk.uklad_layout(sp)
@@ -1190,9 +1377,10 @@ def ocena(sp, build_dk=None):
             chs_all += chs
         for i, (parts, iw) in enumerate(m["cols"]):
             inner = m["hs"][i] - 2 * m["pad"] - m["tag_h"] - m["meta_h"]
-            if ncol >= 2 and karty and inner > 0 and (1 - m["chs"][i] / inner) > KARTA_PUSTA_UL:
-                zgloś("KARTA_PUSTA", "karta jest pusta w %d%%" % round(100 * (1 - m["chs"][i] / inner)))
-                pusta_max = max(pusta_max, 1 - m["chs"][i] / inner)
+            pusta = (1 - m["chs"][i] / inner) / (2 if (m.get("vc") or [False] * ncol)[i] else 1) if inner > 0 else 0.0  # K3: wyśrodkowana = połowa
+            if ncol >= 2 and karty and inner > 0 and pusta > KARTA_PUSTA_UL:
+                zgloś("KARTA_PUSTA", "karta jest pusta w %d%%" % round(100 * pusta))
+                pusta_max = max(pusta_max, pusta)
             ma_haslo = False
             hp, dp = [], []
             for kind, _y, _h, d in parts:
@@ -1235,7 +1423,7 @@ def ocena(sp, build_dk=None):
     if slowa_l >= 20 and slowa_l / max(1, slowa_l + slowa_m) > LATO_UL:
         kary["ZA_DUZO_LATO"] += 1
         opisy["ZA_DUZO_LATO"] = "Lato to %d%% słów w kartach (próg %d%%)" % (round(100.0 * slowa_l / (slowa_l + slowa_m)), round(100 * LATO_UL))
-    if avail > 0 and (avail - total) / avail > PUSTY_DOL_UL and pod_gora:
+    if avail > 0 and (avail - total) / avail > PUSTY_DOL_UL and pod_gora and sp.get("valign") != "m":  # K4: wyśrodkowany blok nie ma „pustego dołu”
         kary["PUSTY_DOL"] += 1
         opisy["PUSTY_DOL"] = "%d%% pola treści pod kartami jest puste" % round(100.0 * (avail - total) / avail)
     H = getattr(bd, "H", None)
@@ -1329,6 +1517,42 @@ def _nazwa(opcje):
          "h_wiersz": lambda v: "nagłówek: %s" % ("wiersz nad kartami" if v else "w karcie"),
          "zdania": lambda v: "kolejne zdania: %s" % ("dopisek" if v == "dopisek" else "punkty"), "pad": lambda v: "pad kart x%s" % v}
     return "; ".join(t[k](opcje[k]) for k in ("ikony", "siatka", "h_wiersz", "zdania", "pad") if k in opcje)
+
+
+def _memo(fn):
+    """Pamięć podręczna czystej funkcji pomiaru tekstu (wynik-lista wraca jako kopia). Idempotentne (`_dk_memo`: ten sam znacznik
+    ma kopia w `dokument.py`, więc obie nigdy nie opakują funkcji dwa razy). Argumenty niehaszowalne = wołanie wprost."""
+    if getattr(fn, "_dk_memo", False):
+        return fn
+    cache = {}
+
+    def w(*a, **kw):
+        try:
+            k = (a, tuple(sorted(kw.items())))
+            r = cache.get(k)
+        except TypeError:
+            return fn(*a, **kw)
+        if r is None:
+            if len(cache) > 300000:
+                cache.clear()
+            r = cache[k] = fn(*a, **kw)
+        return list(r) if isinstance(r, list) else r
+    w._dk_memo = True
+    w.__wrapped__ = fn
+    return w
+
+
+def przyspiesz_pomiar(bd=None):
+    """Pomiar tekstu (PIL.ImageFont.getlength) to większość czasu składania slajdów: te same słowa mierzone dziesiątki tysięcy razy.
+    Funkcje `build_deck.text_w_emu` / `wrap_lines` i `build_dk.lines_for` / `display_lines` są czyste, więc opakowujemy je pamięcią
+    podręczną na czas życia procesu (bez edycji plików buildera). Wspólny pomocnik dla `pptx_convert.compose` i `dokument.zloz`."""
+    import build_deck
+    bd = bd or _bd()
+    for mod, nazwy in ((build_deck, ("text_w_emu", "wrap_lines")), (bd, ("lines_for", "display_lines"))):
+        for n in nazwy:
+            f = getattr(mod, n, None)
+            if f is not None:
+                setattr(mod, n, _memo(f))
 
 
 @contextlib.contextmanager

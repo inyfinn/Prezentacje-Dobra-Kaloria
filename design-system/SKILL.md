@@ -21,7 +21,7 @@ Wzorzec do porównania: `preview/sklep.html` (zrzuty `preview/shots/70-sklep-*.p
 2. W komponentach używasz ról (`--dk-color-text`, `--dk-color-surface-2`), nie prymitywów i nie wartości na sztywno.
 3. **Okno jest BIAŁE (L0 `#FFFFFF`), bieli jest najwięcej.** Sekcja = panel L1 (jasnoszary ciepły) bez obrysu i cienia;
    w panelu leżą BIAŁE karty i pola (L2); ecru i beż dopiero jako kolejny poziom kafla (L3 w karcie, L4 w kaflu).
-   Beż, ecru ani szary nigdy jako tło okna. Biała karta wprost na białym tle: linia 1 px `border`. Każde tło z drabiny
+   **Krem/ecru NIGDY na szarym panelu L1 (S20, 19.10.2026): tam wszystko białe.** Beż, ecru ani szary nigdy jako tło okna. Biała karta wprost na białym tle: linia 1 px `border`. Każde tło z drabiny
    według głębokości (poziom = rodzic + 1); L2 jest JAŚNIEJSZY od L1. Nakładki (menu, lista, podpowiedź, modal) = rola
    `overlay` + cień, nie L4. Tagi tylko z generatora (odcień stylu), nigdy stałe barwy.
 4. **Tekst i tytuły prawie czarne (`#222222`), pomocniczy `#666666`; brąz nie jest kolorem tekstu w stylach jasnych.**
@@ -37,6 +37,15 @@ Wzorzec do porównania: `preview/sklep.html` (zrzuty `preview/shots/70-sklep-*.p
    wnętrze BIAŁE zawsze**, obrys `#868E96`, zaznaczony = zielony obrys i zielony znak. Kółko tylko: awatar, kropka, gałka, radio.
    Style ciemne zostają bez zmian (brak dowodu ze sklepu). `--check` pilnuje: biały L0, biały L2, neutralny tekst, zielony akcent.
 
+9. **Każdą poprawkę stylu od usera zapisuj OD RAZU** w `ZALECENIA-USERA.md` (cytat + reguła S-numer), zanim
+   wrócisz do pracy (decyzja usera 19.10.2026: „wszystkie poprawki do stylu zapisuj od razu w skillu”). Reguły S20-S35:
+   krem nie na szarym, liczba po prawej ze schowanym „/ 11”, bez liczników na końcu punktów, nagłówek ogólny / karta
+   szczegółowa, oddech, spokojne statusy, karta wyboru, suwak DS, polska typografia, przyciski z napisem, bez ramki w ramce (S30), raport jak dokument bez paska bocznego (S31), fade in/out (S32), zawsze wyjście (S33), ~96 px między grupami (S34), siatka bez pustych pól (S35). Dalej S36-S60 (np. S58 bez pastelowych kafli-przycisków,
+   S59 lżejszy obrys przycisku drugorzędnego, S60 ~70 px między krokami ekranu) - pełna lista w `ZALECENIA-USERA.md`.
+   Gdy poprawka usera zmienia sposób budowania ekranu (nie tylko kolor), dopisz też wzorzec z przepisem do
+   `components.md` (rozdz. 26 i dalsze) i wiersz do tabeli „Rób / Nie rób” w `IDENTYFIKACJA-WIZUALNA.md` rozdz. 11 -
+   wtedy następna aplikacja ma to od początku. Zmiana wartości = `tokens.json` + `build_tokens.py` + podbicie wersji.
+
 ## Najczęstsze zadania
 
 | Zadanie | Kroki |
@@ -47,6 +56,7 @@ Wzorzec do porównania: `preview/sklep.html` (zrzuty `preview/shots/70-sklep-*.p
 | Zrzuty wzorca „sklep” | `python scripts/zrzuty_sklep.py` -> `preview/shots/70-sklep-*.png`, `71-sklep-*.png` (strona `preview/sklep.html`) |
 | Wartości drabiny w konsoli | `python scripts/build_tokens.py --ladder` |
 | Sprawdzenie kontrastu, drabiny i reguł 2.0 | `python scripts/build_tokens.py --check` (556 sprawdzeń, błędów: 0; pilnuje: biały L0, biały L2, neutralny tekst, zielony akcent) |
+| Ekran z ustawieniami, tryb prosty / zaawansowany, wybór formatu lub opcji, okno ustawień | `components.md` rozdz. 26 (wzorce z 20.10.2026: pigułki zamiast kolorowych kafli i zwijających się list, „Więcej ustawień”, karty zwijane, okno ustawień jako strona, karty liczb, kroki-linia, ~70 px między krokami) |
 | Checkbox / radio / suwak / przełącznik / przycisk drugorzędny / krokomierz / kółko ikony | `components.md` rozdz. 25 (przepisy 2.0, web CSS + Qt QSS); rozdz. 24 to wersja 1.6.0 (kolory nieaktualne) |
 | Skala tekstu i odstępy Qt (z programu) | `components.md` sekcja 23, tokeny `qt.*` (od 1.5.0) |
 | Ikona nowej aplikacji | wpis w `APPS`, `python scripts/ikony_aplikacji.py` |

@@ -205,7 +205,10 @@ def lines_for(text, size, w, font="body"):
         ls = _wrap_nb(para, size, int(w * 0.96), meas) if NBSP in para else bd.wrap_lines(para, size, int(w * 0.96), meas)
         if len(ls) >= 2 and len(ls[-1].split(" ")) == 1 and len(ls[-2].split(" ")) > 2:
             prev = ls[-2].split(" ")
-            ls[-2], ls[-1] = " ".join(prev[:-1]), prev[-1] + " " + ls[-1]
+            # 13.10 (K5): słowo schodzi do ostatniej linii tylko, gdy ta się zmieści (bez sprawdzenia „też zapotrzebowanie” 122,9 pt w polu
+            # 120,5 pt: PowerPoint łamał ją jeszcze raz - verify PRZEPELNIENIE +15 / +16 pt)
+            if bd.text_w_emu((prev[-1] + " " + ls[-1]).replace(NBSP, " "), size, meas) <= int(w * 0.96):
+                ls[-2], ls[-1] = " ".join(prev[:-1]), prev[-1] + " " + ls[-1]
         out.extend(ls)
     return out
 
@@ -233,6 +236,11 @@ def txt(s, x, y, w, h, text, size, color="ink", font="body", align="l", anchor="
     if isinstance(text, str):
         text = lines_for(text, size, w, font) if (wrap and font != "display") else text.split("\n")
     ref, _, bold = FONT_REF[font]
+    if line:
+        # 13.10 (K5, zmierzone przez verify.ps1 na PowerPoincie): PowerPoint zaokrągla skok linii (spcPts) do pełnego punktu -
+        # 27,54 pt -> 28 pt (+0,46 pt na linię: 5 linii = „PRZEPELNIENIE +2pt”), a pole mierzy jeszcze 0-1 pt nad ostatnią linią.
+        # Wysokość pola = liczba linii x zaokrąglony skok + 1 pt; układ slajdu liczy dalej z nominalnego skoku (różnica < 0,5 pt / linię).
+        tb.height = Emu(int(max(h, (len(text) * round(line) + 1) * 12700, 10)))
     for i, ln in enumerate(text):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.alignment = {"l": PP_ALIGN.LEFT, "c": PP_ALIGN.CENTER, "r": PP_ALIGN.RIGHT}[align]
@@ -274,6 +282,42 @@ def _orphan(ls):
     return len(ls[-2].split(" ")) >= 3 or len(ls[-1].strip("?!.,")) <= 4
 
 
+def _lamanie_rowne(text, size, w, k):
+    """K5 (13.10): to samo hasło w dokładnie k liniach, ale z najrówniejszym łamaniem (minimum sumy kwadratów luzu wierszy poza
+    ostatnim) i ostatnią linią z >= 2 tokenami; None, gdy się nie da. Wołane tylko, gdy zwykłe łamanie zostawiło sierotę
+    („…sprawna / satysfakcjonującą.”): linie wyżej oddają słowo, a nie linia z jednym słowem."""
+    tk = bd.typo_tokens(text)
+    n = len(tk)
+    if n < 3 or k < 2 or n < 2 * k - 1:
+        return None
+    szer = {}
+
+    def sz(a, b):
+        if (a, b) not in szer:
+            szer[(a, b)] = bd.text_w_emu(" ".join(tk[a:b]), size, "Mindset")
+        return szer[(a, b)]
+    INF = float("inf")
+    best = [[INF] * (n + 1) for _ in range(k + 1)]
+    prv = [[0] * (n + 1) for _ in range(k + 1)]
+    best[0][0] = 0.0
+    for j in range(1, k + 1):
+        for b in range(j, n + 1):
+            for a in range(j - 1, b):
+                if best[j - 1][a] == INF or sz(a, b) > w or (j == k and (b != n or b - a < 2)):
+                    continue
+                c = best[j - 1][a] + (0.0 if j == k else ((w - sz(a, b)) / w) ** 2)
+                if c < best[j][b]:
+                    best[j][b], prv[j][b] = c, a
+    if best[k][n] == INF:
+        return None
+    out, b = [], n
+    for j in range(k, 0, -1):
+        a = prv[j][b]
+        out.append(" ".join(tk[a:b]))
+        b = a
+    return out[::-1]
+
+
 def display_lines(text, size, w, balance=True):
     """Łamanie nagłówka Mindset. balance: linie wyrównane długością (bez sieroty 'W / DIECIE?') - zwężamy
     szerokość, dopóki liczba linii się nie zmienia (29.09)."""
@@ -297,6 +341,10 @@ def display_lines(text, size, w, balance=True):
         elif len(tk) <= 2:  # krótki nagłówek („W / DIECIE?”): przedostatnia linia po słowie w linii
             best = best[:-2] + tk + best[-1:]
         # 3+ słowa i para się nie mieści: zostaje jak jest (słowo po słowie dawało 4 linie: „WHO / (2023) / ZALECA / …”)
+        if _orphan(best):  # 13.10 (K5): sierota nadal jest -> równe łamanie w tej samej liczbie linii (ostatnia linia >= 2 słowa)
+            r = _lamanie_rowne(text, size, w, len(best))
+            if r and not _orphan(r):
+                best = r
     return best
 
 
@@ -700,11 +748,36 @@ def s_cover(deck, sp):
         scene(s, pack, cx, cm(12.1), h, props, rot=-4, avoid=[(0, 0, pw, H), (pw, 0, W, cm(5.2))])
 
 
+LOGO_OBCE_H = cm(3.5)  # logo obcej marki na okładce (`cover_text`, klucz `logo`): najwyżej tyle wysokości
+
+
+def _logo_obce(s, sp, x, y, wmax, na_zieleni=False):
+    """Logo obcej marki (klucz specu `logo` = ścieżka PNG; opcjonalny): wysokość <= 3,5 cm, proporcje zachowane, bez cienia i bez
+    obrotu, lewy górny róg w (x, y). Na zieleni stoi na białej kafelce. Zwraca y końca logo (y, gdy brak logo / pliku)."""
+    p = sp.get("logo")
+    if not p or not os.path.exists(p):
+        return y
+    try:
+        r = img_ratio(p)
+    except Exception:
+        return y
+    pad = cm(0.35) if na_zieleni else 0
+    h = min(LOGO_OBCE_H - 2 * pad, (wmax - 2 * pad) / r)
+    w = h * r
+    if na_zieleni:
+        card(s, x, y, w + 2 * pad, h + 2 * pad, "white")
+    pic = s.shapes.add_picture(p, Emu(int(x + pad)), Emu(int(y + pad)), Emu(int(w)), Emu(int(h)))
+    pic.name = "!!logo-obce"
+    return y + h + 2 * pad
+
+
 def s_cover_text(deck, sp):
     """Powitanie BEZ PRODUKTU (variant 1-3): spotkania, raporty, prezentacje firmowe.
     1: podział 50/50 jak wzór - logo na zieleni, tytuł + podtytuł po prawej
     2: cała zieleń, logo u góry, duży biały tytuł na dole, opcjonalnie drobne owoce przy prawej krawędzi
-    3: jasne tło, zielony pas u góry z logo, bardzo duży tytuł, linia z datą/autorem"""
+    3: jasne tło, zielony pas u góry z logo, bardzo duży tytuł, linia z datą/autorem
+    Opcjonalny klucz `logo` (PNG logo obcej marki, 13.10): w prawej części okładki nad tytułem (v1: nad kickerem, tytuł schodzi niżej;
+    v2: prawy górny róg na białej kafelce; v3: prawa strona pasa na białej kafelce), wysokość <= 3,5 cm, nie zachodzi na tytuł."""
     v = int(sp.get("variant", 1))
     if v == 1:
         s = deck.slide("paper")
@@ -714,7 +787,11 @@ def s_cover_text(deck, sp):
         logo(s, (pw - lw) / 2, (H - lw * 295 / 400) / 2, lw, "white_box", "!!logo")
         x = pw + cm(2.2)
         w = W - x - MX
-        y = text_block(s, x, cm(5.2), w, dict(sp, subtitle=None), max_pt=58, kicker_style="label")
+        y0 = cm(5.2)
+        if sp.get("logo"):
+            ly = _logo_obce(s, sp, x, cm(1.5), w)
+            y0 = max(y0, ly + cm(0.8)) if ly > cm(1.5) else y0
+        y = text_block(s, x, y0, w, dict(sp, subtitle=None), max_pt=58, kicker_style="label")
         rect(s, x, y + cm(0.1), cm(3.2), cm(0.22), "brand")
         if sp.get("subtitle"):
             spt = sp.get("subtitle_pt", 20)  # konwersja: długi podtytuł mniejszym pismem (16 / 14), nigdy ucięty
@@ -731,6 +808,9 @@ def s_cover_text(deck, sp):
             h = cm([3.2, 2.4, 2.8, 2.0, 2.6][i])
             place_image(s, p, W - cm([4.2, 2.1, 5.8, 3.0, 1.2][i]), cm([2.0, 6.4, 9.6, 13.2, 15.6][i]),
                         h=h, rot=[-18, 22, 8, -30, 14][i]).name = "!!el%d" % i
+        if sp.get("logo"):  # prawy górny róg; drobne owoce (props) są niżej albo przy krawędzi - logo ma pierwszeństwo od góry
+            lw_ = cm(9.0)
+            _logo_obce(s, sp, W - MX - lw_, cm(1.6), lw_, na_zieleni=True)
         w = cm(22)
         size = title_size(sp["title"], 80, 44, w)
         ls = display_lines(sp["title"], size, w)
@@ -747,8 +827,12 @@ def s_cover_text(deck, sp):
         band = cm(6.2)
         rect(s, 0, 0, W, band, "brand", name="!!panel")
         logo(s, MX, (band - cm(5.0) * 295 / 400) / 2, cm(5.0), "white_box", "!!logo")
+        ky = cm(2.7)
+        if sp.get("logo"):  # pas ma 6,2 cm: kafelka logo (<= 3,5 cm) przy prawym brzegu, kicker idzie pod nią
+            lw_ = cm(8.0)
+            ky = _logo_obce(s, sp, W - MX - lw_, cm(0.9), lw_, na_zieleni=True) + cm(0.3)
         if sp.get("kicker"):
-            txt(s, W - MX - cm(14), cm(2.7), cm(14), cm(0.8), sp["kicker"], 13, color="on_brand", font="bold",
+            txt(s, W - MX - cm(14), ky, cm(14), cm(0.8), sp["kicker"], 13, color="on_brand", font="bold",
                 caps=True, spacing=200, align="r")
         w = W - 2 * MX
         size = title_size(sp["title"], 84, 44, w)
@@ -1290,16 +1374,23 @@ def s_table(deck, sp):
         xs.append(xs[-1] + tw * wd / tot)
     rh = min(cm(1.3), (H - cm(7)) / (len(rows) + 1))
     y = CT
+    tpt = 13
+    pole = CB - CT
+    if len(rows) + 1 <= 7 and rh * (len(rows) + 1) < 0.65 * pole:
+        # 13.10 (K4): krótka tabela nie zostawia pustego dołu: wiersze do 1,9 cm (pismo 15-16 pt), blok w pionie na środku pola
+        rh = min(cm(1.9), 0.65 * pole / (len(rows) + 1))
+        tpt = 13 if rh <= cm(1.3) else (15 if rh < cm(1.7) else 16)
+        y = CT + max(0, (pole - rh * (len(rows) + 1)) / 2)
     num = [all(re.match(r"^[\d\s,.%zł-]+$", str(r[c])) for r in rows) for c in range(len(head))]
     for c, hd in enumerate(head):  # nagłówek bez tła, pogrubiony (jak tabela wartości w sklepie)
-        txt(s, xs[c] + cm(0.5), y, xs[c + 1] - xs[c] - cm(1), rh, hd, 13, font="bold", anchor="m",
+        txt(s, xs[c] + cm(0.5), y, xs[c + 1] - xs[c] - cm(1), rh, hd, tpt, font="bold", anchor="m",
             align="r" if num[c] else "l")
     for r, row in enumerate(rows):
         yy = y + rh * (r + 1)
         if r % 2 == 0:
             rect(s, MX, yy, tw, rh, "card")
         for c, val in enumerate(row):
-            txt(s, xs[c] + cm(0.5), yy, xs[c + 1] - xs[c] - cm(1), rh, str(val), 13, anchor="m",
+            txt(s, xs[c] + cm(0.5), yy, xs[c + 1] - xs[c] - cm(1), rh, str(val), tpt, anchor="m",
                 font="bold" if c == 0 else "body", align="r" if num[c] else "l")
 
 
@@ -1854,7 +1945,9 @@ def s_donut(deck, sp):
 
 
 def s_columns(deck, sp):
-    """Trend w czasie (sprzedaż, dystrybucja): edytowalny wykres kolumnowy + karta wniosku."""
+    """Trend w czasie (sprzedaż, dystrybucja): edytowalny wykres kolumnowy + karta wniosku. Klucze opcjonalne (13.10): `stacked`
+    (True) = kolumny skumulowane (COLUMN_STACKED, overlap 100, etykiety w środku segmentu), `percent` (True) = skumulowane 100%
+    (COLUMN_STACKED_100); bez kluczy wykres jak dotąd (kolumny obok siebie)."""
     from pptx.chart.data import CategoryChartData
     from pptx.enum.chart import XL_CHART_TYPE, XL_LABEL_POSITION
     s = frame(deck, sp)
@@ -1864,8 +1957,10 @@ def s_columns(deck, sp):
         cd.add_series(ser["name"], ser["values"])
     has_note = bool(sp.get("insight"))
     cw = (W - 2 * MX - cm(7.6)) if has_note else (W - 2 * MX)
-    gf = s.shapes.add_chart(XL_CHART_TYPE.COLUMN_CLUSTERED, Emu(int(MX)), Emu(int(CT)), Emu(int(cw)),
-                            Emu(int(CB - CT)), cd)
+    stos = bool(sp.get("stacked") or sp.get("percent"))
+    typ = XL_CHART_TYPE.COLUMN_STACKED_100 if sp.get("percent") else (
+        XL_CHART_TYPE.COLUMN_STACKED if sp.get("stacked") else XL_CHART_TYPE.COLUMN_CLUSTERED)
+    gf = s.shapes.add_chart(typ, Emu(int(MX)), Emu(int(CT)), Emu(int(cw)), Emu(int(CB - CT)), cd)
     gf.name = "tlo-wykres"
     ch = gf.chart
     ch.has_title = False
@@ -1873,7 +1968,7 @@ def s_columns(deck, sp):
     ch.has_legend = len(sp["series"]) > 1
     if ch.has_legend:
         from pptx.enum.chart import XL_LEGEND_POSITION
-        ch.legend.position = XL_LEGEND_POSITION.TOP
+        ch.legend.position = XL_LEGEND_POSITION.RIGHT if stos and len(sp["series"]) > 4 else XL_LEGEND_POSITION.TOP  # wiele serii: legenda z boku
         ch.legend.include_in_layout = False
     va = ch.value_axis
     va.visible = False
@@ -1883,14 +1978,17 @@ def s_columns(deck, sp):
     ca.tick_labels.font.size = Pt(13)
     plot = ch.plots[0]
     plot.gap_width = 60
-    plot.overlap = -10
-    plot.has_data_labels = True
-    dl = plot.data_labels
-    dl.font.size = Pt(14)
-    dl.font.bold = True
-    dl.number_format = sp.get("number_format", "0")
-    dl.number_format_is_linked = False
-    dl.position = XL_LABEL_POSITION.OUTSIDE_END
+    plot.overlap = 100 if stos else -10
+    plot.has_data_labels = not (stos and len(sp["series"]) > 6)  # skumulowany z > 6 serii: etykiety segmentów nachodzą na siebie
+    if plot.has_data_labels:
+        dl = plot.data_labels
+        dl.font.size = Pt(14)
+        dl.font.bold = True
+        dl.number_format = sp.get("number_format", "0")
+        dl.number_format_is_linked = False
+        dl.position = XL_LABEL_POSITION.CENTER if stos else XL_LABEL_POSITION.OUTSIDE_END  # OUTSIDE_END jest błędem w kolumnach skumulowanych
+        if stos:
+            paint(dl.font.color, "white")
     for i, ser in enumerate(plot.series):
         ser.format.fill.solid()
         paint(ser.format.fill.fore_color, ["brand", "tan", "muted"][i % 3])
@@ -2255,6 +2353,10 @@ def _uk_wrap(font, t, pt, w):
     meas = FONT_REF[font][1]
     if any(bd.text_w_emu(wd.replace(NBSP, " "), pt, meas) > w * 0.96 for wd in t.replace("\n", " ").split(" ") if wd):
         return None
+    # 13.10 (K5): także „sklejone” słowa typografii PL („i mikroskładniki.”, „7,7 mln”) są jednym niełamliwym tokenem - szersze od pola
+    # dawały linię poza polem, którą PowerPoint łamał jeszcze raz (verify: PRZEPELNIENIE +21 pt, ZAWIESZKA „…i” na końcu linii)
+    if any(bd.text_w_emu(tk, pt, meas) > w * 0.96 for tk in bd.typo_tokens(t.replace("\n", " ").replace(NBSP, " ")) if " " in tk):
+        return None
     return display_lines(t, pt, w) if font == "display" else lines_for(t, pt, w, font)
 
 
@@ -2289,6 +2391,29 @@ def _rwane(ls, pt, iw, font, waska=False):
         return True
     slow = sum(len(x.split()) for x in ls)
     return waska and slow >= 6 and slow / len(ls) < 3.5
+
+
+HASLO_MIN_PT = 16  # dopracowanie.md pkt 6: hasło od 16 pt
+KARTA_PUSTA_MAX = 0.45  # K3: pusta część karty (pod tekstem) najwyżej tyle jej wysokości; krótsza treść jest centrowana w pionie
+
+
+def _krotkie_z_liczba(t):
+    """Hasło z 1-2 „słów” (liczba z jednostką to jedno słowo: typo_tokens), z cyfrą: „300 g wody”, „11,6%”, „2 x dziennie”."""
+    if "\n" in t:
+        return False
+    tk = bd.typo_tokens(t)
+    return 1 <= len(tk) <= 2 and any(c.isdigit() for c in t)
+
+
+def _w_jednej_linii(font, t, pt, w, dol=HASLO_MIN_PT):
+    """K5 (13.10): krótkie hasło z liczbą nie łamie się („300 G / WODY”): pismo maleje do jednej linii, nie niżej niż `dol` pt.
+    Gdy i tak się nie zmieści - pismo bez zmiany (łamanie jak dotąd)."""
+    meas = FONT_REF[font][1]
+    t = " ".join(t.split())
+    p = pt
+    while p > dol and bd.text_w_emu(t, p, meas) > w * 0.96:
+        p -= 0.5
+    return p if bd.text_w_emu(t, p, meas) <= w * 0.96 else pt
 
 
 def _uk_cols(row, f, width, pfloor=0):
@@ -2390,6 +2515,8 @@ def _uk_cols(row, f, width, pfloor=0):
                     zebrane.setdefault(key, []).append(pt)
                     if slot and key in slot:
                         pt = min(pt, slot[key])
+                if k in ("h", "lead") and _krotkie_z_liczba(b["t"]):
+                    pt = _w_jednej_linii(font, b["t"], pt, iw)
                 ls = _uk_wrap(font, b["t"], pt, iw)
                 if ls is None:
                     return None
@@ -2420,8 +2547,13 @@ def _uk_cols(row, f, width, pfloor=0):
     if row.get("min_h"):  # karta-pojemnik: najnizsza wysokosc (jak karta-artykul z szablonu), maleje razem z pismem
         h = max(h, cm(row["min_h"]) * min(1, f))
     hs = [h] * n  # 10.10: karty obok siebie zawsze rowne (s22); krotsza tresc stoi od gory (valign t)
+    # 13.10 (K3): w rzędzie >= 2 kart-pojemników karta, której treść zajmuje < 55% wysokości, ma treść wyśrodkowaną w pionie
+    # (pusta część pod tekstem < 45%, nie „pusta karta obok pełnej”); jawne `valign` karty / wiersza wygrywa
+    wew = h - 2 * pad - tag_h - meta_h
+    vc = [bool(cards and kont and n >= 2 and wew > 0 and chs[i] < (1 - KARTA_PUSTA_MAX) * wew
+               and it.get("valign", row.get("valign", "t")) == "t") for i, it in enumerate(items)]
     return dict(kind="cols", h=h, cols=cols, cws=cws, pad=pad, cards=cards, items=items, tag_h=tag_h, meta_h=meta_h,
-                grow=row.get("grow", False), valign=row.get("valign", "t"), chs=chs, hs=hs, rwane=rwane)
+                grow=row.get("grow", False), valign=row.get("valign", "t"), chs=chs, hs=hs, rwane=rwane, vc=vc)
 
 
 def _uk_chips(row, f, width):
@@ -2470,7 +2602,8 @@ def _slowo_pt(font, t, pt, w, base):
     """Najdłuższe słowo musi się zmieścić w polu (zapas 4% jak w _uk_wrap). Gdy nie: zmniejsza pismo TEGO bloku, nie
     całego slajdu (13.10): do 55% bazowego, nie niżej niż 13 pt. Nigdy nie powiększa."""
     meas = FONT_REF[font][1]
-    sl = max(t.replace("\n", " ").split() or [""], key=len)
+    # 13.10 (K5): najdłuższy niełamliwy token typografii PL (zawieszka / jednostka sklejona z sąsiednim słowem), nie samo słowo
+    sl = max(bd.typo_tokens(t.replace("\n", " ").replace(NBSP, " ")) or [""], key=len)
     floor = max(13, 0.55 * base)
     while pt > floor and bd.text_w_emu(sl, pt, meas) > w * 0.96:
         pt = max(floor, pt - 0.5)
@@ -2697,6 +2830,32 @@ def _pics_prawa(rs, idx, wr, h, g2, pos=None):
     return out
 
 
+def _pole_obrazow(rs, pl):
+    """Suma pól obrazów wpisanych w całości w komórki pl = [(i, x, y, w, h)] (proporcje zachowane, bez kadrowania)."""
+    return sum(min(w, h * rs[i]) * min(h, w / rs[i]) for i, _x, _y, w, h in pl)
+
+
+def _pics_najlepszy(items, width, h, y):
+    """K4 (13.10): obrazy bez podpisów. Domyślnie jeden rząd obok siebie (`_pics_rzad`); gdy ten rząd jest ograniczony szerokością
+    (małe obrazy, pusta większość wysokości - s35: dwa wykresy 4-5 cm w polu 12 cm), a inne ułożenie (obraz pod obrazem, 2 + 1…) daje
+    >= 1,25 x większe pole obrazów, bierze to ułożenie. Zawsze w całości, proporcje zachowane. Zwraca [(item, x, szer, wys, y)]."""
+    rzad = _pics_rzad(items, width, h, y)
+    n = len(items)
+    if n > 6:
+        return rzad
+    rs = [img_ratio(it["image"]) for it in items]
+    pole0 = sum(w_ * h_ for _it, _x, w_, h_, _y in rzad)
+    pos = [it["box"][:2] for it in items] if all(it.get("box") for it in items) else None
+    best = None
+    for _p, pl in _pics_prawa(rs, list(range(n)), width, h, GAP * 0.6, pos):
+        a = _pole_obrazow(rs, pl)
+        if best is None or a > best[0]:
+            best = (a, pl)
+    if best is None or best[0] < 1.25 * pole0:
+        return rzad
+    return [(items[i], MX + x, w_, h_, y + yy) for i, x, yy, w_, h_ in sorted(best[1], key=lambda t: (t[2], t[1]))]
+
+
 def _pics_siatka(items, width, h, y):
     """Duży obraz z lewej + reszta z prawej (rzędy po 2 albo dwa stosy). Udział lewej kolumny i ułożenie prawej dobieram
     tak, żeby obrazy razem zajęły jak najwięcej pola. Zwraca [(item, x, y, szerokość, wysokość)] - pola, w które obraz
@@ -2823,7 +2982,7 @@ def _uk_draw(s, m, y, width, card_fill, cx=None):
         bez_podpisow = not any(it.get("caption") for it in items)
         if bez_podpisow and not row.get("ws") and not row.get("layout") and len(items) >= 2:
             # 08.10: obrazy w jednym rzędzie - ta sama wysokość i górna krawędź, rząd rozpięty między brzegami kart
-            for it, x, w_, h_, yy in _pics_rzad(items, width, h, y):
+            for it, x, w_, h_, yy in _pics_najlepszy(items, width, h, y):
                 _contain_pic(s, it["image"], x, yy, w_, h_)
         elif bez_podpisow and row.get("layout") == "1+siatka" and len(items) > 2:
             for it, x, yy, w_, h_ in _pics_siatka(items, width, h, y):
@@ -2852,14 +3011,16 @@ def _uk_draw(s, m, y, width, card_fill, cx=None):
     else:  # kolumny
         x, H_ = MX, m["h"]
         grow = m.get("grow")
-        for (parts, iw), cw, it, ch, hi in zip(m["cols"], m["cws"], m["items"], m["chs"], m.get("hs") or [H_] * len(m["cws"])):
+        for (parts, iw), cw, it, ch, hi, vc_i in zip(m["cols"], m["cws"], m["items"], m["chs"], m.get("hs") or [H_] * len(m["cws"]),
+                                                    m.get("vc") or [False] * len(m["cws"])):
             pad = m["pad"]
             hi = H_ if grow else hi
             fill = it.get("fill", card_fill)
             if m["cards"]:  # fill "white" podany wprost: biała karta z cienką linią 0,75 pt (na tle papieru)
                 card(s, x, y, cw, hi, fill, **({"line": "DDDDDD", "line_w": 0.75} if it.get("fill") == "white" else {}))
             surf = fill if m["cards"] else ("card" if card_fill == "white" else "white")  # powierzchnia pod blokami
-            vo = max(0, (hi - 2 * pad - m["tag_h"] - m["meta_h"] - ch) / 2) if it.get("valign", m["valign"]) == "m" else 0
+            vo = max(0, (hi - 2 * pad - m["tag_h"] - m["meta_h"] - ch) / 2) if (
+                it.get("valign", m["valign"]) == "m" or vc_i) else 0
             for kind, py, ph, d in parts:
                 py = py + vo
                 if kind in UK_NOWE:
@@ -2988,7 +3149,12 @@ def s_uklad(deck, sp):
       karta: "fill": "brand" (biały tekst i ikony, wyr a = żółty) | "white" (biała, linia 0,75 pt), "align": "c", "valign": "t|m";
       wiersz {"k": "band", "t": "...", "fill": "brand|card|accent", "icon": "megaphone", "align": "c|l", "wyr": "..."} (pas-wniosek
       24 pt, 18-30, do 3 linii, odstęp 0,5 cm); cols: "rwane_ok": true; tytuł do 3 linii, treść pod faktycznym końcem tytułu
-    slajd: "links": [{"t": "Byron Sharp", "url": "https://..."}] - hiperłącze na tych słowach (bez dopisanego tekstu)"""
+    slajd: "links": [{"t": "Byron Sharp", "url": "https://..."}] - hiperłącze na tych słowach (bez dopisanego tekstu)
+    13.10 (usterki układu K3-K5): karta-pojemnik, której treść zajmuje < 55% wysokości rzędu >= 2 kart, ma treść wyśrodkowaną w pionie
+    (miara `vc` w `_uk_cols`); obrazy bez podpisów układają się obok siebie albo jeden pod drugim, zależnie od tego, co daje większe
+    obrazy (`_pics_najlepszy`, zawsze w całości); hasło z 1-2 „słów” z liczbą nie łamie się (pismo maleje do 16 pt); pole tekstu ma
+    wysokość z zaokrąglonym skokiem linii (PowerPoint zaokrągla skok do pełnego punktu); `szablonuj.rozloz` ustawia `valign: m`, gdy
+    pod treścią zostaje > 35% pola, a pasy nad i pod treścią są < 18% wysokości slajdu."""
     bg = sp.get("bg", "paper")
     s = frame(deck, sp, bg, 3)
     y0 = uklad_top(sp)

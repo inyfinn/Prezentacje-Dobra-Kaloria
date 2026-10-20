@@ -122,6 +122,59 @@
     };
   }
 
+  /* plik .pptx już w stylu marki (nazwa ze słowem "szablon", "dopracowan" albo "nowy styl"): przegląd jak z silnika (analyze_dopracowanie) */
+  function jestDopr(name) { return /\.(pptx|ppsx|potx)$/i.test(String(name)) && /(szablon|dopracowan|nowy styl)/i.test(String(name)); }
+  function doprResult(name) {
+    var szab = /szablon/i.test(name), n = String(name).split(/[\\/]/).pop();
+    return {
+      ok: true, tryb: 'dopracowanie', rodzaj: szab ? 'szablon_dk' : 'wynik_programu', folder: String(name).replace(/[\\/][^\\/]*$/, ''),
+      plik: name, nazwa_pliku: n, produkt: n.replace(/\.[^.]+$/, '').replace(/ - (nowy styl|dopracowana).*$/, ''),
+      slajdy: szab ? 7 : 43, podpowiedzi: szab ? 46 : 0, bledy_tekstu_liczba: szab ? 0 : 1, spec: null,
+      powod: szab ? 'To szablon z podpowiedziami w nawiasach - sprawdzam go i przygotowuję polecenie; treść wpisz sam albo zleć AI.'
+        : 'To prezentacja zrobiona już przez ten program (nowy styl Dobra Kaloria) - nie przerabiam slajdów, sprawdzam je i przygotowuję polecenie do dopracowania.',
+      uwagi: [{ typ: 'info', tekst: szab ? 'To szablon z podpowiedziami w nawiasach - sprawdzam go i przygotowuję polecenie; treść wpisz sam albo zleć AI.'
+        : 'To prezentacja zrobiona już przez ten program (nowy styl Dobra Kaloria) - nie przerabiam slajdów, sprawdzam je i przygotowuję polecenie do dopracowania.' }],
+      sekcje: [], grupy: [], cele: [], smaki: [], karty: 0, presety: { 0: [], 1: [], 2: [] },
+      domyslne: { styl: 'nowy', dlugosc: 1, tekst: 1 }, szacowany_czas_s: szab ? 25 : 60, powerpoint: true
+    };
+  }
+  function doprDone(name) {
+    var szab = /szablon/i.test(name), n = String(name).split(/[\\/]/).pop(), sl = szab ? 7 : 43;
+    var bl = szab ? [] : ['Możliwe błędy w tekście prezentacji: 1 (program ich nie poprawia - popraw w pliku albo zleć AI)',
+      'Slajd 12: „komunikacjaod” wygląda na sklejone słowa - może „komunikacja od”?'];
+    return {
+      ok: true, tryb: 'dopracowanie', rodzaj: szab ? 'szablon_dk' : 'wynik_programu', pptx: name, nazwa: n, slajdy: sl, ukryte: 0, nowe: [],
+      podpowiedzi: szab ? 46 : 0, plik_bez_zmian: true, czas_s: 24, miniatury: wynik === 'bezpp' ? [] : thumbs(Math.min(sl, 13)),
+      qa: wynik === 'bezpp' ? { problemy: null, szczegoly: [], wykonano: false } : { problemy: 0, szczegoly: [], wykonano: true },
+      bledy_tekstu: szab ? [] : [{ slajd: 12 }], bledy_okno: bl,
+      oko: { uruchomione: true, pozostale: szab ? [{ slajd: 3, kod: 'PUSTY_DOL', waga: 1, opis: 'pusty dół slajdu' }] : [] },
+      uwagi: bl.concat(szab ? ['Sprawdź najpierw: slajd 3 - pusty dół slajdu', 'Podpowiedzi w nawiasach kwadratowych: 46 pól na 7 slajdach - do wypełnienia przez człowieka albo AI (przykład: „[Nazwa produktu]”).'] : [])
+        .concat(wynik === 'bezpp' ? ['Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).'] : []),
+      wiernosc: { usterki: [] }, sprawdz: [], wizualizacje: [],
+      folder_pokaz: 'C:\\Users\\Marta\\AppData\\Local\\Dobra Kaloria\\Stworz prezentacje\\konwersje\\plansze',
+      plansze_folder: wynik === 'bezpp' ? null : 'C:\\Users\\Marta\\AppData\\Local\\Dobra Kaloria\\Stworz prezentacje\\konwersje\\plansze',
+      prompt_agent: 'KROK 0: sprawdź skill /prezentacje… Dopracuj prezentację „' + n + '” według AGENTS.md (sekcja 3b).',
+      prompt_ai: 'Prezentacja „' + n + '” jest już w stylu marki Dobra Kaloria. Program niczego w niej nie zmienił. Twoje zadanie to DOPRACOWANIE, nie przebudowa.'
+    };
+  }
+
+  /* dokument (docx, pdf, txt...): jak z silnika (analyze_dokument); nazwa ze słowem "krotki" = bez nagłówków i mały zakres */
+  function dokumentResult(name) {
+    var krotki = /krotki/i.test(name), n = String(name).split(/[\\/]/).pop();
+    var sw = krotki ? { slajdy: { min: 2, max: 2, domyslnie: 2 }, rozdzialy: { max: 0, domyslnie: 0 } }
+      : { slajdy: { min: 4, max: 60, domyslnie: 14 }, rozdzialy: { max: 7, domyslnie: 3 } };
+    return {
+      ok: true, tryb: 'dokument', folder: String(name).replace(/[\\/][^\\/]*$/, ''), plik: name, nazwa_pliku: n,
+      produkt: krotki ? 'Notatka z rozmowy' : 'Strategia produktowa 2027', tytul: 'Strategia produktowa 2027',
+      slowa: krotki ? 180 : 4200, akapity: krotki ? 5 : 96, naglowki: krotki ? {} : { '1': 7, '2': 18, '3': 4 },
+      tabele: krotki ? 0 : 3, obrazy: krotki ? 0 : 5, suwaki: sw, czas: { stale: 12, na_slajd: 1.2 },
+      uwagi: [{ typ: 'ostrzezenie', tekst: 'Pominąłem numery stron i powtarzające się nagłówki stron (12 wierszy).' },
+        { typ: 'info', tekst: 'Cały tekst dokumentu trafi na slajdy - niczego nie dopiszę i nie pominę. Na końcu sprawdzę każdy akapit.' }],
+      sekcje: [], grupy: [], cele: [], presety: { 0: [], 1: [], 2: [] }, smaki: [], karty: 0,
+      domyslne: { styl: 'nowy', dlugosc: 1, tekst: 1 }, szacowany_czas_s: 30, powerpoint: true
+    };
+  }
+
   /* dane skrajne do zrzutów: 8 smaków, 5 uwag (nazwa folderu ze słowem "duzy") */
   function bigResult(name) {
     var r = fullResult(name);
@@ -158,7 +211,7 @@
         : 'Układ: osobne napisy 80 z 80, kolejność góra-dół bez zmian, liczby 95 z 95, slajdów tyle samo (43)'];
     u.push.apply(u, BLEDY_OKNO);
     u.push('Po obejrzeniu zrzutów poprawiłem układ slajdów: 12, 31', 'Sprawdź najpierw: slajd 12 - karta ma 62% wysokości pusta pod tekstem, a obok stoi wypełniona');
-    if (opts.cel === 'rozwin') u.push('Dołożyłem puste slajdy z szablonu: 2 (nr 43, 44, przed zakończeniem). Uzupełnij teksty w [nawiasach] - sam program niczego nie dopisuje.');
+    if (opts.cel === 'rozwin') u.push('Slajdy 43, 44 mają podpowiedzi w nawiasach - uzupełnij je albo usuń');   /* jak z silnika: liczone z gotowego pliku */
     u.push('Pominięto 85 obrazów powtarzających się na slajdach (logo, ozdobniki) albo mniejszych niż 160 px.',
       'Slajd 4: dodałem wizualizacje z biblioteki produktów - Pralinowe: słownik: Pralinowe = deserowe (Banoffee kakao, Tiramisu czekolada kakao); Owocowe: linia owocowe (Czarna porzeczka, Figa z makiem, Malina). Sprawdź dobór.',
       'Slajd 5: dodałem wizualizacje z biblioteki produktów - Protein: słownik: Protein = IG (Proteina banoffee, Proteina karmel z mct). Sprawdź dobór.',
@@ -251,16 +304,18 @@
       if (pct >= 100) {
         clearInterval(timer);
         window.App.onProgress({ krok: 'zapis', opis: 'Zapisuję plik', procent: 100, eta_s: 0 });
-        var pp = /\.(pptx|ppsx)$/i.test(String(lastFolder));
+        if (jestDopr(lastFolder)) { window.App.onLog('Sprawdzone: ' + String(lastFolder).split(/[\\/]/).pop()); window.App.onDone(doprDone(lastFolder)); return; }
+        var dk = /\.(docx?|rtf|odt|pdf|txt|md)$/i.test(String(lastFolder));   /* dokument: wynik jak z silnika (tryb dokument) */
+        var pp = dk || /\.(pptx|ppsx)$/i.test(String(lastFolder));
         var celSuf = { rozwin: ' - rozwinięta', skroc: ' - skrót' }[opts.cel] || '';
-        var name = pp ? String(lastFolder).split(/[\\/]/).pop().replace(/\.[^.]+$/, '') + ' - nowy styl' + celSuf + '.pptx'
+        var name = pp ? String(lastFolder).split(/[\\/]/).pop().replace(/\.[^.]+$/, '') + (dk ? ' - prezentacja' : ' - nowy styl' + celSuf) + '.pptx'
           : 'Kulki z kreatyną - ' + (opts.styl === 'stary' ? 'stary' : 'nowy') + ' styl.pptx';
         window.App.onLog('Gotowe: ' + name);
         window.App.onDone({
           ok: true,
           pptx: 'D:\\Marketing\\- POLSKA\\09 - PREZENTACJE\\Kulki z kreatyną\\' + name,
           nazwa: name,
-          slajdy: pp ? 43 + (opts.cel === 'rozwin' ? (opts.sekcje || []).filter(function (x) { return /^t/.test(x); }).length : 0) : slides,
+          slajdy: dk ? (opts.slajdy || 14) + 4 : pp ? 43 + (opts.cel === 'rozwin' ? (opts.sekcje || []).filter(function (x) { return /^t/.test(x); }).length : 0) : slides,
           ukryte: pp ? [7, 3, 6, 10, 3, 3, 11].reduce(function (n, k, i) { return n + ((opts.sekcje || []).indexOf('r0' + (i + 1)) < 0 ? k : 0); }, 0) : 0,
           nowe: pp && opts.cel === 'rozwin' ? (opts.sekcje || []).filter(function (x) { return /^t/.test(x); }).map(function (x, i) { return 43 + i; }) : [],
           sprawdz: pp ? [4, 5] : [],
@@ -277,6 +332,12 @@
             'Slajdy z szablonu (1) mają podpowiedzi w [nawiasach] - uzupełnij je albo użyj przycisku Claude / ChatGPT / Gemini.'
           ].concat(wynik === 'bezpp' ? ['Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).'] : []),
           bledy_okno: pp ? BLEDY_OKNO : [],
+          /* najważniejsze wiersze uwag od silnika (engine._uwagi_top): najwyżej 5, reszta pod „Pokaż wszystkie” */
+          uwagi_top: pp ? [].concat(opts.cel === 'rozwin' ? [{ typ: 'warn', tekst: 'Slajdy 43, 44 mają podpowiedzi w nawiasach - uzupełnij je albo usuń' }] : [],
+            [{ typ: 'warn', tekst: 'Możliwe błędy w tekście: 7 (np. slajd 12 „komunikacjaod” -> „komunikacja od”; slajd 2 „zbudowanie” -> „zbudowania”) - program ich nie poprawia, lista pod „Pokaż wszystkie”' },
+              { typ: 'warn', tekst: 'Sprawdź najpierw: slajd 12 - karta ma 62% wysokości pusta pod tekstem, a obok stoi wypełniona' },
+              { typ: 'warn', tekst: '…i 1 kolejnych usterek wyglądu - lista pod „Pokaż wszystkie”' },
+              { typ: 'info', tekst: 'Wstawiłem paczki z biblioteki produktów na slajdach nr 4, 5: sprawdź dobór.' }]).slice(0, 5) : undefined,
           plansze_folder: pp && wynik !== 'bezpp' ? 'D:\\Marketing\\- POLSKA\\09 - PREZENTACJE\\Kulki z kreatyną\\plansze' : null,
           prompt_agent: 'KROK 0: sprawdź skill /prezentacje… Dopracuj prezentację „' + name + '” według AGENTS.md (sekcja 3b).',
           prompt_ai: 'Mam prezentację PowerPoint „' + name + '” dla produktu Kulki z kreatyną (Dobra Kaloria). ' +
@@ -294,6 +355,7 @@
   /* ---- API ---- */
   var api = {
     get_info: function () { return sleep(80).then(function () { return { wersja: '1.0.0', powerpoint: true, szablony: ['nowy', 'stary'] }; }); },
+    pick_file: function () { log('pick_file'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\02 - FIRMOWE MATERIAŁY\\Strategia produktowa 2027.docx'; }); },
     pick_pptx: function () { log('pick_pptx'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\02 - FIRMOWE MATERIAŁY\\PREZENTACJE\\06.10.2026 - strategia\\DK_co_dalej_update.pptx'; }); },
     pick_folder: function () { log('pick_folder'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\09 - PREZENTACJE\\Kulki z kreatyną'; }); },
     analyze: function (path) {
@@ -302,6 +364,10 @@
       var name = String(path);
       return sleep(analyzeMs).then(function () {
         if (/blad/i.test(name)) return { ok: false, blad: 'Nie mogę odczytać tego folderu. Sprawdź, czy nie jest pusty i czy masz do niego dostęp.' };
+        if (/skan/i.test(name)) return { ok: false, blad: 'To skan bez tekstu - program nie czyta obrazów. Zapisz dokument z tekstem (np. .docx) i upuść go jeszcze raz.' };
+        if (/folder.programu/i.test(name)) return { ok: false, blad: 'To folder programu. Upuść folder produktu albo plik z prezentacją lub dokumentem.' };
+        if (/\.(docx?|rtf|odt|pdf|txt|md)$/i.test(name)) return dokumentResult(name);
+        if (jestDopr(name)) return doprResult(name);
         if (/\.(pptx|ppsx)$/i.test(name)) return pptxResult(name);
         if (/duzy/i.test(name)) return bigResult(name);
         if (/brak/i.test(name)) return thinResult(name);

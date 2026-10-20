@@ -39,6 +39,8 @@ import zipfile
 from lxml import etree
 from PIL import Image
 from pptx import Presentation
+from pptx.enum.dml import MSO_FILL
+from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.shapes import MSO_SHAPE_TYPE, PP_PLACEHOLDER
 from pptx.oxml.ns import qn
 
@@ -243,6 +245,11 @@ def _chart(sh, geo, uwagi, n):
         ser = []
         for s in plot.series:
             ser.append({"name": str(s.name or ""), "values": [None if v is None else float(v) for v in s.values]})
+        if not ser or not any(v is not None for s in ser for v in s["values"]):
+            uwagi.append("Slajd %d: wykres bez danych liczbowych (typ: %s) - nie przeniosłem go, sprawdź go ręcznie." % (n, ch.chart_type))
+            return None
+        if not cats:  # wartości są, nazw kategorii nie ma (etykiety wierszy stoją obok wykresu): składa je `_wykresy_z_etykietami`
+            return dict(kind="chart", typ=str(ch.chart_type), cats=[], series=ser, title="", bez_kat=True, **geo)
         if len(ch.plots) > 1:
             uwagi.append("Slajd %d: wykres złożony - przeniesiono tylko pierwszy układ serii." % n)
         title = ""
@@ -360,7 +367,15 @@ def _walk(shapes, tf, slide, n, acc, uwagi):
             rows = []
             for r in sh.table.rows:
                 rows.append([" ".join(c.text.split()) if not c.is_spanned else "" for c in r.cells])
-            acc["tables"].append(dict(kind="table", rows=rows, **geo))
+            kol = set()
+            for r in sh.table.rows:
+                for c in r.cells:
+                    try:
+                        if c.fill.type == MSO_FILL.SOLID:
+                            kol.add(str(c.fill.fore_color.rgb))
+                    except Exception:
+                        pass
+            acc["tables"].append(dict(kind="table", rows=rows, kolory=len(kol), **geo))  # kolory: mapa cieplna = wiele wypełnień komórek
             continue
         if getattr(sh, "has_chart", False) and sh.has_chart:
             c = _chart(sh, geo, uwagi, n)
@@ -404,9 +419,31 @@ def _walk(shapes, tf, slide, n, acc, uwagi):
                 acc["texts"].append(dict(kind="text", ph=None, paras=[{"t": t, "pt": None, "li": True, "url": None}
                                                                       for t in txts], **geo))
             continue
+        if st in (MSO_SHAPE_TYPE.AUTO_SHAPE, MSO_SHAPE_TYPE.FREEFORM) and \
+                not (getattr(sh, "has_text_frame", False) and sh.has_text_frame and sh.text_frame.text.strip()):
+            try:  # kropka listy / tło pigułki: pełne wypełnienie, bez tekstu (pola z `_znaczniki_tekstu`)
+                if sh.fill.type == MSO_FILL.SOLID and gw > 0 and gh > 0:
+                    try:
+                        ov = sh.auto_shape_type == MSO_SHAPE.OVAL
+                    except Exception:
+                        ov = False
+                    acc.setdefault("fills", []).append(dict(x=geo["x"], y=geo["y"], w=geo["w"], h=geo["h"], owal=ov))
+            except Exception:
+                pass
         if getattr(sh, "has_text_frame", False) and sh.has_text_frame:
             blk, links = _text_block(sh, geo, ph)
             if blk:
+                try:  # pigułka: prostokąt (zaokrąglony) z wypełnieniem i krótkim tekstem (przycisk / hasło w ramce)
+                    if st == MSO_SHAPE_TYPE.AUTO_SHAPE and sh.auto_shape_type != MSO_SHAPE.OVAL and sh.fill.type == MSO_FILL.SOLID and \
+                            len(blk["paras"]) == 1 and len(blk["paras"][0]["t"].split()) <= 8:
+                        blk["pigulka_ksztalt"] = True
+                except Exception:
+                    pass
+                try:  # owal z wypełnieniem i własnym tekstem = etykieta (np. „kategoria”, „marka” z diagramu)
+                    if st == MSO_SHAPE_TYPE.AUTO_SHAPE and sh.auto_shape_type == MSO_SHAPE.OVAL and sh.fill.type == MSO_FILL.SOLID:
+                        blk["owal"] = True
+                except Exception:
+                    pass
                 acc["texts"].append(blk)
             acc["links"] += links
             try:
@@ -433,12 +470,163 @@ def _sections(prs):
     return [(n, s) for n, s in out if s]
 
 
+def _etykieta_ok(b):
+    """Pole może być etykietą-owalem: jeden akapit, do 3 słów i 24 znaków, same litery (bez liczb: „00%”, „2025”)."""
+    if len(b["paras"]) != 1:
+        return False
+    s = b["paras"][0]["t"].strip()
+    return 0 < len(s) <= 24 and len(s.split()) <= 3 and not any(c.isdigit() for c in s)
+
+
+def _etykiety_owalne(texts):
+    """Etykieta-owal bez własnej treści (pole `etykieta`) nie jest osobną kartą: staje się pierwszym wierszem (nagłówkiem) pola, do
+    którego geometrycznie przylega - najbliższego w tym samym wierszu (zachodzą na siebie w pionie), a w braku takiego w tej samej
+    kolumnie (zachodzą w poziomie), nie dalej niż 3,5 cm. Nie przylega do niczego = zostaje osobnym polem oznaczonym `pill` (rząd
+    chipsów). Zwraca liczbę dołączonych etykiet."""
+    lab = [b for b in texts if b.get("etykieta")]
+    inni = [b for b in texts if not b.get("etykieta") and not b.get("pill")]
+    ile = 0
+    for l in lab:
+        best = None
+        for b in inni:
+            vy = min(l["y"] + l["h"], b["y"] + b["h"]) - max(l["y"], b["y"])
+            vx = min(l["x"] + l["w"], b["x"] + b["w"]) - max(l["x"], b["x"])
+            if vy >= 0.3 * min(l["h"], b["h"]):
+                rodzaj, gap = 0, max(0.0, b["x"] - (l["x"] + l["w"]), l["x"] - (b["x"] + b["w"]))
+            elif vx >= 0.2 * min(l["w"], b["w"]):
+                rodzaj, gap = 1, max(0.0, b["y"] - (l["y"] + l["h"]), l["y"] - (b["y"] + b["h"]))
+            else:
+                continue
+            if gap <= 3.5 and (best is None or (rodzaj, gap) < best[0]):
+                best = ((rodzaj, gap), b)
+        if best is None:
+            l["pill"] = True
+            continue
+        b = best[1]
+        pt = max((p["pt"] or DEFAULT_PT) for p in b["paras"]) * 1.3
+        glowa = dict(l["paras"][0], pt=pt, li=False, odstep=False, glowa=True)  # `glowa`: zawsze nagłówek (_is_head)
+        b["paras"] = [glowa] + [dict(p, odstep=p.get("odstep") or i == 0) for i, p in enumerate(b["paras"])]
+        texts.remove(l)
+        ile += 1
+    return ile
+
+
+def _znaczniki_tekstu(texts, fills, wc, hc):
+    """Znaczniki pól tekstu z kształtów bez tekstu: `pill` = krótkie jednoakapitowe pole leżące na wypełnionym kształcie o prawie
+    tych samych wymiarach (metka, pigułka, tag - nie karta ani tło); `dot` = tuż przed polem stoi mała wypełniona kropka
+    (punktor narysowany kształtem, nie znakiem listy). Pola z kropką dostają `li` - to punkty listy, nie metki."""
+    for b in texts:
+        b["pill"] = b["dot"] = False
+        b["etykieta"] = bool(b.get("owal")) and _etykieta_ok(b)
+        jeden = len(b["paras"]) == 1 and len(b["paras"][0]["t"]) <= 30
+        for f in fills:
+            if jeden and abs(f["x"] - b["x"]) <= 0.5 and abs(f["y"] - b["y"]) <= 0.5 and abs(f["w"] - b["w"]) <= 0.7 and \
+                    abs(f["h"] - b["h"]) <= 0.7 and f["w"] * f["h"] <= 0.08 * wc * hc:
+                b["pill"] = True
+            if not b["etykieta"] and f.get("owal") and _etykieta_ok(b) and 0.75 <= f["w"] / max(f["h"], 0.01) <= 1.33 and \
+                    f["w"] * f["h"] <= 60 and f["w"] * f["h"] >= 3 * b["w"] * b["h"] and f["w"] >= 1.15 * b["w"] and \
+                    f["x"] - 0.3 <= b["x"] and b["x"] + b["w"] <= f["x"] + f["w"] + 0.3 and \
+                    f["y"] - 0.3 <= b["y"] + b["h"] / 2 <= f["y"] + f["h"] + 0.3:
+                b["etykieta"] = True  # krótkie słowo leżące w owalu / kole (diagram: „marka”, „konsument”); karta (prostokąt) to nie etykieta
+            if f["w"] <= 0.9 and f["h"] <= 0.9 and 0 <= b["x"] - (f["x"] + f["w"]) <= 1.2 and \
+                    b["y"] - 0.3 <= f["y"] + f["h"] / 2 <= b["y"] + min(b["h"], 1.6):
+                b["dot"] = True
+        if b["dot"]:
+            for p in b["paras"]:
+                p["li"] = True
+
+
+def _wykresy_z_etykietami(acc, n, uwagi):
+    """Wykresy bez nazw kategorii (typowe dla raportów z badań: etykiety wierszy stoją w osobnej tabeli, a słupki obok): ta sama
+    liczba wartości w wykresach stojących na jednej wysokości + kolumna tabeli z tyloma niepustymi komórkami = JEDEN wykres, w którym
+    kategorie to etykiety z tabeli, a kolejne serie to kolejne wykresy (nazwa serii = pole tekstu tuż nad wykresem). Zużyte
+    etykiety i nagłówki znikają ze slajdu (są w wykresie; kontrola treści liczy tekst wykresów). Wykres, któremu nie da się dobrać
+    etykiet, zostaje pominięty z uwagą."""
+    bez = [c for c in acc["charts"] if c.get("bez_kat")]
+    if not bez:
+        return
+    reszta = [c for c in acc["charts"] if not c.get("bez_kat")]
+    grupy = []
+    for c in sorted(bez, key=lambda c: (round(c["y"]), c["x"])):
+        nn = len(c["series"][0]["values"])
+        for g in grupy:
+            if len(g[0]["series"][0]["values"]) == nn and abs(g[0]["y"] - c["y"]) <= 1.5:
+                g.append(c)
+                break
+        else:
+            grupy.append([c])
+    for g in grupy:
+        nn = len(g[0]["series"][0]["values"])
+        etyk = None
+        for tb in acc["tables"]:
+            for k in range(max(len(r) for r in tb["rows"])):
+                kol = [r[k].strip() for r in tb["rows"] if k < len(r)]
+                if sum(1 for x in kol if x) == nn and (nn == len(kol) or len(kol) == nn + 1 and not kol[0]):
+                    etyk = (tb, k, [x for x in kol if x])
+                    break
+            if etyk:
+                break
+        if not etyk:
+            uwagi.append("Slajd %d: wykres bez nazw kategorii i bez tabeli z etykietami - nie przeniosłem go, sprawdź go ręcznie." % n)
+            continue
+        tb, k, cats = etyk
+        tb["rows"] = [r[:k] + r[k + 1:] for r in tb["rows"]]  # etykiety zużyte: kolumna znika
+        if not any(c.strip() for r in tb["rows"] for c in r):
+            acc["tables"].remove(tb)
+        series = []
+        for j, c in enumerate(sorted(g, key=lambda c: c["x"])):
+            nazwa = ""
+            nad = [b for b in acc["texts"]  # pole tuż nad wykresem, nie sama liczba (np. „93%”): najbliższe wygrywa
+                   if -0.3 <= c["y"] - (b["y"] + b["h"]) <= 4 and not re.fullmatch(r"[\d\s.,%]+", _text_of(b)) and
+                   min(b["x"] + b["w"], c["x"] + c["w"]) - max(b["x"], c["x"]) >= 0.3 * min(b["w"], c["w"])]
+            if nad:
+                bl = max(nad, key=lambda b: b["y"] + b["h"])
+                nazwa = " ".join(" ".join(p["t"].split()) for p in bl["paras"])
+                acc["texts"].remove(bl)
+            for s in c["series"]:
+                series.append({"name": nazwa or s["name"], "values": s["values"]})
+        sc = dict(g[0], cats=cats, series=series)
+        sc.pop("bez_kat", None)
+        reszta.append(sc)
+    acc["charts"] = reszta
+
+
+_NUMER_STRONY = re.compile(r"^(?:str\.?|strona|slajd|slide|page)?\s*(\d{1,3})(?:\s*(?:/|z|of)\s*\d{1,3})?$", re.I)
+
+
+def _numer_strony(b, n, hc):
+    """Pole z samym numerem strony: jeden akapit z liczbą 1-3 cyfr (także „5/20”, „strona 5”), równą numerowi slajdu albo
+    stojące w dolnych 12% wysokości jako niskie pole (stopka). To nie treść (nowy styl ma własny numer slajdu)."""
+    ps = b["paras"]
+    if len(ps) != 1:
+        return False
+    m = _NUMER_STRONY.match(ps[0]["t"].strip())
+    return bool(m) and (int(m.group(1)) == n or (b["y"] >= 0.88 * hc and b["h"] <= 1.6))
+
+
+def _ikona_przy_tekscie(p, texts, tables, charts):
+    """Mała kwadratowa ikona (<= 1,8 cm, <= 600 px, proporcje 0,8-1,25) tuż obok pola tekstu (po jego lewej albo nad nim) to ozdobnik
+    karty („kółko z ikoną” + tytuł + opis, bardzo częste w prezentacjach z Canvy i Google Slides), nie treść: nowy styl ma własne
+    ikony marki. Nie dotyczy slajdów z tabelą / wykresem i obrazów większych (logo marek, zdjęcia, packshoty)."""
+    if tables or charts or not texts or not p["px"] or max(p["px"]) > 600:
+        return False
+    if p["w"] > 1.8 or p["h"] > 1.8 or not 0.8 <= p["w"] / max(p["h"], 0.01) <= 1.25:
+        return False
+    for b in texts:
+        z_prawej = -0.3 <= b["x"] - (p["x"] + p["w"]) <= 1.5 and b["y"] - 0.3 <= p["y"] + p["h"] and p["y"] <= b["y"] + b["h"]
+        z_dolu = -0.3 <= b["y"] - (p["y"] + p["h"]) <= 1.3 and b["x"] - 0.5 <= p["x"] + p["w"] / 2 <= b["x"] + b["w"] + 0.5
+        if z_prawej or z_dolu:
+            return True
+    return False
+
+
 def extract(pptx, rob):
     """Model treści prezentacji. Obrazy: rob\\img\\sNN_id.ext (bez logo i ozdobników)."""
     pptx = os.path.abspath(pptx)
     prs = otworz(pptx, rob)
     wc, hc = prs.slide_width / EMU_CM, prs.slide_height / EMU_CM
-    uwagi, slides = [], []
+    uwagi, slides, numery = [], [], []
+    etyk = 0
     shas = collections.defaultdict(set)
     poz = collections.defaultdict(collections.Counter)  # obraz -> ile razy stoi w tym samym miejscu
     obok = 0
@@ -451,6 +639,21 @@ def extract(pptx, rob):
         notes = ""
         if sl.has_notes_slide and sl.notes_slide.notes_text_frame is not None:
             notes = sl.notes_slide.notes_text_frame.text.strip()
+        _wykresy_z_etykietami(acc, n, uwagi)
+        # sama liczba (1-3 cyfry) leżąca na tabeli / pod nią to ukryta etykieta (plakietka za tabelą), nie tytuł ani treść slajdu: do notatek
+        pod = [b for b in acc["texts"] if len(b["paras"]) == 1 and b["paras"][0]["t"].strip().isdigit() and len(b["paras"][0]["t"].strip()) <= 3 and
+               any(min(b["x"] + b["w"], tb["x"] + tb["w"]) - max(b["x"], tb["x"]) > 0 and min(b["y"] + b["h"], tb["y"] + tb["h"]) - max(b["y"], tb["y"]) > 0
+                   for tb in acc["tables"])]
+        if pod:
+            acc["texts"] = [b for b in acc["texts"] if not any(b is x for x in pod)]
+            notes = (notes + "\n\n" if notes else "") + "[Pole liczbowe pod tabelą w oryginale]\n" + "\n".join(b["paras"][0]["t"].strip() for b in pod)
+        nums = [b for b in acc["texts"] if _numer_strony(b, n, hc)]
+        if nums:  # numer strony / stopka slajdu to nie treść: nowy styl ma własny numer; lista w uwagach
+            acc["texts"] = [b for b in acc["texts"] if not any(b is x for x in nums)]
+            acc["numery_tekst"] = [b["paras"][0]["t"].strip() for b in nums]  # kontrola liczb nie liczy ich jako brakujących
+            numery.append(n)
+        _znaczniki_tekstu(acc["texts"], acc.pop("fills", []), wc, hc)
+        etyk += _etykiety_owalne(acc["texts"])
         out = [b for b in acc["texts"] if poza(b)]
         if out:  # tekst obok slajdu (notatki autora, opisy szablonu) nie jest częścią slajdu, ale nie ginie: do notatek
             acc["texts"] = [b for b in acc["texts"] if not poza(b)]
@@ -465,7 +668,7 @@ def extract(pptx, rob):
                        **acc})
     # obrazy: logo / ozdobniki / tła odpadają, reszta trafia na dysk
     img_dir = os.path.join(rob, "img")
-    kept = skipped = 0
+    kept = skipped = ikony = 0
     for s in slides:
         good = []
         for p in s["pics"]:
@@ -477,8 +680,13 @@ def extract(pptx, rob):
                 why = "stały element na %d slajdach (logo, belka)" % k
             elif k >= 5 and area <= 0.03:  # drobny ozdobnik; większy obraz powtarzany w różnych miejscach to treść
                 why = "drobny ozdobnik na %d slajdach" % k
+            elif k >= 4 and k >= 0.25 * len(slides) and area <= 0.12:  # motyw graficzny w rogu (kilka położeń) na wielu slajdach
+                why = "motyw powtarzany na %d z %d slajdów" % (k, len(slides))
             elif p["px"] and mx <= 160:
                 why = "mały ozdobnik"
+            elif _ikona_przy_tekscie(p, s["texts"], s["tables"], s["charts"]):
+                why = "ikona przy tekście"
+                ikony += 1
             elif area >= 0.85 and s["texts"]:
                 why = "tło slajdu"
             elif p["ext"] not in ("png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp") or not p["px"]:
@@ -494,6 +702,13 @@ def extract(pptx, rob):
             kept += 1
         s["obrazy"] = _sceny(good, img_dir, s["n"])
         del s["pics"]
+    if etyk:
+        uwagi.append("Etykiety w owalach (%d) dołączyłem jako nagłówki do pól tekstu, przy których stoją." % etyk)
+    if ikony:
+        uwagi.append("Pominąłem %d małych ikon stojących przy tekście (ozdobniki kart) - nowy styl ma własne ikony marki." % ikony)
+    if numery:
+        uwagi.append("Pominąłem numery stron stojące jako zwykłe pola tekstu (slajdy: %s) - nowy styl ma własny numer slajdu."
+                     % _range(numery))
     if obok:
         uwagi.append("Tekst leżący obok slajdu (poza kadrem) na %d slajdach trafił do notatek prelegenta." % obok)
     if skipped:
@@ -501,7 +716,7 @@ def extract(pptx, rob):
     akapity = sum(len(m) + len(n) for m, n in _slide_paras(prs))
     return {"plik": pptx, "nazwa": os.path.splitext(os.path.basename(pptx))[0], "w_cm": wc, "h_cm": hc, "slajdy": slides,
             "akapity": akapity,
-            "sekcje_zrodla": _sections(prs), "uwagi": uwagi, "rob": rob,
+            "sekcje_zrodla": _sections(prs), "uwagi": uwagi, "rob": rob, "numery_stron": numery,
             "stat": {"slajdy": len(slides), "grafiki": kept, "pominiete_grafiki": skipped,
                      "tabele": sum(len(s["tables"]) for s in slides), "wykresy": sum(len(s["charts"]) for s in slides)}}
 
@@ -608,7 +823,7 @@ def _items(blocks, sklej=True, luzno=False):
                 else:
                     li2 = li
                 if part:
-                    out.append({"t": part, "pt": p["pt"] or DEFAULT_PT, "li": li2, "url": p["url"], "bi": id(b),
+                    out.append({"t": part, "pt": p["pt"] or DEFAULT_PT, "li": li2, "url": p["url"], "bi": id(b), "glowa": bool(p.get("glowa")),
                                 "x": b["x"], "y": b["y"], "w": b["w"], "hb": hard, "num": num,
                                 "ll": v[-1] if v else 0, "ml": ml, "od": bool(p.get("odstep")) and pi == 0,
                                 "luzno": luzno, "eu": eu_end})
@@ -646,14 +861,29 @@ def _header(blocks, h_cm):
     band = [b for b in blocks if b["y"] + b["h"] <= 0.22 * h_cm and sum(len(p["t"]) for p in b["paras"]) <= 90]
     if band and len(blocks) > len(band):
         return sorted(band, key=lambda b: (b["y"], -max((p["pt"] or 0) for p in b["paras"])))[0]
+    # v14: krótki napis (<= 10 słów, <= 100 znaków) zaczynający się u góry w wąskiej lewej kolumnie (do 9,5 cm; kilka linii wysoki),
+    # wyraźnie większy od reszty albo WERSALIKAMI - to tytuł slajdu, nie akapit
+    top = [b for b in blocks if b["y"] <= 0.15 * h_cm and b["x"] <= 3.0 and b["w"] <= 9.5 and len(blocks) >= 2 and
+           sum(len(p["t"]) for p in b["paras"]) <= 100 and len(" ".join(p["t"] for p in b["paras"]).split()) <= 10]
+    if top:
+        b = min(top, key=lambda b: (b["y"], b["x"]))
+        reszta = [p["pt"] or DEFAULT_PT for x in blocks if x is not b for p in x["paras"]]
+        moje = max((p["pt"] or DEFAULT_PT) for p in b["paras"])
+        tx = " ".join(p["t"] for p in b["paras"])
+        if reszta and (moje >= 1.25 * max(reszta) or (tx.isupper() and moje >= max(reszta))):
+            b["_dlugi"] = True  # tytuł z kolumny: do 3 linii (wyżej niż _title_fits dopuszcza), builder przesuwa treść pod jego koniec
+            return b
     return None
 
 
-def _body(sl, h_cm):
+def _body(sl, h_cm, tytul=False):
     """(nagłówek, pozostałe bloki tekstu w kolejności czytania). Nagłówek musi się mieścić w kickerze - dłuższy
-    jest zwykłym tekstem slajdu (nic się nie gubi)."""
+    jest zwykłym tekstem slajdu (nic się nie gubi). tytul=True (tylko `_uklad`, który umie tytuł do 3 linii): nagłówek może też być
+    tytułem (`_title_fits` / `_tytul_3_linie`); inne ścieżki (`_convert`: tabele i wykresy) traktują nagłówek jako kicker i zgubiłyby
+    jego tekst, gdy tytuł bierze się z treści (`_head`)."""
     hdr = _header(sl["texts"], h_cm)
-    if hdr is not None and not _kick_ok(_text_of(hdr)):
+    if hdr is not None and not (_kick_ok(_text_of(hdr)) or (tytul and (_title_fits(_text_of(hdr)) or (
+            (hdr.get("_dlugi") or hdr["ph"] in TITLE_PH) and _tytul_3_linie(_text_of(hdr)))))):  # nagłówek = kicker albo tytuł
         hdr = None
     rest = [b for b in sl["texts"] if b is not hdr]
     return hdr, _order(rest, h_cm)
@@ -672,12 +902,300 @@ def is_section(sl, h_cm, first):
     if first or sl["tables"] or sl["charts"] or sl["obrazy"]:
         return None
     hdr, rest = _body(sl, h_cm)
+    if len(rest) == 2 and hdr is None:  # numer rozdziału + krótki tytuł („01  ZDROWE PRZEKĄSKI”)
+        num = [x for x in rest if _NR_ROZDZ.match(_text_of(x))]
+        tyt = [x for x in rest if x not in num]
+        if len(num) == 1 and len(tyt) == 1 and 1 <= _words(tyt) <= 6 and _text_of(tyt[0]) and \
+                not _text_of(tyt[0]).endswith((".", ",", ";")):
+            return _text_of(tyt[0])
     if len(rest) != 1:
         return None
     b = rest[0]
     if _words(rest) > 6 or max((p["pt"] or DEFAULT_PT) for p in b["paras"]) < 54:
         return None
     return _text_of(b)
+
+
+_NR_ROZDZ = re.compile(r"^\s*0?\d{1,2}\s*$")
+_PODZIEKOWANIE = re.compile(r"^\s*(dzi[eę]kuj[eę](my)?(\s+za\s+(uwag[ęe]|wsp[óo][łl]prac[ęe]|spotkanie|czas))?|dzi[eę]ki|thank\s*you|thanks|"
+                            r"koniec|pytania\??|q\s*&\s*a|do\s+zobaczenia)\s*[.!]*\s*$", re.I)
+_KONTAKT = re.compile(r"@|\bwww\.|https?://|\+?\d[\d\s-]{7,}|\btel\b|\be-?mail\b", re.I)
+
+
+def _numer_sekcji(sl, h_cm):
+    """Numer rozdziału z pola „01” obok tytułu przerywnika (tekst jak w źródle, z zerem wiodącym) albo ""."""
+    _h, rest = _body(sl, h_cm)
+    for x in rest:
+        if _NR_ROZDZ.match(_text_of(x)):
+            return "%02d" % int(_text_of(x))
+    return ""
+
+
+def _zakonczenie_podziekowanie(sl, h_cm, w_cm):
+    """Ostatni slajd z samym podziękowaniem („Dziękujemy”, „Dzięki”, „Pytania?”) i ewentualnym kontaktem -> typ `end` (variant light):
+    tytuł = podziękowanie, podtytuł = pole bez kontaktu, kontakt = pola z e-mailem / telefonem / www. None, gdy to nie ten przypadek."""
+    if sl["tables"] or sl["charts"] or any(i["w"] * i["h"] > 0.12 * w_cm * h_cm for i in sl["obrazy"]):
+        return None
+    bl = _order(sl["texts"], h_cm)
+    if not bl or len(bl) > 4:
+        return None
+    big = max(bl, key=lambda b: max((p["pt"] or DEFAULT_PT) for p in b["paras"]))
+    tt = _text_of(big)
+    if not _PODZIEKOWANIE.match(tt):
+        return None
+    rest = [b for b in bl if b is not big]
+    kont = [b for b in rest if _KONTAKT.search(_text_of(b))]
+    sub = [b for b in rest if b not in kont]
+    spec = {"type": "end", "variant": "light", "title": tt}
+    if sub:
+        spec["subtitle"] = " ".join(_text_of(b) for b in sub)
+    if kont:
+        spec["contact"] = "  ·  ".join(_text_of(b) for b in kont)
+    return [spec]
+
+
+_AGENDA = re.compile(r"^\s*(agenda|plan(\s+(spotkania|prezentacji|dzia[łl]a[ńn]))?|spis\s+tre[śs]ci|program|zagadnienia|tematy|"
+                     r"co\s+dzi[śs]\s+om[óo]wimy|contents?|outline)\s*:?\s*$", re.I)
+
+
+def _samotny_napis(sl, h_cm):
+    """Slajd z JEDNYM krótkim napisem i niczym więcej (bez obrazów, tabel, wykresów; typowo pełnotłowy slajd-przerywnik z podświetlonym
+    tytułem): <= 6 słów = `section` (przerywnik), 7-10 słów = `statement`. Nie dotyczy numerów (sama liczba), źródeł, adresów, zdań
+    zakończonych kropką i pól w stopce. Zamiast tytułu nad pustą stroną (`PUSTY_DOL`)."""
+    if sl["tables"] or sl["charts"] or sl["obrazy"] or len(sl["texts"]) != 1:
+        return None
+    b = sl["texts"][0]
+    if len(b["paras"]) != 1 or b["y"] >= 0.85 * h_cm:
+        return None
+    tx = _text_of(b)
+    n = len(tx.split())
+    if not 1 <= n <= 10 or len(tx) > 90 or tx.endswith((".", ",", ";", ":")) or tx.isdigit() or _SRC.match(tx) or _URL.match(tx) or \
+            _BRACKET.search(tx):
+        return None
+    if n <= 6:
+        return [{"type": "section", "variant": "dark", "number": "", "title": _clean(tx)}]
+    return [_stmt(None, tx)] if _stmt_size(tx) else None
+
+
+def _kroki_i_agenda(sl, h_cm):
+    """Slajd bez obrazów / tabel z tytułem i krótką listą: AGENDA (tytuł „Agenda / Plan / Spis treści…” + 3-8 krótkich pozycji bez
+    numerów w tekście) -> typ `agenda` (t10); KROKI (3-5 pozycji z numerami 1., 2., 3. od jedynki, każda z tytułem i opisem) ->
+    typ `steps` (t19). Numery kroków rysuje szablon (1-5), więc numer z tekstu pozycji jest zdejmowany tylko wtedy, gdy zgadza się
+    z kolejnością. None, gdy to nie ta lista."""
+    if sl["tables"] or sl["charts"] or sl["obrazy"]:
+        return None
+    hdr_b, blocks = _body(sl, h_cm)
+    if hdr_b is None:
+        if not blocks:
+            return None
+        top = min(blocks, key=lambda b: (b["y"], b["x"]))
+        if len(_text_of(top).split()) > 8 or any(x["y"] < top["y"] + top["h"] - 0.3 for x in blocks if x is not top):
+            return None
+        hdr_b, blocks = top, [b for b in blocks if b is not top]
+    tytul = _text_of(hdr_b)
+    items = _items(blocks, sklej=False)
+    if not 3 <= len(items) <= 12 or any(i["url"] for i in items):
+        return None
+    if _AGENDA.match(tytul):
+        if 3 <= len(items) <= 8 and all(len(i["t"].split()) <= 12 and not i["num"] and not _NR_ROZDZ.match(i["t"]) and
+                                        not i["t"].endswith((".", ":")) for i in items):
+            return [{"type": "agenda", "title": tytul, "items": [i["t"] for i in items]}]
+        return None
+    pozycje, nr = [], 0
+    for i in items:
+        m = _MARK.match(i["t"])
+        if i["num"] and m and int(re.search(r"\d+", m.group(0)).group(0)) == nr + 1:
+            nr += 1
+            pozycje.append({"title": i["t"][m.end():].strip(), "text": []})
+        elif pozycje:
+            pozycje[-1]["text"].append(i["t"])
+        else:
+            return None  # tekst przed pierwszym krokiem: to nie lista kroków
+    if not 3 <= len(pozycje) <= 5:
+        return None
+    out = []
+    for z in pozycje:
+        tyt, opis = z["title"], " ".join(z["text"])
+        if not opis:  # „Tytuł: opis” / „Tytuł – opis” w jednym wierszu
+            m2 = re.match(r"^(.{3,80}?)\s*(?::|\s[–—-]\s)\s*(.+)$", tyt)
+            if m2 and 1 <= len(m2.group(1).split()) <= 8:
+                tyt, opis = m2.group(1), m2.group(2)
+        if not tyt or len(tyt.split()) > 12:
+            return None
+        out.append({"title": tyt, **({"text": opis} if opis else {})})
+    return [{"type": "steps", "title": tytul, "items": out}]
+
+
+def _etykieta_i_haslo(sl, h_cm, w_cm):
+    """Slajd z dwoma polami: krótka etykieta (<= 4 słowa) nad wyraźnie większym hasłem (<= 14 słów) i nic poza małą ikoną =
+    `statement` (kicker = etykieta, tekst = hasło, Mindset). To jedno zdanie-teza, nie przerywnik rozdziału."""
+    if sl["tables"] or sl["charts"] or any(i["w"] > 3.5 or i["h"] > 3.5 for i in sl["obrazy"]):
+        return None
+    if is_section(sl, h_cm, False):  # jedno duże hasło z etykietą nad nim to przerywnik rozdziału (istniejąca reguła)
+        return None
+    bl = _order(sl["texts"], h_cm)
+    if len(bl) != 2:
+        return None
+    a, b = bl
+    if a["y"] + a["h"] > b["y"] + 0.3:
+        return None
+    ta, tb = _text_of(a), _text_of(b)
+    pa, pb = max((p["pt"] or DEFAULT_PT) for p in a["paras"]), max((p["pt"] or DEFAULT_PT) for p in b["paras"])
+    if 1 <= len(ta.split()) <= 4 and 3 <= len(tb.split()) <= 14 and len(tb) <= 110 and pb >= 1.3 * pa and pb >= 22 and \
+            _kick_ok(ta) and _stmt_size(tb) and not ta.endswith((".", ",")):
+        return [_stmt(ta, tb)]
+    return None
+
+
+_LOGO_DK_REF = []  # (gęstość tuszu logo DK) - liczone raz z assets\logo_green_box.png
+
+
+def _tusz(img, prog=90):
+    """Maska „tuszu” obrazu (RGBA zlany z białym tłem): piksele odległe od koloru tła (mediana środka) o > prog; None, gdy brak numpy."""
+    import numpy as np
+    from PIL import Image as _Im
+    im = img.convert("RGBA")
+    for tlo in ((255, 255, 255, 255), (110, 110, 110, 255)):  # biała płytka z przezroczystym napisem znika na bieli: drugie podejście na szarym
+        bg = _Im.new("RGBA", im.size, tlo)
+        bg.alpha_composite(im)
+        a = np.array(bg.convert("RGB").resize((96, 96)), dtype=float)
+        c = a[9:87, 9:87]
+        med = np.median(c.reshape(-1, 3), axis=0)
+        m = np.sqrt(((c - med) ** 2).sum(axis=2)) > prog
+        if m.sum() >= 40:
+            break
+    return m
+
+
+def _gestosc_tuszu(m, w=32, h=20):
+    import numpy as np
+    from PIL import Image as _Im
+    ys, xs = np.where(m)
+    if len(ys) < 40:
+        return None
+    y0, y1 = np.percentile(ys, [2, 98])
+    x0, x1 = np.percentile(xs, [2, 98])
+    k = m[int(y0):int(y1) + 1, int(x0):int(x1) + 1].astype(float)
+    return np.array(_Im.fromarray((k * 255).astype("uint8")).resize((w, h), _Im.BOX), dtype=float) / 255
+
+
+def _logo_dk_ksztalt(path):
+    """Obraz ma kształt napisu logo Dobra Kaloria („dobra / kaloria” w dwóch liniach) w DOWOLNYM wariancie koloru (zielone pole z białym
+    napisem, biała płytka z brązowym lub zielonym napisem, stara wersja): korelacja gęstości tuszu z wzorem >= 0,6 (obce logo: <= 0,1)."""
+    try:
+        import numpy as np
+        from PIL import Image as _Im
+        if not _LOGO_DK_REF:
+            ref = os.path.join(HERE, "..", "assets", "logo_green_box.png")
+            if not os.path.isfile(ref):
+                ref = os.path.join(HERE, "assets", "logo_green_box.png")
+            with _Im.open(ref) as r:
+                _LOGO_DK_REF.append(_gestosc_tuszu(_tusz(r)))
+        with _Im.open(path) as x:
+            m = _gestosc_tuszu(_tusz(x))
+        if m is None or _LOGO_DK_REF[0] is None:
+            return False
+        a, b = _LOGO_DK_REF[0] - _LOGO_DK_REF[0].mean(), m - m.mean()
+        d = float(np.sqrt((a * a).sum() * (b * b).sum()))
+        return d > 0 and float((a * b).sum() / d) >= 0.6
+    except Exception:
+        return False
+
+
+def _logo_dk(im):
+    """Obraz to logo Dobra Kaloria w którymkolwiek wariancie (zielone pole z białym napisem, płytka z brązowym napisem, stara wersja)?
+    Okładka DK ma własne logo, więc to nie jest „logo obcej marki”. Kolor marki (zielone pole) albo kształt napisu (`_logo_dk_ksztalt`)."""
+    if _logo_dk_ksztalt(im["path"]):
+        return True
+    try:
+        from PIL import Image as _Im
+        with _Im.open(im["path"]) as x:
+            x = x.convert("RGB")
+            x.thumbnail((48, 48))
+            bt = x.tobytes()
+            px = [(bt[i], bt[i + 1], bt[i + 2]) for i in range(0, len(bt), 3)]
+        zielone = sum(1 for r, g, b in px if abs(r - 15) + abs(g - 118) + abs(b - 62) <= 60)
+        return 1.1 <= im["w"] / max(im["h"], 0.01) <= 1.6 and zielone >= 0.35 * len(px)
+    except Exception:
+        return False
+
+
+def _okladka_obca(sl, model, ctx=None):
+    """Pierwszy slajd obcej prezentacji z obrazami: jeden duży tytuł (+ podtytuł / data / hasło w pigułce) = okładka DK. Obrazy:
+    tło-zdjęcie (>= 30% slajdu) i ozdobnik przy krawędzi (<= 25%, wąski motyw) są pomijane, logo Dobra Kaloria też (okładka ma własne),
+    logo obcej marki (jedno, w miarę kwadratowe: proporcje 0,6-1,6, 0,5-20% slajdu) zostaje jako obraz w całości (`cover` z `image`,
+    hasło w pigułce = `flavors`). Inny obraz (szeroki pasek logo, kilka logo, kolaż) = None: slajd idzie zwykłą drogą (niczego nie gubimy).
+    Gdy nie ma logo obcej marki: `cover_text` (jak okładka bez obrazów)."""
+    hc, wc = model["h_cm"], model["w_cm"]
+    if sl["tables"] or sl["charts"] or not sl["texts"] or not sl["obrazy"]:
+        return None
+    logo, pominiete = [], 0
+    for im in sl["obrazy"]:
+        a = im["w"] * im["h"] / (wc * hc)
+        dotyka = im["x"] <= 0.3 or im["y"] <= 0.3 or im["x"] + im["w"] >= wc - 0.3 or im["y"] + im["h"] >= hc - 0.3
+        if a >= 0.30:
+            pominiete += 1  # tło / zdjęcie okładki
+        elif dotyka and a <= 0.25 and (min(im["w"], im["h"]) / max(im["w"], im["h"], 0.01) <= 0.6 or a <= 0.05):
+            pominiete += 1  # ozdobnik przy krawędzi (motyw graficzny)
+        elif _logo_dk(im):
+            pominiete += 1
+        elif 0.4 <= im["w"] / max(im["h"], 0.01) <= 6.0 and 0.005 <= a <= 0.2:
+            logo.append(im)
+        else:
+            return None
+    if len(logo) > 1:
+        return None
+    jest_pig = lambda b: b.get("pigulka_ksztalt") or b.get("pill")  # noqa: E731
+    blocks = [b for b in sl["texts"] if not jest_pig(b)]
+    pig = [b for b in sl["texts"] if jest_pig(b)]
+    if not blocks:
+        return None
+    pts = sorted((max((p["pt"] or DEFAULT_PT) for p in b["paras"]) for b in blocks), reverse=True)
+    if pts[0] < 22 or (len(pts) > 1 and pts[0] < 1.3 * pts[1]):
+        return None  # to nie okładka z jednym dużym tytułem
+    tb = max(blocks, key=lambda b: max((p["pt"] or DEFAULT_PT) for p in b["paras"]))
+    nad = [b for b in blocks if b is not tb and b["y"] + b["h"] <= tb["y"] + 0.3 and len(_text_of(b).split()) <= 4]
+    kicker = _text_of(max(nad, key=lambda b: b["y"] + b["h"])) if nad else None  # krótki napis tuż nad tytułem = kicker okładki
+    reszta = [b for b in blocks if not (kicker and nad and b is max(nad, key=lambda b: b["y"] + b["h"]))]
+    cov = _cover_spec(dict(sl, obrazy=[]), kicker, _items(_order(reszta, hc)), hc)
+    if not cov:
+        return None
+    sp = cov[0]
+    if pig:  # pigułka (hasło w ramce) idzie do podtytułu okładki (cover_text nie ma chipsów)
+        sp = dict(sp, subtitle=chr(10).join(x for x in [sp.get("subtitle")] + [_text_of(b) for b in pig] if x))
+    if logo:  # logo obcej marki: klucz `logo` (builder rysuje je małe, bez cienia i obrotu - jak nie umie, zostaje w specu)
+        sp = dict(sp, logo=logo[0]["path"])
+    if ctx is not None:
+        ctx["uwagi"].append("Slajd 1: okładka z jednym dużym tytułem ułożona jako okładka Dobra Kaloria%s%s." % (
+            "; logo obcej marki zostało jako obraz" if logo else "",
+            "; pominąłem tło / ozdobniki (%d)" % pominiete if pominiete else ""))
+    return [sp]
+
+
+def _okladka_produktu(sl, h_cm, w_cm):
+    """Pierwszy slajd: packshot (duży PNG) + metki smaków (pigułki) + kicker / tytuł / opis -> `cover` variant 1 z etykietami smaków
+    (okładka produktu jak w szablonie marki). None, gdy brakuje metek albo packshotu."""
+    pills = sorted((b for b in sl["texts"] if b.get("pill")), key=lambda b: (b["y"], b["x"]))
+    packs = [i for i in sl["obrazy"] if i["path"].lower().endswith(".png") and i["w"] * i["h"] >= 0.05 * w_cm * h_cm]
+    if len(pills) < 2 or not packs or sl["tables"] or sl["charts"]:
+        return None
+    rest = [b for b in sl["texts"] if not b.get("pill")]
+    if not rest:
+        return None
+    tb = max(rest, key=lambda b: max((p["pt"] or DEFAULT_PT) for p in b["paras"]))
+    title = _text_of(tb)
+    above = [b for b in rest if b is not tb and b["y"] + b["h"] <= tb["y"] + 0.3 and len(_text_of(b).split()) <= 3]
+    below = sorted((b for b in rest if b is not tb and b not in above), key=lambda b: (b["y"], b["x"]))
+    pack = max(packs, key=lambda i: i["w"] * i["h"])
+    props = [i["path"] for i in sl["obrazy"] if i is not pack and i["w"] * i["h"] >= 0.002 * w_cm * h_cm and
+             not (i["x"] < 0.25 * w_cm and i["y"] < 0.4 * h_cm and 1.2 <= i["w"] / max(i["h"], 0.1) <= 1.5)][:5]  # bez logo
+    spec = {"type": "cover", "variant": 1, "title": title, "image": pack["path"], "props": props,
+            "flavors": [{"name": _text_of(b)} for b in pills]}
+    if above:
+        spec["kicker"] = _text_of(min(above, key=lambda b: abs(tb["y"] - (b["y"] + b["h"]))))
+    if below:
+        spec["subtitle"] = " ".join(_text_of(b) for b in below)
+    return [spec]
 
 
 def _chap_name(t):
@@ -719,6 +1237,12 @@ def detect_chapters(model):
 def _title_fits(t):
     sz = build_dk.title_size(t, 40, 26, cm(26))
     return len(build_dk.display_lines(t, sz, cm(26))) * sz <= 84 and len(t) <= 110
+
+
+def _tytul_3_linie(t):
+    """Tytuł z lewej kolumny: do 110 znaków i do 3 linii przy rozmiarze z `title_size` (uklad umie tytuł 3-liniowy)."""
+    sz = build_dk.title_size(t, 40, 26, cm(26))
+    return len(t) <= 110 and len(build_dk.display_lines(t, sz, cm(26))) <= 3
 
 
 def _kick_ok(t):
@@ -776,14 +1300,25 @@ def _pick_title(items, allow_single=False):
     return None, items
 
 
-def _is_head(it, med):
-    return (not it["li"] and len(it["t"]) <= 60 and not it["t"].endswith((".", ";", ",")) and
-            (it["pt"] >= 1.25 * med or it["t"].endswith(":")))
+def _is_head(it, med, nxt=None, grupy=False):
+    """Nagłówek grupy: krótki akapit bez punktora, większy od mediany albo z dwukropkiem; także każdy akapit bez punktora, pod którym
+    w tym samym polu stoją punkty (struktura „hasło + punkty”, powtarzana w grupach: wszystkie grupy dostają ten sam styl)."""
+    if it["li"] or it["t"].endswith((".", ";", ",")):
+        return False
+    if it.get("glowa"):  # etykieta-owal dołączona do pola (`_etykiety_owalne`)
+        return True
+    if len(it["t"]) <= 60 and (it["pt"] >= 1.25 * med or it["t"].endswith(":")):
+        return True
+    return grupy and bool(nxt) and nxt["li"] and nxt["bi"] == it["bi"] and len(it["t"]) <= 110
 
 
 def _blocks_of(items):
     """Pozycje -> bloki dla typu flow: li / h / url / p (krótkie wiersze tego samego pola tekstowego -> jeden akapit z łamaniami)."""
     med = _med([i["pt"] for i in items])
+    # „hasło + punkty” powtórzone w grupach: akapit nad punktami jest nagłówkiem, gdy takich grup w polu jest >= 2 (jedna nazwa nad listą
+    # - np. podpis pod zdjęciem - zostaje zwykłym akapitem)
+    grupy = sum(1 for k, x in enumerate(items[:-1]) if not x["li"] and items[k + 1]["li"] and items[k + 1]["bi"] == x["bi"] and
+                len(x["t"]) <= 110 and not x["t"].endswith((".", ";", ","))) >= 2
     out, i = [], 0
     while i < len(items):
         it = items[i]
@@ -791,13 +1326,13 @@ def _blocks_of(items):
             out.append({"k": "li", "t": it["t"], **({"url": it["url"]} if it["url"] else {})})
         elif _URL.match(it["t"]) or it["url"]:
             out.append({"k": "url", "t": it["t"], "url": it["url"] or it["t"]})
-        elif _is_head(it, med) and i + 1 < len(items):
+        elif _is_head(it, med, items[i + 1] if i + 1 < len(items) else None, grupy) and i + 1 < len(items):
             out.append({"k": "h", "t": it["t"]})
         else:
             lines = [it["t"]]
             while (i + 1 < len(items) and items[i + 1]["bi"] == it["bi"] and not items[i + 1]["li"] and
                    not items[i + 1]["url"] and len(items[i + 1]["t"]) <= 48 and len(lines[-1]) <= 48 and
-                   not _is_head(items[i + 1], med)):
+                   not _is_head(items[i + 1], med, items[i + 2] if i + 2 < len(items) else None, grupy)):
                 i += 1
                 lines.append(items[i]["t"])
             out.append({"k": "p", "t": "\n".join(lines)})
@@ -1086,25 +1621,69 @@ def _image_specs(sl, hdr, blocks, h_cm):
 
 
 # --- tabele i wykresy -------------------------------------------------------------------------------------
+def _zlacz_tabele(tables):
+    """Tabele stojące obok siebie na tej samej wysokości i z tą samą liczbą wierszy (etykiety wierszy w jednej tabeli, dane w drugiej)
+    to jedna tabela: kolumny kolejnych tabel obok siebie. Inne tabele zostają osobno."""
+    out = []
+    for tb in sorted(tables, key=lambda x: (round(x["y"]), x["x"])):
+        pr = out[-1] if out else None
+        if pr and len(pr["rows"]) == len(tb["rows"]) and abs(pr["y"] - tb["y"]) <= 0.6 and abs(pr["h"] - tb["h"]) <= 1.0 and \
+                -0.5 <= tb["x"] - (pr["x"] + pr["w"]) <= 1.5:
+            out[-1] = dict(pr, rows=[a + b for a, b in zip(pr["rows"], tb["rows"])], w=tb["x"] + tb["w"] - pr["x"])
+        else:
+            out.append(dict(tb))
+    return out
+
+
+def _uklad_z_punktow(hdr, title_item, bl):
+    """Punkty z tabeli nietypowej (wiersz = punkt) -> slajd `uklad` z regułami listy (`_lista_na_karty`: kafle / karty z hasłem i dopiskiem);
+    None, gdy nie wychodzi karta albo się nie mieści (wtedy zostaje `flow`)."""
+    rows = [{"k": "p", "t": b["t"], "li": True, "_pole": i} for i, b in enumerate(bl) if b["k"] == "li" and b["t"].strip()]
+    if len(rows) != len(bl) or len(rows) < 2 or any(_wzorzec(r["t"]) for r in rows):
+        return None
+    nowe = _pojemniki(rows)
+    if not any(r.get("_z_listy") or r["k"] == "b" for r in nowe):
+        return None
+    kicker, title = _head(hdr, title_item)
+    sp = {"type": "uklad", "rows": nowe}
+    if title:
+        sp["title"] = title
+    if kicker:
+        sp["kicker"] = kicker
+    sp["max_f"] = 1.25
+    if not _miesci(sp):
+        return None
+    return [sp]
+
+
 def _table_specs(tb, hdr, title_item):
     rows = [r for r in tb["rows"] if any(c.strip() for c in r)]
     if not rows:
         return []
+    pelne = [c for c in range(max(len(r) for r in rows)) if any(c < len(r) and r[c].strip() for r in rows)]
+    if len(pelne) < max(len(r) for r in rows):  # kolumny całkiem puste (odstępy w tabeli źródła) nie niosą treści
+        rows = [[r[c] if c < len(r) else "" for c in pelne] for r in rows]
     head, body = rows[0], rows[1:]
     ncol = len(head)
-    ok = 2 <= ncol <= 6 and body
+    ok = 2 <= ncol <= 14 and body
     widths = []
     if ok:
-        widths = [max(12, min(60, max(len(r[c]) if c < len(r) else 0 for r in rows))) for c in range(ncol)]
+        widths = [max(12, min(36 if ncol >= 8 else 60, max(len(r[c]) if c < len(r) else 0 for r in rows))) for c in range(ncol)]
         tw = build_dk.W - 2 * build_dk.MX
         colw = [tw * w / sum(widths) - cm(1) for w in widths]
-        ok = min(colw) >= cm(1.8) and all(len(build_dk.lines_for(cell, 13, colw[c])) <= 2
-                                           for r in rows for c, cell in enumerate(r[:ncol]))
+        ok = min(colw) >= (cm(1.8) if ncol <= 6 else cm(1.2) if ncol <= 7 else cm(0.9)) and \
+            all(len(build_dk.lines_for(cell, 13, colw[c])) <= 2 for r in rows for c, cell in enumerate(r[:ncol]))
     kicker, title = _head(hdr, title_item)
     if not ok:  # tabela nietypowa: wiersz = punkt z nazwami kolumn
         bl = [{"k": "li", "t": "; ".join("%s: %s" % (h, v) if h else v for h, v in zip(head, r) if v.strip())
-               if body else r[0]} for r in (body or [head])]
-        return _flow_specs(hdr, title_item, bl)
+               if body else r[0]} for r in (body or [head]) if any(c.strip() for c in r)]
+        puste = [h for c, h in enumerate(head) if h.strip() and not any(c < len(r) and r[c].strip() for r in body)]
+        sp_ = _uklad_z_punktow(hdr, title_item, bl)
+        if sp_ is None:
+            sp_ = _flow_specs(hdr, title_item, bl)
+        if puste and body and sp_:  # nagłówki kolumn bez wartości (np. dni harmonogramu zaznaczone kolorem komórek): nic nie ginie, ale nie na slajdzie
+            sp_[0]["_notes_dod"] = "[Kolumny bez wartości w tabeli]\n" + ", ".join(puste)
+        return sp_
     specs, per = [], 9
     for i in range(0, len(body), per):
         specs.append({"type": "table", "kicker": kicker, "title": title, "head": head,
@@ -1126,9 +1705,25 @@ def _chart_spec(ch, hdr, title_item):
             if v is not None and abs(v - round(v)) > 1e-9:
                 dec = max(dec, 2 if abs(v * 10 - round(v * 10)) > 1e-6 else 1)
     fmt = "0" if dec == 0 else "0." + "0" * dec
-    return {"type": "columns", "kicker": kicker, "title": title, "categories": ch["cats"],
-            "series": [{"name": s["name"] or "Seria %d" % (i + 1), "values": [_num(v) for v in s["values"]]}
-                       for i, s in enumerate(ch["series"])], "number_format": fmt}
+    typ = (ch.get("typ") or "").upper()
+    if ("PIE" in typ or "DOUGHNUT" in typ) and len(ch["series"]) == 1 and 2 <= len(ch["cats"]) <= 6:
+        # kołowy / pierścieniowy -> `donut` (t52): legenda z procentami, największy udział w środku, nazwa serii pod nim
+        wart = [_num(v) for v in ch["series"][0]["values"]]
+        suma = sum(wart)
+        if suma > 0 and all(v >= 0 for v in wart) and len(wart) == len(ch["cats"]):
+            items = [{"label": c, "value": v, "text": "%d%%" % round(100.0 * v / suma)} for c, v in zip(ch["cats"], wart)]
+            sp = {"type": "donut", "kicker": kicker, "title": title, "items": items, "center": items[wart.index(max(wart))]["text"]}
+            if ch["series"][0]["name"]:
+                sp["center_label"] = ch["series"][0]["name"]
+            return sp
+    sp = {"type": "columns", "kicker": kicker, "title": title, "categories": ch["cats"],
+          "series": [{"name": s["name"] or "Seria %d" % (i + 1), "values": [_num(v) for v in s["values"]]}
+                     for i, s in enumerate(ch["series"])], "number_format": fmt}
+    if "STACKED" in typ:  # skumulowany zostaje skumulowany (builder: `stacked` / `percent`; bez obsługi rysuje kolumny obok siebie)
+        sp["stacked"] = True
+        if "100" in typ:
+            sp["percent"] = True
+    return sp
 
 
 # --- jeden slajd źródła -> slajdy DK ----------------------------------------------------------------------
@@ -1165,7 +1760,7 @@ def _cover_spec(sl, hdr, items, hc):
     return out
 
 
-def _convert(sl, model, first, last, chap_no):
+def _convert(sl, model, first, last, chap_no, ctx=None):
     hc, wc = model["h_cm"], model["w_cm"]
     hdr_b, blocks = _body(sl, hc)
     hdr = _text_of(hdr_b) if hdr_b else None
@@ -1193,11 +1788,35 @@ def _convert(sl, model, first, last, chap_no):
     if sl["tables"] or sl["charts"]:
         t, rest = _pick_title([i for i in items if not _SRC.match(i["t"])], allow_single=True)
         out = []
-        for tb in sl["tables"]:
+        for tb in _zlacz_tabele(sl["tables"]):
             out += _table_specs(tb, hdr, t["t"] if t else None)
         for ch in sl["charts"]:
             out.append(_chart_spec(ch, hdr, t["t"] if t else None))
         left = [i for i in items if i is not t]
+        if left and ctx is not None and not sl["obrazy"] and not any(i is not t and t and i["bi"] == t["bi"] for i in items) and \
+                not any(_wzorzec(i["t"]) for i in left):
+            # v14 (runda 7): tekst pozostały po tabeli / wykresie idzie tą samą drogą co tekst slajdów bez tabel (wiersze `uklad`:
+            # karty, kafle, hasła Mindset), nie „gołą listą” `flow`. Tytuł dostaje z tabeli (`_dziedzicz_tytul`), nagłówek slajdu zostaje
+            # nagłówkiem. Tytuł z treści (t) był osobnym polem (sprawdzone wyżej: nie dzieli bloku z innymi akapitami).
+            zostaje = [b for b in blocks if not (t and id(b) == t["bi"])]
+            syn = dict(sl, tables=[], charts=[], obrazy=[], texts=([hdr_b] if hdr_b is not None else []) + zostaje)
+            nu, ns = len(ctx["uwagi"]), len(ctx["sprawdz"])
+            try:
+                tekst = _uklad(syn, model, ctx)
+            except Exception:
+                tekst = None
+            star = _text_specs(left, None)
+            if tekst and (len(tekst) > len(star) or any(s.get("type") not in ("flow", "bullets") for s in star)):
+                tekst = None  # stara droga dała własny typ (statement, lead...) albo mniej slajdów niż karty: zostaje stara droga
+            if not tekst:
+                del ctx["uwagi"][nu:], ctx["sprawdz"][ns:]
+            if tekst:
+                th = _text_of(hdr_b).strip().lower() if hdr_b is not None else None
+                for sp_ in tekst:  # nagłówek slajdu stoi już na slajdzie tabeli / wykresu: część z tekstem dziedziczy go (`_dziedzicz_tytul`)
+                    for kl in ("title", "kicker"):
+                        if th and re.sub(r"\s*\(\d+/\d+\)$", "", (sp_.get(kl) or "")).strip().lower() == th:
+                            sp_.pop(kl)
+                return out + _dziedzicz_tytul(out + tekst)[len(out):]
         return out + (_text_specs(left, None) if left else [])
     if sl["obrazy"]:
         return _image_specs(sl, hdr, blocks, hc)
@@ -1814,7 +2433,19 @@ def _kolumny(grp, cl, ctx, n, caps_of):
     tx = [e for b in grp for e in b["els"] if e["typ"] == "t"]
     pt_max = max([max((p["pt"] or DEFAULT_PT) for p in e["b"]["paras"]) for e in tx] or [DEFAULT_PT])
     lab = []
-    while len(grp) - len(lab) > 1 and len(lab) < 2 and all(_etykieta(e, pt_max) for e in grp[-1 - len(lab)]["els"]):
+    def _lista(k):  # pasmo grp[k] to kolejny punkt listy: kropka kształtem albo to samo pismo co jednoliniowe pasmo nad nim
+        els = grp[k]["els"]
+        if any(e["typ"] == "t" and e["b"].get("dot") for e in els):
+            return True
+        if k == 0 or not all(e["typ"] == "t" for e in els):
+            return False
+        ab = [e for e in grp[k - 1]["els"] if e["typ"] == "t"]
+        pt = lambda e: max((p["pt"] or DEFAULT_PT) for p in e["b"]["paras"])  # noqa: E731
+        return bool(ab) and all(_jedna_linia(e["b"]) and len(_jedna_linia(e["b"])) <= 40 for e in ab + els) and \
+            abs(max(map(pt, ab)) - max(map(pt, els))) <= 0.6
+
+    while len(grp) - len(lab) > 1 and len(lab) < 2 and all(_etykieta(e, pt_max) for e in grp[-1 - len(lab)]["els"]) and \
+            not _lista(len(grp) - 1 - len(lab)):
         lab.append(grp[-1 - len(lab)])
     lab_ids = {id(e): ("meta" if k == 0 else "tag") for k, b in enumerate(lab) for e in b["els"]}
     items = []
@@ -1867,7 +2498,7 @@ def _kolumny(grp, cl, ctx, n, caps_of):
     return row
 
 
-def _wlasny_naglowek(blocks, imgs, ctx):
+def _wlasny_naglowek(blocks, imgs, ctx, hdr_b=None):
     """Nagłówek samego slajdu (pod belką): samotne, jednowierszowe pole-etykieta (do 4 słów i 32 znaków) nad całą
     resztą treści, np. „Kulki”, „Dane wejściowe”. Pełne zdanie zostaje treścią. Zwraca (pole, tekst) albo (None, None)."""
     if len(blocks) + len(imgs) < 2 or not blocks:
@@ -1880,8 +2511,12 @@ def _wlasny_naglowek(blocks, imgs, ctx):
     if len(ws) != 1:
         return None, None
     t = ws[0]["t"]
+    if t.strip().isdigit():
+        return None, None  # numer (plakietka z liczbą, np. „2” przy ikonie) to nie tytuł slajdu
     rest_pt = max([w["pt"] for x in rest for w in _wiersze(x)] or [0])
     rest_len = sum(len(_text_of(x)) for x in rest)
+    if hdr_b is not None and ws[0]["pt"] < 0.7 * max((p["pt"] or 0) for p in hdr_b["paras"]):
+        return None, None  # górne pole jest wyraźnie większe: to tytuł slajdu, nie nadtytuł (kicker) nad „własnym” nagłówkiem
     if len(t) <= 32 and len(t.split()) <= 4 and not t.endswith((".", ",", ";")) and ws[0]["pt"] >= 0.9 * rest_pt and \
             _title_fits(t) and (rest_len >= 1.5 * len(t) or imgs or len(rest) >= 2):
         return b, t
@@ -1940,6 +2575,8 @@ def _uklad_wiersze(sl, blocks, ctx):
         if kol:
             wnioski.append((_lit(ctx, n, src_n, [note])[0], kol))
             note = ""
+    sier = [b for b in left if b.get("pill") and b.get("etykieta") and _wiersze(b)]  # etykiety-owale bez sąsiada: osobny rząd chipsów
+    left = [b for b in left if not any(b is x for x in sier)]
     els = [dict(typ="t", b=b, x=b["x"], y=b["y"], w=max(b["w"], 0.1), h=max(b["h"], 0.1)) for b in left
            if _wiersze(b)]
     stosy = _stosy(imgs)
@@ -1989,6 +2626,7 @@ def _uklad_wiersze(sl, blocks, ctx):
         wys = max(e["h"] for e in es) * ctx["sk_y"] * 0.9  # wysokosc rzedu jak w oryginale (w skali nowego slajdu)
         row["h"] = round(max(4.0, min(8.5, wys)), 1)
         row["_poj"] = len(ims) == 1 or (len(es) == 1 and len(es[0]["ims"]) > 1)
+        row["_zrzut"] = any(i.get("zrzut") for e in es for i in e["ims"])
         mw = max(im["w"] for im in ims)
         if not row.get("layout") and min(im["w"] for im in ims) < 0.6 * mw:
             row["ws"] = [round(max(0.25, im["w"] / mw), 2) for im in ims]
@@ -2012,8 +2650,17 @@ def _uklad_wiersze(sl, blocks, ctx):
 
     while i < len(bands):
         es = bands[i]["els"]
+        if len(es) == 1 and es[0]["typ"] == "t" and es[0]["b"].get("pill") and es[0]["b"].get("owal", True):
+            rows.append({"k": "chips", "items": [haslo_t(es[0])], "per_row": 1})  # etykieta-owal bez sąsiada: rząd chipsów
+            i += 1
+            continue
         if len(es) == 1 or all(e["typ"] == "i" for e in es):
             rows += pojedynczo(es) if len(es) == 1 else [pics(es)]
+            i += 1
+            continue
+        if all(e["typ"] == "t" and e["b"].get("pill") for e in es):  # metki / pigułki w jednym rzędzie (np. smaki): chipsy
+            rows.append({"k": "chips", "items": [haslo_t(e) for e in sorted(es, key=lambda e: e["x"])],
+                         "per_row": min(len(es), 4)})
             i += 1
             continue
         cl = _klastry(es)
@@ -2054,6 +2701,9 @@ def _uklad_wiersze(sl, blocks, ctx):
         i = j
     if note:
         rows.append({"k": "small", "t": note})
+    if sier:
+        rows.insert(0, {"k": "chips", "items": [haslo_t(dict(b=b)) for b in sorted(sier, key=lambda b: (b["y"], b["x"]))],
+                        "per_row": min(len(sier), 4)})
     out = []
     for r in rows:  # sąsiednie wiersze samych obrazów -> jeden wiersz (obok siebie), najwyżej 4 obrazy
         razem = out and r["k"] == "pics" and out[-1]["k"] == "pics" and not r.get("layout") and not out[-1].get("layout")
@@ -2289,8 +2939,9 @@ def _grupy_r7(run):
 def _karta7(g):
     """R7: akapity w kremowej karcie na całą szerokość (s16 szablonu); nagłówek grupy jako blok h."""
     blocks = []
+    nb = sum(1 for r in g if r["k"] == "b")  # kilka podtytułów w grupie = kolejne grupy „hasło + punkty”: żaden nie jest nagłówkiem karty
     for i, r in enumerate(g):
-        blocks.append(_blok(r, k="h" if (i == 0 and len(g) > 1 and _naglowek_r7(r)) else None))
+        blocks.append(_blok(r, k="h" if (i == 0 and len(g) > 1 and _naglowek_r7(r) and nb <= 1) else None))
     return _karta([{"blocks": blocks}], 1.0, 0)  # 10.10: pad 1,0 (było 1,6) - duży tekst (s41) dostaje miejsce
 
 
@@ -2330,7 +2981,346 @@ def _pozycje(run):
     return out
 
 
+_PUNKT = re.compile(r"^\s*(?:[•·▪■◦●‣]\s*|\u2022\u00a0)")
+
+
+def _wzorzec(tx):
+    """Pole-wzorzec szablonu („[Hasło 1]”, „[Tytuł tabeli]”): użytkownik i tak wpisze własny tekst - nie przebudowujemy go na karty."""
+    return (tx or "").lstrip().lstrip("•·▪■◦●‣\u2022\u00a0 ").startswith("[")
+
+
+def _jest_punkt(r):
+    return bool(r.get("li")) or bool(_PUNKT.match(r.get("t") or ""))
+
+
+def _bez_punktora(t):
+    return _PUNKT.sub("", t).strip()
+
+
+def _slow_t(t):
+    return len(t.split())
+
+
+def _kols(sz, items, **kw):
+    """`szablonuj.k_cols` ze znacznikiem `_z_listy` (wiersz z reguł listy; `_uklad` przy braku miejsca dzieli takie karty na slajdy zamiast
+    wracać do gołych wierszy; znacznik znika w `_czysc`)."""
+    r = sz.k_cols(items, **kw)
+    r["_z_listy"] = True
+    return r
+
+
+def _karta_tekst(*blocks):
+    return {"blocks": [b for b in blocks if b]}
+
+
+def _blok_li(x):
+    return {"k": "li", "t": x, "icon": "check"}
+
+
+def _podziel_pkt(pkt, k):
+    """Punkty -> k kolejnych grup o zbliżonej liczbie słów (cięcie między punktami)."""
+    k = max(1, min(k, len(pkt)))
+    cel = sum(_slow_t(x) for x in pkt) / float(k)
+    out, cur, c = [], [], 0
+    for i, x in enumerate(pkt):
+        w = _slow_t(x)
+        zostalo = len(pkt) - i
+        if cur and len(out) < k - 1 and (c + w / 2.0 > cel or zostalo <= k - 1 - len(out)):
+            out.append(cur)
+            cur, c = [], 0
+        cur.append(x)
+        c += w
+    out.append(cur)
+    return out
+
+
+def _wspolny_naglowek(pkt):
+    """Punkty zaczynające się tym samym początkiem do dwukropka („Znajomość marki (z logo): Marka kupiona...”) -> (początek z dwukropkiem,
+    [reszty punktów]); None, gdy początki są różne, długie (> 8 słów) albo po dwukropku nic nie ma."""
+    if any(":" not in x for x in pkt):
+        return None
+    glowy = {x.split(":", 1)[0].strip() for x in pkt}
+    reszty = [x.split(":", 1)[1].strip() for x in pkt]
+    if len(glowy) != 1 or not all(reszty):
+        return None
+    g = glowy.pop()
+    return (g + ":", reszty) if g and _slow_t(g) <= 8 else None
+
+
+def _lista_na_karty(run, min_pkt=2):
+    """Wiersze tekstu, których treścią jest lista punktów / akapity z nagłówkami (bez obrazu, tabeli, wykresu) -> te same klocki co w trybie
+    dokumentu: karty z hasłem Mindset i dopiskiem / punktami Lato, kafle, karta na grupę „nagłówek + punkty”. Reguły (runda 7):
+    a) 2-6 krótkich punktów (<= 6 słów) -> kafle z ikoną (S4: wiersze `b` z `li`); 2-4 dłuższe (<= 30 słów) -> karty (hasło + dopisek);
+    b) grupy „nagłówek + punkty” -> karta na grupę (nagłówek `h` Mindset + `li` Lato), do 3 kart w rzędzie;
+    c) 1-2 dłuższe punkty -> karty (hasło + dopisek, S14);
+    d) lista 5+ punktów bez nagłówków -> dwie karty z punktami (podział po słowach);
+    e) akapity przed listą -> karty (hasło + dopisek) nad listą; akapit po liście -> karta pod nią.
+    Zwraca wiersze albo None (to nie jest lista: stare reguły R6 / R7 bez zmian)."""
+    import szablonuj as sz
+    if not run or any(r["k"] not in ("p", "b", "h", "lead") for r in run) or sum(1 for r in run if _jest_punkt(r)) < 1:
+        return None
+    if any(_wzorzec(r["t"]) for r in run):
+        return None
+    wiersze = list(run)
+    if len(wiersze) >= 4 and len(wiersze) % 2 == 0 and all(_jest_punkt(r) == (i % 2 == 0) for i, r in enumerate(wiersze)) and \
+            all(_slow_t(_bez_punktora(r["t"])) <= 14 for r in wiersze[0::2]) and not any(r["t"].rstrip().endswith(":") for r in wiersze[1::2]):
+        # punkt, pod nim jego opis (bez punktora), znów punkt i opis...: karta na parę = hasło Mindset (punkt) + dopisek Lato (opis)
+        karty = [_karta_tekst({"k": "h", "t": _bez_punktora(a["t"])}, sz.blok("p", (b["t"].strip(), None), align="l"))
+                 for a, b in zip(wiersze[0::2], wiersze[1::2])]
+        per = 3 if len(karty) <= 3 else 2
+        return [_kols(sz, karty[a:a + per], pad=1.0, rwane_ok=True) for a in range(0, len(karty), per)]
+    intro, grupy, po, cur = [], [], [], None
+    for i, r in enumerate(wiersze):
+        sled = wiersze[i + 1] if i + 1 < len(wiersze) else None
+        t = r["t"].strip()
+        if _jest_punkt(r):
+            if cur is None:
+                cur = {"head": None, "pkt": []}
+                grupy.append(cur)
+            cur["pkt"].append(_bez_punktora(t))
+            continue
+        nastepny_pkt = sled is not None and _jest_punkt(sled)
+        # nagłówek grupy: pole `b` albo krótki akapit bez kropki tuż nad punktami (np. „Segment 1 i 2 (…)”); także zakończony dwukropkiem
+        if nastepny_pkt and (r["k"] in ("b", "h", "lead") or t.endswith(":") or (_slow_t(t) <= 16 and not t.endswith((".", "?", "!")))):
+            cur = {"head": t, "pkt": []}
+            grupy.append(cur)
+        elif not grupy:
+            intro.append(t)
+        else:
+            po.append(t)
+            cur = None
+    pkt_razem = sum(len(g["pkt"]) for g in grupy)
+    if not grupy or pkt_razem < min_pkt and not any(g["head"] for g in grupy):
+        return None
+    if any(not g["pkt"] for g in grupy):
+        return None  # nagłówek bez punktów: nie ta struktura
+    rows = []
+    # e) akapity przed listą
+    if intro:
+        if len(intro) >= 2 and intro[0].rstrip().endswith(":"):
+            bl = [{"k": "h", "t": intro[0]}] + [sz.blok("p", (x, None), align="l") for x in intro[1:]]
+            rows.append(_kols(sz, [_karta_tekst(*bl)], pad=1.0, rwane_ok=True))
+            reszta = []
+        elif len(intro) == 1:
+            rows.append(_kols(sz, [_karta_tekst(sz.blok("p", (intro[0], None), align="l"))], pad=1.0, rwane_ok=True))
+            reszta = []
+        else:
+            reszta = intro
+        for a in range(0, len(reszta), 3):
+            rows.append(_kols(sz, [_karta_tekst(sz.blok("p", (x, None), align="l")) for x in reszta[a:a + 3]], pad=1.0, rwane_ok=True))
+    # a-d) lista / grupy
+    bez_nagl = len(grupy) == 1 and grupy[0]["head"] is None
+    if bez_nagl and 2 <= len(grupy[0]["pkt"]) <= 6:
+        wsp = _wspolny_naglowek(grupy[0]["pkt"])
+        if wsp:  # punkty z tym samym początkiem „Znajomość marki (z logo): ...” -> początek raz jako nagłówek karty, reszta punktami
+            grupy[0], bez_nagl = {"head": wsp[0], "pkt": wsp[1]}, False
+    if bez_nagl:
+        pkt = grupy[0]["pkt"]
+        n, maxw = len(pkt), max(_slow_t(x) for x in pkt)
+        if 2 <= n <= 6 and maxw <= 6:
+            rows += [{"k": "b", "t": x, "li": True} for x in pkt]  # S4: kafle z ikoną (szablonuj._s4_kafle)
+        elif n == 1 or (2 <= n <= 4 and maxw <= 30):
+            rows.append(_kols(sz, [_karta_tekst(sz.blok("p", (x, None), align="l")) for x in pkt], pad=1.0, rwane_ok=True))
+        else:
+            k = 2 if n >= 4 else 1
+            rows.append(_kols(sz, [_karta_tekst(*[_blok_li(x) for x in g]) for g in _podziel_pkt(pkt, k)], pad=1.0, rwane_ok=True))
+    else:
+        karty = []
+        for g in grupy:
+            bl = ([{"k": "h", "t": g["head"]}] if g["head"] else []) + [_blok_li(x) for x in g["pkt"]]
+            karty.append(_karta_tekst(*bl))
+        per = 3 if len(karty) <= 3 else 2
+        for a in range(0, len(karty), per):
+            rows.append(_kols(sz, karty[a:a + per], pad=1.0, rwane_ok=True))
+    # akapit po liście: karta pod nią
+    for x in po:
+        rows.append(_kols(sz, [_karta_tekst(sz.blok("p", (x, None), align="l"))], pad=1.0, rwane_ok=True))
+    return rows
+
+
+def _karty_z_kolumn(r):
+    """Wiersz `cols` z samymi tekstami (kolumny autora „nagłówek + punkty”, bez obrazów, etykiet i klocków) -> karty-pojemniki: nagłówek
+    Mindset (`h`) i punkty `li` Lato (kilka kolumn: jeden wiersz kart; jedna kolumna: lista wierszy z `_lista_na_karty`). Tylko gdy co najmniej
+    jedna kolumna ma punkty; inaczej None (kolumny bez zmian)."""
+    if r.get("kont") or r["k"] != "cols":
+        return None
+    items = r["items"]
+    if len(items) == 2 and not r.get("kont"):  # ikona / obraz po jednej stronie, tekst z listą po drugiej: obraz jako mały wiersz nad kartami
+        im = [it for it in items if it["blocks"] and all(b["k"] == "img" for b in it["blocks"])]
+        tx = [it for it in items if it not in im]
+        if len(im) == 1 and len(tx) == 1 and float(im[0]["blocks"][0].get("h", 99)) <= 4.5 and not tx[0].get("tag") and not tx[0].get("meta") and tx[0]["blocks"] and                 all(b["k"] in ("p", "b", "h") for b in tx[0]["blocks"]) and                 sum(1 for b in tx[0]["blocks"] if _PUNKT.match(b.get("t") or "")) >= 2:
+            wiersze = _lista_na_karty([{"k": "b" if b["k"] in ("b", "h") else "p", "t": b["t"]} for b in tx[0]["blocks"]])
+            if wiersze is not None:
+                b0 = im[0]["blocks"][0]
+                try:
+                    with Image.open(b0["image"]) as _i:
+                        ratio = _i.width / max(1, _i.height)
+                except Exception:
+                    ratio = 1.0
+                h = min(3.5, float(b0.get("h", 3.5)))
+                pic = {"k": "pics", "min_h": 2.0, "h": round(h, 1), "items": [{"image": b0["image"], "caption": "", "box": [0, 0, round(ratio * h, 1), h]}],
+                       "_z_listy": True}
+                return [pic] + wiersze
+    if not items or not all(it["blocks"] and all(b["k"] in ("p", "b", "h", "lead") for b in it["blocks"]) and not it.get("tag") and
+                            not it.get("meta") and "fill" not in it for it in items):
+        return None
+    if not any(sum(1 for b in it["blocks"] if _PUNKT.match(b.get("t") or "")) >= 2 for it in items):
+        return None
+    if any(_wzorzec(b.get("t")) for it in items for b in it["blocks"]):
+        return None
+    if len(items) == 1:  # jedna kolumna tekstu (np. cały slajd z listą): ta sama droga co wiersze tekstu (reguły listy)
+        return _lista_na_karty([{"k": "b" if b["k"] in ("b", "h") else "p", "t": b["t"]} for b in items[0]["blocks"]
+                                if b["k"] in ("p", "b", "h")]) if all(b["k"] in ("p", "b", "h") for b in items[0]["blocks"]) else None
+    import szablonuj as sz
+    karty = []
+    for it in items:
+        bl = it["blocks"]
+        out = []
+        for k, b in enumerate(bl):
+            tb = (b.get("t") or "").strip()
+            if _PUNKT.match(tb):
+                out.append(_blok_li(_bez_punktora(tb)))
+            elif k == 0 and (b["k"] in ("h", "b") or (_slow_t(tb) <= 16 and not tb.endswith((".", "?", "!")))):
+                out.append({"k": "h", "t": tb})
+            else:
+                out.append({"k": "p", "t": tb})
+        karty.append(_karta_tekst(*out))
+    return _kols(sz, karty, pad=1.0, rwane_ok=True)
+
+
+_META_KOD = re.compile(r"^\s*(?:Z?P|NM)(?:\d+[A-Za-z]?\.?|\.)\s*$")  # sam kod pytania: „P2.”, „ZP8.”, „P.”
+_META_PYT = re.compile(r"^\s*(?:Z?P|NM)(?:\d+[A-Za-z]?\.?|\.)\s+\S")  # „P6. Ile razy…”, „NM8 Jak często…”
+_META_N = re.compile(r"^\s*N\s*=\s*\d")  # podstawa: „N=1156”, „N=1156 / N=676”
+
+
+def _ogon_meta(run):
+    """Wiersze-metryczka ankiety na końcu ciągu (kod pytania + pytanie, podstawa „N=...”) -> (reszta, [drobne wiersze `small`]). Metryczka
+    nie jest treścią karty (hasłem „P2.” ani „N=1156”): idzie drobnym drukiem pod kartami. Bez metryczki albo gdy nic by nie zostało:
+    (run, [])."""
+    j = len(run)
+    if j and _META_N.match(run[j - 1]["t"]):
+        j -= 1
+    for c in range(max(0, j - 3), j):
+        if _META_KOD.match(run[c]["t"]) or _META_PYT.match(run[c]["t"]):
+            j = c
+            break
+    if j == 0 or j == len(run):
+        return run, []
+    tail, i = [], j
+    while i < len(run):
+        x = run[i]
+        if _META_KOD.match(x["t"]) and i + 1 < len(run) and not _META_N.match(run[i + 1]["t"]):
+            tail.append({"k": "small", "t": x["t"].strip() + " " + run[i + 1]["t"].strip()})
+            i += 2
+        else:
+            tail.append({"k": "small", "t": x["t"].strip()})
+            i += 1
+    return run[:j], tail
+
+
+def _akapity_na_karty(run, pk, nk):
+    """Akapity bez punktorów (opis osoby, kilka zdań, grupa „nagłówek + akapity”) -> karty: nagłówek `h` Mindset + akapity Lato (S14
+    zamienia długi akapit na hasło z dopiskiem); grupa = karta, do 3 kart w rzędzie; bez nagłówków: akapit = karta (2-4) albo dwie karty
+    po tyle samo słów (5+). None, gdy to nie ta struktura."""
+    import szablonuj as sz
+    if not run or any(r["k"] not in ("p", "b", "h", "lead") for r in run) or any(_jest_punkt(r) for r in run):
+        return None
+    if any(_SRC.match(r["t"]) or _META_N.match(r["t"]) or _wzorzec(r["t"]) for r in run) or pk not in (None, "pics") or nk == "karta":
+        return None  # akapit po karcie / etykiecie to komentarz pod kartami (stara reguła), nie nowa karta
+    if len(run) == 1 and (pk in ("chips", "pics", "cols") or nk in ("chips", "pics", "cols")):
+        return None
+    if sum(_w(r) for r in run) < 14 or len(run) > 12:
+        return None
+    n = len(run)
+    grupy, cur = [], None
+    for i, r in enumerate(run):
+        tx = r["t"].strip()
+        sled = run[i + 1] if i + 1 < n else None
+        nagl = sled is not None and (
+            (r["k"] in ("b", "h", "lead") and _slow_t(tx) <= 12) or
+            (_slow_t(tx) <= 6 and not tx.endswith((".", "?", "!")) and ":" not in tx[:-1] and _slow_t(sled["t"]) >= 2 * _slow_t(tx)))
+        if nagl:
+            cur = {"head": tx, "p": []}
+            grupy.append(cur)
+        else:
+            if cur is None:
+                cur = {"head": None, "p": []}
+                grupy.append(cur)
+            cur["p"].append(tx)
+    if any(not g["p"] for g in grupy):
+        return None
+    if not any(g["head"] for g in grupy):
+        tx = [g_ for g in grupy for g_ in g["p"]]
+        if len(tx) >= 5:
+            grupy = [{"head": None, "p": g} for g in _podziel_pkt(tx, 2)]
+        else:
+            grupy = [{"head": None, "p": [x]} for x in tx]
+    karty = []
+    for g in grupy:
+        bl = ([{"k": "h", "t": g["head"]}] if g["head"] else []) + [sz.blok("p", (x, None), align="l") for x in g["p"]]
+        karty.append(_karta_tekst(*bl))
+    per = 3 if len(karty) <= 3 else 2
+    return [_kols(sz, karty[a:a + per], pad=1.0, rwane_ok=True) for a in range(0, len(karty), per)]
+
+
+def _akapity_w_czesci(sp):
+    """Część slajdu po podziale (`_podziel`), w której zostały gołe akapity (opis osoby pod zdjęciami, samo kilka zdań): akapity w kartach
+    (`_akapity_na_karty`), o ile slajd nadal się mieści; inaczej bez zmian."""
+    rows = sp.get("rows") or []
+    if sp.get("type") != "uklad" or not any(r["k"] in ("p", "b") for r in rows):
+        return sp
+    nowe, i = [], 0
+    zmiana = False
+    while i < len(rows):
+        if rows[i]["k"] not in ("p", "b"):
+            nowe.append(rows[i])
+            i += 1
+            continue
+        j = i
+        while j < len(rows) and rows[j]["k"] in ("p", "b"):
+            j += 1
+        seg = rows[i:j]
+        if any(_jest_punkt(r) for r in seg):  # reszta listy po podziale (nawet jeden punkt) -> karta, nie goły punkt Lato
+            ak = _lista_na_karty(seg, 1)
+        else:
+            ak = _akapity_na_karty(seg, _rodzaj(nowe[-1]) if nowe else None, rows[j]["k"] if j < len(rows) else None)
+        if ak is not None:
+            nowe += ak
+            zmiana = True
+        else:
+            nowe += rows[i:j]
+        i = j
+    if not zmiana:
+        return sp
+    n = dict(sp, rows=nowe)
+    n["max_f"] = max(n.get("max_f") or 1.0, 1.25)
+    for r in nowe:
+        if r.get("kont"):
+            r["min_h"] = 0
+            r["pad"] = min(r.get("pad", 1.0), 1.0)
+            r["bgap"] = 0.3
+        if r["k"] == "pics" and any(x.get("kont") for x in nowe):
+            r["h"] = min(r.get("h", 8.5), 6.2)
+    return n if _miesci(n) else sp
+
+
 def _run(run, pk, nk, alt=False):
+    """Nakładka: metryczka ankiety na końcu ciągu -> drobny druk; akapity, które stare reguły zostawiają gołe -> karty (`_akapity_na_karty`)."""
+    if run:
+        glowa, ogon = _ogon_meta(run)
+        if ogon:
+            return _run(glowa, pk, "small", alt) + ogon
+    out = _run_rdzen(run, pk, nk, alt)
+    if out and all(r["k"] in ("p", "b", "lead", "h", "small") and not r.get("kont") for r in out):
+        ak = _akapity_na_karty(run, pk, nk)
+        if ak is None and len(run) == 1 and _jest_punkt(run[0]) and run[0]["k"] == "p" and _w(run[0]) >= 14 and pk in (None, "pics") and                 nk != "karta" and not _SRC.match(run[0]["t"]):
+            ak = _lista_na_karty(run, 1)  # jeden dłuższy punkt (MP s11): karta (hasło + dopisek), nie goła linia z kropką
+        if ak is not None:
+            return ak
+    return out
+
+
+def _run_rdzen(run, pk, nk, alt=False):
     """Ciąg kolejnych wierszy tekstu (przerwany obrazami, kafelkami, kolumnami, cytatem) -> wiersze i karty.
     pk / nk = rodzaj wiersza przed / po ciągu ('karta', 'chips', 'pics', 'cols', ...).
     alt = wariant układu: karty z R6 jedna pod drugą, a grupy z R7b obok siebie (wybiera lepszy _uklad)."""
@@ -2346,6 +3336,14 @@ def _run(run, pk, nk, alt=False):
         return _run(run[:a], pk, "karta", alt) + (_stos(karta) if alt else [karta]) + _run(run[b:], "karta", nk, alt)
     if all(r["k"] in _MIND for r in run):
         return [_karta5(run)] if len(run) <= 4 else list(run)
+    kl = _lista_na_karty(run)
+    if kl is not None:
+        return kl
+    if len(run) == 1 and run[0]["k"] == "p" and 3 <= _w(run[0]) <= 16 and not _SRC.match(run[0]["t"]) and not run[0].get("li") and \
+            not re.match(r"(?i)^\s*(n\s*=|p\d*\.|\[)", run[0]["t"]) and pk is None and nk is None and not _r7_ok(run):
+        import szablonuj as sz  # jedno krótkie zdanie na slajdzie (np. „Łącznie: 16-18 dni roboczych”): zielona karta-teza (wzór t14)
+        return [_kols(sz, [sz.k_karta(sz.blok("lead", (run[0]["t"], None), align="c"), fill="brand", align="c")], pad=1.6, valign="m",
+                      min_h=6.0)]
     out = []
     if len(run) >= 2 and run[-1]["k"] in _MIND and _w(run[-1]) <= 12 and not run[-1]["t"].rstrip().endswith(":"):
         body, tail = run[:-1], [_komentarz(run[-1])]  # R10b: wniosek Mindsetem po akapitach
@@ -2377,7 +3375,11 @@ def _pojemniki(rows, alt=False):
             run.append(r)
         else:
             zrzut(r)
-            out.append(r)
+            kk = _karty_z_kolumn(r)
+            if isinstance(kk, list):
+                out.extend(kk)
+            else:
+                out.append(kk or r)
     zrzut(None)
     if len(out) > 1:  # karta obok innych wierszy / drugiej karty: bez wymuszonej wysokości, mniejsze marginesy
         po_karcie = False
@@ -2394,13 +3396,15 @@ def _pojemniki(rows, alt=False):
             if po_karcie and r.get("_et"):
                 out[i] = dict(out[i], pt=28)  # etykieta CT / TA pod kartami: nie przytłacza tekstu kart
             if r["k"] == "pics" and any(x.get("kont") for x in out):
-                r["h"] = min(r.get("h", 8.5), 6.2)
+                r["h"] = min(r.get("h", 8.5), 7.8 if r.get("_zrzut") else 6.2)  # zrzut mapy cieplnej: większy (to jest treść slajdu)
     return out
 
 
 def _czysc(sp):
     """Usuwa znaczniki robocze (klucze zaczynające się od '_') z wierszy, kolumn i bloków specu."""
     for r in sp.get("rows", []):
+        if not isinstance(r, dict):  # typ `table`: wiersze to listy komórek
+            continue
         for k in [k for k in r if k.startswith("_")]:
             del r[k]
         for it in r.get("items", []) if r.get("k") == "cols" else []:
@@ -2631,11 +3635,11 @@ def _uklad(sl, model, ctx):
     """Jeden slajd źródła -> lista slajdów `uklad` (zwykle jeden). Drabina: układ z pozycji -> siatka obrazów z
     podpisami (slajd-kolaż) -> proste wiersze -> podział na kolejne slajdy."""
     hc = model["h_cm"]
-    hdr_b, blocks = _body(sl, hc)
+    hdr_b, blocks = _body(sl, hc, tytul=True)
     hdr = _lit(ctx, sl["n"], hdr_b, [_text_of(hdr_b)])[0] if hdr_b is not None else None
     for b in blocks:
         b.pop("_od", None)
-    own_b, own = _wlasny_naglowek(blocks, sl["obrazy"], ctx)
+    own_b, own = _wlasny_naglowek(blocks, sl["obrazy"], ctx, hdr_b)
     if own_b is not None:
         blocks = [b for b in blocks if b is not own_b]
     else:
@@ -2655,7 +3659,7 @@ def _uklad(sl, model, ctx):
             elif hdr:
                 rs.insert(0, {"k": "small", "t": hdr})
         elif hdr:
-            sp["title" if _title_fits(hdr) else "kicker"] = hdr
+            sp["title" if (_title_fits(hdr) or (hdr_b is not None and (hdr_b.get("_dlugi") or hdr_b["ph"] in TITLE_PH) and _tytul_3_linie(hdr))) else "kicker"] = hdr
         kinds = [r["k"] for r in rs]
         karty = [r for r in rs if r.get("kont")]
         chars = sum(len(r.get("t", "")) for r in rs) + \
@@ -2682,6 +3686,15 @@ def _uklad(sl, model, ctx):
         o1 = _wartosc(sp)
         if o1 < 20 and _wartosc(sp2) > o1 + 0.5:  # podstawowy układ ma pismo >= 20 pt i szerokie linie: zostaje
             nowe, sp = alt, sp2
+    if any(r.get("kont") or r["k"] == "quote" for r in nowe) and not _miesci(sp) and any(r.get("_z_listy") for r in nowe):
+        # lista / kolumny z punktami ułożone w karty (runda 7): gdy nie mieszczą się na jednym slajdzie - podział kart na slajdy (1/2),
+        # nie powrót do gołych wierszy Lato; nie dotyczy kart R6 / R7 (stare zachowanie niżej)
+        czesci = _podziel(sp)
+        if len(czesci) <= 3 and all(_miesci(c) for c in czesci):
+            ctx["sprawdz"].append(sl["n"])
+            ctx["uwagi"].append("Slajd %d: lista w kartach nie mieści się na jednym slajdzie czytelnym pismem - podzieliłem ją na %d slajdy." % (
+                sl["n"], len(czesci)))
+            return czesci
     if any(r.get("kont") or r["k"] == "quote" for r in nowe) and not _miesci(sp):
         # R12: karty nie mieszczą się - zostają stare wiersze (bez kart), slajd do sprawdzenia
         ctx["sprawdz"].append(sl["n"])
@@ -2710,7 +3723,7 @@ def _uklad(sl, model, ctx):
         ctx["uwagi"].append("Slajd %d: kolumny nie mieszczą się czytelnym pismem - ułożyłem treść w wierszach, w "
                             "kolejności oryginału." % sl["n"])
         return [simple]
-    parts = _podziel(simple if any(r["k"] == "cols" for r in rows) else sp)
+    parts = [_akapity_w_czesci(c) for c in _podziel(simple if any(r["k"] == "cols" for r in rows) else sp)]
     ctx["sprawdz"].append(sl["n"])
     if len(parts) > 1:
         ctx["uwagi"].append("Slajd %d: tekst nie mieści się na jednym slajdzie pismem %d pt - podzielony na %d części."
@@ -2718,12 +3731,31 @@ def _uklad(sl, model, ctx):
     return parts
 
 
-def _specjalny(sl, model, first, last):
+def _specjalny(sl, model, first, last, ctx=None):
     """Slajdy, które w stylu DK mają własny typ: okładka, zakończenie, przerywnik (belka jako `label`, bez dopisanego
     numeru). None = zwykły slajd treści."""
     hc = model["h_cm"]
     if sl["tables"] or sl["charts"]:
         return None
+    if first and sl["texts"]:
+        okl = _okladka_produktu(sl, hc, model["w_cm"])
+        if okl:
+            return okl
+    if not first and not last and sl["texts"]:
+        ka = _kroki_i_agenda(sl, hc)
+        if ka:
+            return ka
+        eh = _etykieta_i_haslo(sl, hc, model["w_cm"])
+        if eh:
+            return eh
+    if last and sl["texts"] and not first:
+        koniec = _zakonczenie_podziekowanie(sl, hc, model["w_cm"])
+        if koniec:
+            return koniec
+    if first and sl["texts"] and sl["obrazy"]:
+        ob = _okladka_obca(sl, model, ctx)
+        if ob:
+            return ob
     if first and sl["texts"] and not sl["obrazy"]:
         cov = _cover_spec(sl, None, _items(_order(sl["texts"], hc)), hc)
         if cov and cov[0].get("subtitle"):
@@ -2749,15 +3781,234 @@ def _specjalny(sl, model, first, last):
     if sec and last:
         return [{"type": "end", "variant": "light", "title": _clean(sec), **({"subtitle": hdr} if hdr else {})}]
     if sec:
-        return [{"type": "section", "variant": "dark", "number": "", "title": _clean(sec),
+        return [{"type": "section", "variant": "dark", "number": _numer_sekcji(sl, hc), "title": _clean(sec),
                  **({"label": hdr} if hdr else {})}]
+    if not first and not last:
+        return _samotny_napis(sl, hc)
     return None
+
+
+def _klaster_1d(wart, tol):
+    """Indeksy wartości pogrupowane w klastry (kolejne wartości bliższe niż tol): [[indeks, ...], ...] w kolejności rosnącej."""
+    kl = []
+    for i in sorted(range(len(wart)), key=lambda i: wart[i]):
+        if kl and wart[i] - wart[kl[-1][-1]] <= tol:
+            kl[-1].append(i)
+        else:
+            kl.append([i])
+    return kl
+
+
+def _rowny_ciag(sr, maks=1.6):
+    """Najdłuższy ciąg kolejnych środków (posortowanych) o równych odstępach: odstęp <= maks x mediana odstępów. Zwraca [indeksy]."""
+    if len(sr) < 2:
+        return list(range(len(sr)))
+    odst = sorted(b - a for a, b in zip(sr, sr[1:]))
+    med = odst[len(odst) // 2]
+    best, cur = [0], [0]
+    for k in range(1, len(sr)):
+        if sr[k] - sr[k - 1] <= maks * max(med, 0.1):
+            cur.append(k)
+        else:
+            cur = [k]
+        if len(cur) > len(best):
+            best = list(cur)
+    return best
+
+
+def _tabela_z_pol(sl, h_cm):
+    """Siatka krótkich pól tekstu (kalendarz, zestawienie ułożone z osobnych pól) -> slajd z natywną tabelą. Siatka = pola
+    jednoakapitowe do 24 znaków w kolumnach o równych odstępach (środki x w tolerancji 0,8 cm; kolumna ma >= 3 pola) i w wierszach
+    o równych odstępach (środki y w 0,5 cm; wiersz ma >= 3 pola, a ostatni wiersz może mieć mniej, jeśli leży w tym samym odstępie);
+    co najmniej 12 pól, >= 3 kolumny, >= 3 wiersze, wypełnienie >= 45%, jedno pole na komórkę. Pozostałe pola (tytuł, opisy
+    i panele obok) zostają polami slajdu. Zwraca kopię slajdu z `tables` (i bez pól siatki) albo None."""
+    if sl["tables"] or sl["charts"]:
+        return None
+    kand = [b for b in sl["texts"] if len(b["paras"]) == 1 and len(b["paras"][0]["t"].strip()) <= 24 and
+            (b["paras"][0]["pt"] or DEFAULT_PT) <= 24]
+    if len(kand) < 12:
+        return None
+    xc = [b["x"] + b["w"] / 2 for b in kand]
+    yc = [b["y"] + b["h"] / 2 for b in kand]
+    kx = [g for g in _klaster_1d(xc, 0.8) if len(g) >= 3]
+    if len(kx) < 3:
+        return None
+    sr_x = [sum(xc[i] for i in g) / len(g) for g in kx]
+    kx = [kx[k] for k in _rowny_ciag(sr_x, 1.3)]  # kolumny w równych odstępach (panel obok kalendarza leży dalej)
+    if len(kx) < 3:
+        return None
+    for _ in range(3):  # kolumna, której pola stoją w wierszach z 1-2 polami (panel obok kalendarza), nie jest częścią siatki
+        w_kol = sorted(i for g in kx for i in g)
+        duze = {w_kol[j] for g in _klaster_1d([yc[i] for i in w_kol], 0.3) if len(g) >= 3 for j in g}
+        kx2 = [g for g in kx if sum(1 for i in g if i in duze) >= 0.6 * len(g)]
+        if len(kx2) == len(kx):
+            break
+        kx = kx2
+        if len(kx) < 3:
+            return None
+    kol = {i: c for c, g in enumerate(kx) for i in g}
+    w_kol = sorted(kol)
+    ky = [[w_kol[j] for j in g] for g in _klaster_1d([yc[i] for i in w_kol], 0.3)]  # indeksy w kand
+    sr_y = [sum(yc[i] for i in g) / len(g) for g in ky]
+    ciag = _rowny_ciag(sr_y, 1.8)  # wiersze o równych odstępach (także z 1-2 polami: pierwszy / ostatni tydzień kalendarza)
+    wiersze_g = [ky[k] for k in ciag]
+    if len(wiersze_g) < 3 or sum(1 for g in wiersze_g if len(g) >= 3) < 3:
+        return None
+    wie = {i: r for r, grp in enumerate(wiersze_g) for i in grp}
+    w = [i for i in w_kol if i in wie]
+    if len(w) < 12:
+        return None
+    kom = {}
+    for i in w:
+        if (wie[i], kol[i]) in kom:
+            return None  # dwa pola w jednej komórce: to nie siatka
+        kom[(wie[i], kol[i])] = i
+    ncol, nrow = len(kx), len(wiersze_g)
+    if ncol > 12 or nrow > 16 or len(kom) < 0.45 * ncol * nrow:
+        return None
+    rows = [[kand[kom[(r, c)]]["paras"][0]["t"].strip() if (r, c) in kom else "" for c in range(ncol)] for r in range(nrow)]
+    uzyte = {id(kand[i]) for i in w}
+    geo = dict(x=min(kand[i]["x"] for i in w), y=min(kand[i]["y"] for i in w), w=1.0, h=1.0, id=0, name="siatka")
+    return dict(sl, tables=[dict(kind="table", rows=rows, **geo)], texts=[b for b in sl["texts"] if id(b) not in uzyte],
+                siatka_y0=min(kand[i]["y"] for i in w))
+
+
+_DATA = re.compile(r"^\s*\d{1,2}(?:\s*[–-]\s*\d{1,2})?\s*$")
+
+
+def _panel_dat(blocks, specs, ctx, n):
+    """Panel „data -> opis” obok kalendarza (kolumna dat: pola z samym dniem / zakresem „17”, „11–13”, a obok nich tytuł i punkty):
+    osobny slajd `uklad` z TYTUŁEM kalendarza (nagłówek panelu, np. „Kluczowe daty”, jest kickerem), a każda para to karta: data
+    jako liczba-bohater (`hero`) i opis (hasło + punkty) obok. Mieści się = jeden slajd, inaczej porcje po 3 / 2 / 1 parze
+    z numeracją (1/2). Pola poza parami (przypis pod kalendarzem) są wierszami pod kartami. None, gdy panel nie ma dat albo nie
+    da się go ułożyć (wtedy zostaje zwykła ścieżka tekstowa)."""
+    tab = next((s for s in specs if s.get("type") == "table"), None)
+    daty = sorted((b for b in blocks if len(b["paras"]) == 1 and _DATA.match(b["paras"][0]["t"])), key=lambda b: (b["y"], b["x"]))
+    if not tab or not daty:
+        return None
+    reszta = [b for b in blocks if b not in daty]
+    kicker = None
+    nad = [b for b in reszta if b["y"] + b["h"] <= daty[0]["y"] + 0.3 and len(_text_of(b)) <= 40]
+    if nad:
+        gl = max(nad, key=lambda b: b["y"])
+        reszta.remove(gl)
+        kicker = _text_of(gl)
+    grupy = []
+    for i, d in enumerate(daty):
+        y1 = daty[i + 1]["y"] - 0.3 if i + 1 < len(daty) else None
+        czl = sorted((b for b in reszta if b["y"] >= d["y"] - 0.6 and (y1 is None or b["y"] < y1) and b["x"] >= d["x"] + d["w"] - 0.5),
+                     key=lambda b: (b["y"], b["x"]))
+        for b in czl:
+            reszta.remove(b)
+        bl = []
+        for b in czl:
+            for it in _items([b], sklej=False):
+                if it["li"]:
+                    bl.append({"k": "li", "t": it["t"]})
+                else:
+                    bl.append({"k": "lead" if not bl else "p", "t": it["t"]})
+        grupy.append({"k": "cols", "items": [{"w": 0.55, "blocks": [{"k": "hero", "t": d["paras"][0]["t"].strip(), "color": "brand"}]},
+                                              {"w": 3.0, "blocks": bl or [{"k": "p", "t": ""}]}], "card": True, "valign": "m", "pad": 0.7, "min_h": 2.2})  # min_h: karty w kolejnych wierszach nie różnią się wysokością
+    przypisy = [{"k": "p", "t": it["t"]} for b in reszta for it in _items([b], sklej=False)]
+    tytul = re.sub(r"\s*\(\d+/\d+\)$", "", tab.get("title") or "")
+    for per in (len(grupy), 3, 2, 1):
+        porcje = [grupy[i:i + per] for i in range(0, len(grupy), per)]
+        sps = []
+        for k, por in enumerate(porcje, 1):
+            sp = {"type": "uklad", "rows": list(por) + (przypisy if k == len(porcje) else [])}
+            if tytul:
+                sp["title"] = tytul
+            if kicker and _kick_ok(kicker):
+                sp["kicker"] = kicker
+            elif tab.get("kicker"):
+                sp["kicker"] = tab["kicker"]
+            sps.append(_suffix(sp, k, len(porcje)) if tytul else sp)
+        if all(_miesci(sp) for sp in sps):
+            ctx["sprawdz"].append(n)
+            ctx["uwagi"].append("Slajd %d: panel z datami obok kalendarza ułożyłem na osobnym slajdzie (%d %s): data jako liczba, opis obok." % (
+                n, len(sps), "slajd" if len(sps) == 1 else "slajdy"))
+            return sps
+    return None
+
+
+def _dziedzicz_tytul(specs):
+    """Każdy slajd treści ma tytuł: wydzielona część slajdu źródła bez tytułu dostaje tytuł (i kicker) poprzedniej części - nic nie
+    wymyślamy, powtarzamy tytuł oryginału. Dotyczy typów z miejscem na tytuł (uklad, flow, bullets, lead, article)."""
+    for k in range(1, len(specs)):
+        pr, sp = specs[k - 1], specs[k]
+        if sp.get("type") in ("uklad", "flow", "bullets", "lead", "article") and not sp.get("title") and pr.get("title"):
+            sp["title"] = re.sub(r"\s*\(\d+/\d+\)$", "", pr["title"])
+            if pr.get("kicker") and not sp.get("kicker"):
+                sp["kicker"] = pr["kicker"]
+    return specs
+
+
+HEATMAPA_KOLORY = 6  # tabela z >= 6 różnymi kolorami wypełnienia komórek = mapa cieplna (dane zapisane kolorem)
+
+
+def _render_zrodla(katalog, n):
+    """Ścieżka PNG renderu slajdu n źródła (sNN.png / sNNN.png z `render.ps1`) albo None."""
+    for fmt in ("s%02d.png", "s%03d.png"):
+        pth = os.path.join(katalog, fmt % n)
+        if os.path.isfile(pth):
+            return pth
+    return None
+
+
+def _zrzut_mapy_cieplnej(sl, model, ctx):
+    """Tabela z kolorami wypełnienia (mapa cieplna: dane zapisane kolorem komórek) nie da się odtworzyć regułą. Gdy podano render
+    źródła (`render_zrodla`: katalog z sNN.png), obszar od dołu nagłówka do dołu tabeli idzie na slajd jako ZRZUT (obraz w całości, jedna
+    ramka), tytuł / wniosek nad nim i przypis pod nim zostają tekstem, a teksty i komórki z obszaru zrzutu - w notatkach slajdu (kontrola
+    treści liczy notatki). Bez renderu: uwaga i zwykła tabela (bez kolorów). Zwraca (kopia slajdu, tekst do notatek) albo (None, None)."""
+    heat = [tb for tb in sl["tables"] if tb.get("kolory", 0) >= HEATMAPA_KOLORY]
+    if not heat:
+        return None, None
+    wc, hc = model["w_cm"], model["h_cm"]
+    png = _render_zrodla(ctx["render"], sl["n"]) if ctx.get("render") else None
+    if not png:
+        ctx["uwagi"].append("Slajd %d: tabela z kolorami (mapa cieplna) - kolory nie są przenoszone; podaj render slajdów źródła "
+                            "(render_zrodla / --render-zrodla), a wstawię zrzut tego obszaru jako obraz." % sl["n"])
+        return None, None
+    try:
+        im = Image.open(png).convert("RGB")
+    except Exception:
+        return None, None
+    sx, sy = im.width / wc, im.height / hc
+    top = min(tb["y"] for tb in heat)
+    gora = [b for b in sl["texts"] if b["y"] + b["h"] <= top + 0.5 and b["y"] < 0.2 * hc]
+    y0 = max([b["y"] + b["h"] for b in gora] or [0.0]) + 0.2
+    y1 = min(max(tb["y"] + tb["h"] for tb in heat) + 0.5, hc - 0.02 * hc)
+    przypisy = [b for b in sl["texts"] if b["y"] >= y1 - 0.5 and b["h"] <= 2.0 and b["y"] + b["h"] <= hc]  # niskie pola pod tabelą: przypisy, N=
+    if przypisy:
+        y1 = min(max(y1, max(b["y"] + b["h"] for b in przypisy) + 0.1), hc - 0.01 * hc)
+    x0, x1 = 0.3, wc - 0.3
+    if y1 - y0 < 0.2 * hc:
+        return None, None
+    wew = lambda b: y0 - 0.2 <= b["y"] + b["h"] / 2 <= y1 + 0.2  # noqa: E731
+    texts_wew = sorted((b for b in sl["texts"] if wew(b)), key=lambda b: (b["y"], b["x"]))
+    tabele_wew = sorted((tb for tb in sl["tables"] if wew(tb)), key=lambda b: (b["y"], b["x"]))
+    obrazy_wew = [i for i in sl["obrazy"] if wew(i)]
+    linie = [" ".join(p["t"].split()) for b in texts_wew for p in b["paras"]]
+    for tb in tabele_wew:
+        linie += [" ".join(c.split()) for r in tb["rows"] for c in r if c.strip()]
+    kat = os.path.join(model["rob"], "img")
+    os.makedirs(kat, exist_ok=True)
+    wynik = os.path.join(kat, "s%02d_zrzut.png" % sl["n"])
+    im.crop((int(x0 * sx), int(y0 * sy), int(x1 * sx), int(y1 * sy))).save(wynik)
+    obraz = dict(path=wynik, x=x0, y=y0, w=x1 - x0, h=y1 - y0, px=(int((x1 - x0) * sx), int((y1 - y0) * sy)), rot=0, zrzut=True)
+    nowy = dict(sl, texts=[b for b in sl["texts"] if not wew(b)], tables=[tb for tb in sl["tables"] if not wew(tb)],
+                obrazy=[i for i in sl["obrazy"] if not wew(i)] + [obraz])
+    ctx["uwagi"].append("Slajd %d: mapę cieplną (tabela z kolorami) wstawiłem jako zrzut obszaru z oryginału (obraz w całości); tekst z tego "
+                        "obszaru (%d pól) jest w notatkach slajdu." % (sl["n"], len(texts_wew) + len(tabele_wew)))
+    if obrazy_wew:
+        ctx["uwagi"].append("Slajd %d: %d obrazów z obszaru zrzutu (np. logo) jest teraz na zrzucie." % (sl["n"], len(obrazy_wew)))
+    return nowy, "[Tekst z obszaru zrzutu (mapa cieplna)]\n" + "\n".join(linie)
 
 
 def _slajd(s, model, ctx, first, last):
     """Jeden slajd źródła -> slajdy DK: typ własny (okładka, przerywnik, zakończenie), tabela / wykres starą ścieżką,
     cała reszta typem `uklad` z pozycji na starym slajdzie."""
-    sp = _specjalny(s, model, first, last)
+    sp = _specjalny(s, model, first, last, ctx)
     if sp:
         for one in sp:  # data / autor na okładce to nie drobny druk (oryginał: duża, zielona)
             if one.get("type") == "cover_text" and one.get("meta"):
@@ -2771,11 +4022,33 @@ def _slajd(s, model, ctx, first, last):
                         ctx["litery"] += [(s["n"], a, b) for a, b in zip(old, new) if a != b]
                         one[key] = "\n".join(new)
         return sp
+    if s["tables"] and not s["charts"]:
+        zrzut, notatki = _zrzut_mapy_cieplnej(s, model, ctx)
+        if zrzut is not None:
+            specs = _dziedzicz_tytul(_uklad(zrzut, model, ctx))
+            if specs:
+                specs[0]["_notes_dod"] = notatki
+            return specs
     if s["tables"] or s["charts"]:
-        return _convert(s, model, first, last, None)
+        return _dziedzicz_tytul(_convert(s, model, first, last, None, ctx))
     if not s["texts"] and not s["obrazy"]:
         return []
-    return _uklad(s, model, ctx)
+    siatka = _tabela_z_pol(s, model["h_cm"])
+    if siatka is not None:  # pola tekstu ułożone w siatkę (np. kalendarz): natywna tabela w stylu marki zamiast listy komórek
+        ctx["uwagi"].append("Slajd %d: pola tekstu ułożone w siatkę (%d x %d) zamieniłem na tabelę." % (
+            s["n"], len(siatka["tables"][0]["rows"]), len(siatka["tables"][0]["rows"][0])))
+        ctx["sprawdz"].append(s["n"])
+        gy0 = siatka["siatka_y0"]
+        gora = [b for b in siatka["texts"] if b["y"] + b["h"] <= gy0 + 0.3]
+        panel = [b for b in siatka["texts"] if b not in gora]
+        pelne = _convert(siatka, model, first, last, None, ctx)  # tabela(e) + tekst pozostały po siatce
+        if panel:
+            tabele = [sp for sp in pelne if sp.get("type") == "table"]
+            pan = _panel_dat(panel, tabele, ctx, s["n"]) if tabele else None
+            if pan:
+                return tabele + pan
+        return _dziedzicz_tytul(pelne)
+    return _dziedzicz_tytul(_uklad(s, model, ctx))
 
 
 def polecenie_ai(cel, dane=None):
@@ -2811,6 +4084,8 @@ def compose(model, opts=None):
     pozostałe zostają w pliku jako slajdy UKRYTE - nic nie znika), wizualizacje (domyślnie tak, gdy jest biblioteka),
     biblioteka (ścieżka do '01 - PRODUKTY\\- DK'), wyjscie."""
     opts = opts or {}
+    import szablonuj
+    szablonuj.przyspiesz_pomiar(build_dk)  # pamięć podręczna pomiaru tekstu (55 s -> 5 s na strategii; wynik identyczny)
     cel = opts.get("cel") if opts.get("cel") in CELE else "wiernie"
     sl = model["slajdy"]
     chapters = detect_chapters(model)
@@ -2837,7 +4112,7 @@ def compose(model, opts=None):
     sk = (build_dk.H / EMU_CM) / model["h_cm"]
     ctx = {"skala": sk, "sk_y": sk, "wc": model["w_cm"], "glowny": kol.most_common(1)[0][0] if kol else None,
            "chron": _chronione(model), "maly": _maly(model), "litery": [], "uwagi": uwagi, "sprawdz": [], "wiz": [], "lib": lib, "idx": None,
-           "rob": model["rob"]}
+           "rob": model["rob"], "render": opts.get("render_zrodla")}
     bledy_tekstu = _lint(model, uwagi, model["rob"])
     slides, mapa = [], {}
     for s in sl:
@@ -2863,8 +4138,11 @@ def compose(model, opts=None):
                          % (s["n"], len(specs)))
         for k, sp in enumerate(specs):
             sp["zrodlo"] = s["n"]
+            dod = sp.pop("_notes_dod", None)  # notatki dodatkowe (np. tekst z obszaru zrzutu mapy cieplnej, kolumny bez wartości)
             if k == 0 and s["notes"]:
                 sp["notes"] = s["notes"]
+            if dod:
+                sp["notes"] = (sp["notes"] + "\n\n" if sp.get("notes") else "") + dod
             if s["hidden"] or s["n"] in ukryj:
                 sp["hidden"] = True
         if s["n"] in first_of and len(chapters) > 1:
@@ -2977,37 +4255,17 @@ def _lint(model, uwagi, rob):
     Program ICH NIE POPRAWIA (zasada 1:1): dopisuje do uwag nagłówek, wszystkie `wysoka` i do 10 `srednia`, a pełną listę zwraca
     (klucz `bledy_tekstu` specu). Brak modułu, słownika albo wyjątek w lincie = brak ostrzeżeń, konwersja działa dalej
     (wpis w `<rob>\\lint.log`)."""
-    try:
-        import lint_tekst
-    except ImportError:  # modułu nie ma (stary skill) - po cichu
-        return []
-    except Exception as e:
-        _log(rob, "lint.log", "moduł lint_tekst się nie wczytał: %s: %s" % (type(e).__name__, e))
-        return []
-    try:
-        slajdy = []
-        for s in model["slajdy"]:
-            tx = [p["t"] for b in s["texts"] for p in b["paras"]]  # kolejne akapity slajdu, tekst surowy (wskazówka autora lintu)
-            for tb in s.get("tables", []):
-                tx += [c for r in tb.get("rows", []) for c in r if isinstance(c, str)]
-            slajdy.append((s["n"], [t for t in tx if t.strip()]))
-        wyniki = list(lint_tekst.sprawdz(slajdy) or [])
-        wys = [u for u in wyniki if u.get("pewnosc") == "wysoka"]
-        sre = [u for u in wyniki if u.get("pewnosc") == "srednia"]
-        if wys or sre:
-            uwagi.append("Możliwe błędy w tekście oryginału: %d (program ich nie poprawia - popraw w pliku albo zleć AI)"
-                         % (len(wys) + len(sre)))
-            for u in wys + sre[:10]:
-                try:
-                    uwagi.append(lint_tekst.opis(u))
-                except Exception:
-                    uwagi.append("Slajd %s: „%s” - możliwy błąd (%s)" % (u.get("slajd"), u.get("jest"), u.get("rodzaj")))
-            if len(sre) > 10:
-                uwagi.append("…i %d innych podejrzeń o średniej pewności (lista: bledy_tekstu w spec_konwersja.json)" % (len(sre) - 10))
-        return wyniki
-    except Exception as e:  # lint nigdy nie psuje konwersji
-        _log(rob, "lint.log", "wyjątek w lint_tekst: %s: %s" % (type(e).__name__, e))
-        return []
+    slajdy = []
+    for s in model["slajdy"]:
+        tx = [p["t"] for b in s["texts"] for p in b["paras"]]  # kolejne akapity slajdu, tekst surowy (wskazówka autora lintu)
+        for tb in s.get("tables", []):
+            tx += [c for r in tb.get("rows", []) for c in r if isinstance(c, str)]
+        slajdy.append((s["n"], [t for t in tx if t.strip()]))
+    tmp = []
+    wyniki = _lint_teksty(slajdy, tmp, rob)
+    uwagi += [u.replace("Możliwe błędy w tekście:", "Możliwe błędy w tekście oryginału:", 1) if u.startswith("Możliwe błędy w tekście:")
+              else u.replace("lista: bledy_tekstu)", "lista: bledy_tekstu w spec_konwersja.json)") for u in tmp]
+    return wyniki
 
 
 def _log(rob, nazwa, tekst):
@@ -3232,11 +4490,31 @@ def _xml_paras(root, skip_ph=True, krotkie=False):
     return out
 
 
+def _chart_paras(slide):
+    """Nazwy kategorii i serii wykresów slajdu (także w grupach) jako akapity: to tekst widoczny na slajdzie."""
+    out = []
+
+    def walk(shapes):
+        for sh in shapes:
+            if sh.shape_type == MSO_SHAPE_TYPE.GROUP:
+                walk(sh.shapes)
+            elif getattr(sh, "has_chart", False) and sh.has_chart:
+                try:
+                    pl = sh.chart.plots[0]
+                    out.extend(" ".join(str(c).split()) for c in pl.categories)
+                    out.extend(" ".join(str(s.name or "").split()) for s in pl.series)
+                except Exception:
+                    pass
+    walk(slide.shapes)
+    return [t for t in out if len(t) >= 3 and _tokens(t)]
+
+
 def _slide_paras(prs, krotkie=False, podm=None):
     """[(akapity slajdu, akapity notatek)]; podm(nr_slajdu, tekst) -> tekst: podmiana tekstu (jawne poprawki źródła)."""
     res = []
     for n, sl in enumerate(prs.slides, 1):
-        main = _xml_paras(sl._element, krotkie=krotkie)
+        main = [t for t in _xml_paras(sl._element, krotkie=krotkie) if not (t.isdigit() and int(t) == n)]  # numer strony
+        main += _chart_paras(sl)
         notes = _xml_paras(sl.notes_slide._element, krotkie=krotkie) if sl.has_notes_slide else []
         if podm:
             main, notes = [podm(n, t) for t in main], [podm(n, t) for t in notes]
@@ -3248,13 +4526,35 @@ def _popraw_tekst(t, n, poprawki):
     """Jawne poprawki źródła (13.10): w tekście slajdu n podmienia `bylo` -> `jest` (dokładne dopasowanie ciągu, bez regexów).
     Podmienia TYLKO to, co przeszło `_raport_poprawek` (status `przyjeta`) - reszta nie jest stosowana."""
     for p in poprawki or ():
-        if p.get("slajd") == n and p.get("bylo") and p["bylo"] in t and p.get("status", "przyjeta") == "przyjeta":
-            t = t.replace(p["bylo"], p.get("jest", ""))
+        if p.get("slajd") != n or not p.get("bylo") or p["bylo"] not in t or p.get("status", "przyjeta") != "przyjeta":
+            continue
+        if _zdjecie_konca(p["bylo"], p.get("jest", "")):  # urwany znak zdejmujemy tylko na końcu pola, nigdy w środku
+            s = t.rstrip()
+            if s.endswith(p["bylo"]):
+                t = s[:len(s) - len(p["bylo"])] + p.get("jest", "")
+            continue
+        t = t.replace(p["bylo"], p.get("jest", ""))
     return t
 
 
 def _podm(poprawki):
     return (lambda n, t: _popraw_tekst(t, n, poprawki)) if poprawki else None
+
+
+_KONC_ZNAK = re.compile(r"^(.*?\S)\s*[–—\-,:;]$", re.S)  # urwany koniec pola: myślnik (też po spacji), przecinek, dwukropek, średnik
+
+
+def _zdjecie_konca(bylo, jest):
+    """`jest` = `bylo` bez końcowego znaku z listy (– — - , : ;) razem z poprzedzającą spacją (np. „BIAŁKO –” -> „BIAŁKO”,
+    „pewien manifest –” -> „pewien manifest”, „mln,” -> „mln”). Funkcja nie wie, gdzie stoi tekst - wywołujący sprawdza, że to koniec pola."""
+    m = _KONC_ZNAK.match(bylo or "")
+    return bool(m) and m.group(1) == (jest or "")
+
+
+def _bez_konca(t):
+    """Tekst bez końcowego znaku z listy `_KONC_ZNAK` (z poprzedzającą spacją) - do porównań interpunkcji (`wiernosc`)."""
+    m = _KONC_ZNAK.match(t.rstrip())
+    return m.group(1) if m else t
 
 
 def _odl(a, b):
@@ -3274,11 +4574,15 @@ def poprawka_w_granicach(bylo, jest):
     """Czy zmiana `bylo` -> `jest` mieści się w granicach jawnej poprawki (13.10): (a) wstawienie / usunięcie spacji (sklejone
     i rozklejone słowa, podwójna spacja, spacja przy przecinku lub kropce), (b) usunięcie zdublowanego słowa („na na” -> „na”),
     (c) zmiana, wstawienie lub usunięcie najwyżej 2 znaków w obrębie JEDNEGO słowa (odległość edycyjna <= 2), przy czym cyfry
-    w `bylo` i `jest` są identyczne i w tej samej kolejności. Reszta (puste `jest`, zamiana zdania, zmiana cyfry...) = nie."""
+    w `bylo` i `jest` są identyczne i w tej samej kolejności, (d) usunięcie końcowego znaku z listy (myślnik także po spacji, przecinek,
+    dwukropek, średnik) razem z poprzedzającą spacją („BIAŁKO –” -> „BIAŁKO”) - tylko na końcu pola (stosowane i raportowane przez
+    `_popraw_tekst` / `_raport_poprawek`, nigdy w środku). Reszta (puste `jest`, zamiana zdania, zmiana cyfry...) = nie."""
     if not bylo or not jest or bylo == jest:
         return False
     if re.findall(r"\d", bylo) != re.findall(r"\d", jest):
         return False
+    if _zdjecie_konca(bylo, jest):  # (d) zdjęcie urwanego znaku na końcu pola (koniec pola sprawdza `_raport_poprawek` / `_popraw_tekst`)
+        return True
     if "".join(bylo.split()) == "".join(jest.split()):  # (a)
         return True
     tb, tj = bylo.split(), jest.split()
@@ -3304,7 +4608,10 @@ def _raport_poprawek(poprawki, zr_surowe):
         n = p.get("slajd")
         akap = (zr_surowe[n - 1][0] + zr_surowe[n - 1][1]) if isinstance(n, int) and 1 <= n <= len(zr_surowe) else []
         w = bool(p.get("bylo")) and any(p["bylo"] in t for t in akap)
-        st = "nie_w_zrodle" if not w else ("przyjeta" if poprawka_w_granicach(p["bylo"], p.get("jest") or "") else "poza_granicami")
+        ok = poprawka_w_granicach(p["bylo"], p.get("jest") or "") if w else False
+        if ok and _zdjecie_konca(p["bylo"], p.get("jest") or "") and not any(t.rstrip().endswith(p["bylo"]) for t in akap):
+            ok = False  # zdjęcie końcowego znaku tylko na końcu pola
+        st = "nie_w_zrodle" if not w else ("przyjeta" if ok else "poza_granicami")
         out.append(dict(p, w_zrodle=w, status=st))
     return out
 
@@ -3440,7 +4747,16 @@ def _interp(t):
     return collections.Counter(re.findall(r"[^\w\s]", _norm(t).replace("…", "..."), re.U))
 
 
-def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None):
+def zdjete_znaki(spec):
+    """{slajd źródła: znaki} - interpunkcja, którą automat zdjął z końca hasła / pasa (`szablonuj.ZDEJMIJ_ZNAKI`)."""
+    d = {}
+    for sl in (spec or {}).get("slides", []):
+        if sl.get("zdjete_znaki") and sl.get("zrodlo"):
+            d[sl["zrodlo"]] = d.get(sl["zrodlo"], "") + sl["zdjete_znaki"]
+    return d
+
+
+def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None, zdjete=None):
     """Czy wynik trzyma układ źródła. Zwraca {etykiety: [ok, wszystkie], kolejnosc: [naruszenia], liczby: [ok, wszystkie],
     slajdy: [źródło, wynik], usterki: [opisy z numerem slajdu], tekst: jedno zdanie do raportu}.
     etykiety - każde krótkie, jednowierszowe pole źródła (do 40 znaków) ma w wyniku WŁASNE pole o tym samym tekście;
@@ -3453,6 +4769,8 @@ def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None):
     onum = []
     for s in op.slides:
         c = collections.Counter(_liczby(s._element))
+        for tx in _chart_paras(s):  # liczby w nazwach kategorii / serii wykresów (np. „3-6 razy w tygodniu”)
+            c.update(re.findall(r"\d+(?:[.,]\d+)*", tx))
         if s.has_notes_slide:
             c.update(_liczby(s.notes_slide._element))
         onum.append(c)
@@ -3461,6 +4779,11 @@ def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None):
     pod = _podm(rap)  # stosujemy tylko poprawki przyjęte (w granicach, `bylo` jest w źródle)
     snum = [collections.Counter(_liczby(s._element, (lambda t, n=i: pod(n, t)) if pod else None))
             for i, s in enumerate(sp.slides, 1)]
+    for s in model["slajdy"]:  # numery stron pominięte przy odczycie (`extract`) nie są liczbami treści
+        for tx in s.get("numery_tekst", []):
+            for num in re.findall(r"\d+(?:[.,]\d+)*", tx):
+                if snum[s["n"] - 1][num] > 0:
+                    snum[s["n"] - 1][num] -= 1
     zr_par, wy_par = _slide_paras(sp, podm=pod), _slide_paras(op, True)
     et_ok = et_all = li_ok = li_all = 0
     usterki, kolej, znaki, markery = [], [], [], []
@@ -3475,12 +4798,12 @@ def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None):
             if m_ and len(p_) > m_.end() and not re.match(r"\s*\d", m_.group(0)):
                 mk += _interp(m_.group(0))  # 10.10: wiodący punktor / myślnik listy to marker, nie treść
                 p_ = p_[m_.end():]
-            zr += _interp(p_)
+            zr += _interp(_bez_konca(p_))  # urwany znak na końcu pola (– , : ;) może zniknąć: nie jest brakiem znaku
         wy = collections.Counter()
         for i in idx:
             for p_ in wy_par[i][0] + wy_par[i][1]:
                 wy += _interp(p_)
-        brak = zr - wy
+        brak = zr - wy - collections.Counter((zdjete or {}).get(s["n"], ""))  # znak zdjęty z urwanego hasła to nie brak
         if brak:
             znaki.append({"slajd": s["n"], "brak": "".join(c * k for c, k in sorted(brak.items()))})
         if mk:
@@ -3550,6 +4873,167 @@ def wiernosc(model, out_pptx, mapa, nowe=0, poprawki=None):
 # =====================================================================================================
 # 4. CLI
 # =====================================================================================================
+# =====================================================================================================
+# 4. ROZPOZNANIE PLIKU (13.10, v14): co dostaliśmy - zanim cokolwiek konwertujemy
+# =====================================================================================================
+# User 13.10: upuścił do okna folder programu, program przekonwertował NASZ szablon (7 slajdów, same podpowiedzi
+# w [nawiasach]) i zniszczył go. Konwertować wolno tylko obcą prezentację; szablon, wynik programu i prezentacja
+# już w stylu marki zostają. Rozpoznanie czyta tylko XML slajdów (bez obrazów): szybko także dla pliku 100 MB.
+_NS_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_NS_PML = "http://schemas.openxmlformats.org/presentationml/2006/main"
+_NAZWY_SZABLONU = ("Tytuł slajdu", "Numer slajdu", "Punktor", "Karta / tło", "Logo marki", "OPIS - ", "Owoc / element smaku",
+                   "Tekst: ", "Packshot - ", "Zdjęcie - prawy klik", "Ikona / grafika - ")  # make_template.py
+# build_dk.py (nowy styl); stary styl (build_deck.py: !!pas, !!logo_pas, !!tytul) to obca prezentacja do konwersji
+_NAZWY_BUILDERA = re.compile(r"^!!(title|kicker|logo|logo_small|panel|meta|image|pack_[lrc]|el\d+|[a-z0-9]+_el\d+)$")
+_BRACKET = re.compile(r"\[[^\]]{2,}\]")
+
+
+def _akapity_z_xml(root, nr):
+    """Akapity tekstu slajdu (jak w kontroli treści: `_xml_paras`, bez numeru strony równego numerowi slajdu)."""
+    return [t for t in _xml_paras(root) if not (t.isdigit() and int(t) == nr)]
+
+
+def _podpowiedzi(akapity):
+    """Akapity z podpowiedzią w [nawiasach kwadratowych] - JEDNA funkcja licząca dla `rozpoznaj` i `przeglad`."""
+    return [t for t in akapity if _BRACKET.search(t)]
+
+
+def _sygnatury(plik):
+    """Sygnatury pliku .pptx z XML-i slajdów i motywu: {slajdy, szablon, builder, opis, nawiasy, tekstow, motyw_dk, kolory_dk}.
+    szablon / builder / opis = liczba slajdów z nazwami kształtów jak w szablonie / w builderze / z opisem slajdu (make_template)."""
+    z = zipfile.ZipFile(plik)
+    nazwy = sorted((n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)),
+                   key=lambda n: int(re.findall(r"\d+", n)[0]))
+    sig = {"slajdy": len(nazwy), "szablon": 0, "builder": 0, "opis": 0, "nawiasy": 0, "tekstow": 0, "motyw_dk": False,
+           "kolory_dk": False}
+    for n in nazwy:
+        root = etree.fromstring(z.read(n))
+        nm = [e.get("name") or "" for e in root.iter("{%s}cNvPr" % _NS_PML)]
+        if sum(1 for x in nm if x.startswith(_NAZWY_SZABLONU)) >= 2:
+            sig["szablon"] += 1
+        if any(_NAZWY_BUILDERA.match(x) for x in nm):
+            sig["builder"] += 1
+        if any(x.startswith("OPIS - ") for x in nm):
+            sig["opis"] += 1
+        ak = _akapity_z_xml(root, int(re.findall(r"\d+", n)[0]))
+        sig["tekstow"] += len(ak)
+        sig["nawiasy"] += len(_podpowiedzi(ak))
+    mot = sorted(n for n in z.namelist() if re.fullmatch(r"ppt/theme/theme\d+\.xml", n))
+    if mot:
+        x = z.read(mot[0]).decode("utf8", "replace")
+        f = re.findall(r'<a:(?:major|minor)Font>\s*<a:latin typeface="([^"]*)"', x)
+        sig["motyw_dk"] = "Mindset" in f and "Lato" in f
+        k = re.findall(r'<a:(?:dk2|accent1)>\s*<a:srgbClr val="([0-9A-Fa-f]{6})"', x)
+        sig["kolory_dk"] = bool(k) and all(c.upper() in ("0F763E", "007936") for c in k)
+    return sig
+
+
+def _spec_obok(plik):
+    """Spec tego pliku (spec_program.json albo spec_konwersja.json), jeśli leży w `_robocze\\<nazwa>\\` obok pliku albo w tym samym
+    folderze; nazwa bez końcówki „ - nowy styl” / „ - dopracowana…”. Inaczej None."""
+    kat = os.path.dirname(os.path.abspath(plik))
+    stem = os.path.splitext(os.path.basename(plik))[0]
+    nazwy = [stem] + [stem.split(suf)[0] for suf in (" - nowy styl", " - dopracowan", " - rozwinięta", " - skrót") if suf in stem]
+    for st in nazwy:
+        for rob in (os.path.join(kat, "_robocze", st), os.path.join(kat, st), kat):
+            for f in ("spec_program.json", "spec_konwersja.json"):
+                if os.path.isfile(os.path.join(rob, f)):
+                    return os.path.join(rob, f)
+    return None
+
+
+def rozpoznaj(plik):
+    """Co to za plik i którą drogą go prowadzić:
+    {"rodzaj": "obca" | "styl_dk" | "szablon_dk" | "wynik_programu", "tryb": "konwersja" | "dopracowanie",
+     "powod": zdanie dla użytkownika (informacja, nie odmowa), "konwertowac": bool (= tryb == "konwersja"),
+     "spec": ścieżka spec_program.json / spec_konwersja.json tego pliku albo None, "podpowiedzi": liczba pól tekstu w [nawiasach]}.
+    `obca` -> konwersja (extract -> układ -> build). Pozostałe trzy -> dopracowanie: plik NIE przechodzi przez extract -> uklad
+    (to niszczy slajdy zrobione builderem), program go tylko przegląda (`przeglad`) i przygotowuje polecenie. Przy wątpliwości
+    `obca` z ostrzeżeniem w `powod` (fałszywe „dopracowanie” dla obcej prezentacji jest gorsze niż przepuszczenie do konwersji)."""
+    nazwa = os.path.splitext(os.path.basename(plik))[0].lower()
+    try:
+        s = _sygnatury(plik)
+    except Exception as e:
+        return {"rodzaj": "obca", "tryb": "konwersja", "konwertowac": True, "spec": None, "podpowiedzi": 0,
+                "powod": "Nie umiem rozpoznać, czy to prezentacja w stylu Dobra Kaloria (%s: %s) - konwertuję jak obcą." % (
+                    type(e).__name__, e)}
+    n = max(1, s["slajdy"])
+    nawiasy = s["nawiasy"] / max(1, s["tekstow"])
+    wyn = lambda rodzaj, tryb, powod: {"rodzaj": rodzaj, "tryb": tryb, "konwertowac": tryb == "konwersja",  # noqa: E731
+                                       "powod": powod, "spec": _spec_obok(plik) if tryb == "dopracowanie" else None,
+                                       "podpowiedzi": s["nawiasy"]}
+    # szablon: podpowiedzi w [nawiasach] + opisy slajdów / nazwy kształtów z make_template / nazwa pliku „… szablon …” w motywie marki
+    if nawiasy >= 0.3 and (s["opis"] / n >= 0.5 or (s["builder"] / n < 0.5 and (
+            s["szablon"] / n >= 0.5 or (s["motyw_dk"] and "szablon" in nazwa)))):
+        return wyn("szablon_dk", "dopracowanie",
+                   "To szablon z podpowiedziami w nawiasach (%d pól do wypełnienia) - sprawdzam go i przygotowuję polecenie; "
+                   "treść wpisz sam albo zleć AI." % s["nawiasy"])
+    if s["builder"] / n >= 0.5:
+        wiele = " Są w niej same podpowiedzi z szablonu (%d pól do wypełnienia)." % s["nawiasy"] if nawiasy >= 0.5 else ""
+        return wyn("wynik_programu", "dopracowanie",
+                   "To prezentacja zrobiona już przez ten program (nowy styl Dobra Kaloria) - nie przerabiam slajdów, sprawdzam je "
+                   "i przygotowuję polecenie do dopracowania.%s" % wiele)
+    if (s["motyw_dk"] or s["kolory_dk"]) and s["szablon"] / n >= 0.3:
+        return wyn("styl_dk", "dopracowanie",
+                   "Ta prezentacja jest już w stylu Dobra Kaloria - nie przerabiam slajdów, sprawdzam je i przygotowuję polecenie "
+                   "do dopracowania.")
+    ost = ""
+    if s["motyw_dk"]:
+        ost = (" Uwaga: plik ma czcionki marki (Mindset, Lato) w motywie - jeśli to już prezentacja w stylu Dobra Kaloria, nie "
+               "przerabiaj jej, tylko ją dopracuj.")
+    elif "nowy styl" in nazwa or "dopracowan" in nazwa or "szablon" in nazwa:
+        ost = " Uwaga: nazwa pliku wygląda na wynik programu albo szablon, ale w środku nie ma jego śladów."
+    return wyn("obca", "konwersja", "To prezentacja w obcym stylu - zamienię ją na styl Dobra Kaloria." + ost)
+
+
+def _lint_teksty(slajdy, uwagi, rob):
+    """Lint tekstu (lint_tekst.sprawdz) na [(nr, [akapity])]: dopisuje do `uwagi` nagłówek, wszystkie `wysoka` i do 10 `srednia`;
+    zwraca pełną listę. Brak modułu / wyjątek = [] (wpis w <rob>\\lint.log)."""
+    try:
+        import lint_tekst
+    except ImportError:
+        return []
+    except Exception as e:
+        _log(rob, "lint.log", "moduł lint_tekst się nie wczytał: %s: %s" % (type(e).__name__, e))
+        return []
+    try:
+        wyniki = list(lint_tekst.sprawdz(slajdy) or [])
+        wys = [u for u in wyniki if u.get("pewnosc") == "wysoka"]
+        sre = [u for u in wyniki if u.get("pewnosc") == "srednia"]
+        if wys or sre:
+            uwagi.append("Możliwe błędy w tekście: %d (program ich nie poprawia - popraw w pliku albo zleć AI)" % (len(wys) + len(sre)))
+            for u in wys + sre[:10]:
+                try:
+                    uwagi.append(lint_tekst.opis(u))
+                except Exception:
+                    uwagi.append("Slajd %s: „%s” - możliwy błąd (%s)" % (u.get("slajd"), u.get("jest"), u.get("rodzaj")))
+            if len(sre) > 10:
+                uwagi.append("…i %d innych podejrzeń o średniej pewności (lista: bledy_tekstu)" % (len(sre) - 10))
+        return wyniki
+    except Exception as e:
+        _log(rob, "lint.log", "wyjątek w lint_tekst: %s: %s" % (type(e).__name__, e))
+        return []
+
+
+def przeglad(plik, rob):
+    """Przegląd gotowego pliku w trybie dopracowania - NICZEGO nie buduje: {"slajdy": n, "teksty": [(nr, [akapity])] (do lintu),
+    "bledy_tekstu": [...] (lint_tekst), "podpowiedzi": [(nr, tekst pola z [nawiasami])], "uwagi": [str]}. Render, kontrolę PowerPointa
+    i `oko` robi silnik programu na istniejącym pliku."""
+    os.makedirs(rob, exist_ok=True)
+    prs = otworz(os.path.abspath(plik), rob)
+    teksty = [(n, main) for n, (main, _notes) in enumerate(_slide_paras(prs), 1)]
+    podp = [(n, t) for n, sl in enumerate(prs.slides, 1) for t in _podpowiedzi(_akapity_z_xml(sl._element, n))]  # jak w rozpoznaj
+    uwagi = []
+    if podp:
+        uwagi.append("Podpowiedzi w nawiasach kwadratowych: %d pól na %d slajdach - do wypełnienia przez człowieka albo AI "
+                     "(przykład: „%s”)." % (len(podp), len({n for n, _t in podp}), podp[0][1][:60]))
+    ukryte = [n for n, sl in enumerate(prs.slides, 1) if sl._element.get("show") == "0"]
+    if ukryte:
+        uwagi.append("Slajdy ukryte w pliku: %s (nie widać ich w pokazie)." % _range(ukryte))
+    bledy = _lint_teksty([(n, [t for t in ps if t.strip()]) for n, ps in teksty], uwagi, rob)
+    return {"slajdy": len(teksty), "teksty": teksty, "bledy_tekstu": bledy, "podpowiedzi": podp, "uwagi": uwagi}
+
+
 def main(argv=None):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # wynik kontroli z PowerPointa bywa w innym kodowaniu
@@ -3574,12 +5058,34 @@ def main(argv=None):
     ap.add_argument("--poprawki", default="",
                     help="plik JSON z jawnymi poprawkami tekstu źródła: [{\"slajd\": 12, \"bylo\": \"komunikacjaod\", "
                          "\"jest\": \"komunikacja od\", \"powod\": \"sklejone słowa\"}] (kontrole liczą po podmianie)")
+    ap.add_argument("--mimo-to", action="store_true",
+                    help="konwertuj jak obcą także plik, który program rozpoznał jako szablon, wynik programu albo prezentację w stylu "
+                         "marki (domyślnie takie pliki tylko przeglądam: tryb dopracowania, kod 0)")
+    ap.add_argument("--render-zrodla", default="",
+                    help="katalog z renderem slajdów ŹRÓDŁA (s01.png, s02.png... z render.ps1): mapy cieplne (tabele z kolorami) wstawię jako zrzut "
+                         "obszaru z oryginału (tekst z obszaru idzie do notatek); bez niego kolory się nie przenoszą")
     ap.add_argument("--ze-specu", default="",
                     help="zbuduj z gotowego spec_konwersja.json (np. po poprawce tekstu przez człowieka / AI) zamiast składać "
                          "od nowa; kontrole czytają `poprawki` ze specu")
     a = ap.parse_args(argv)
     plik = os.path.abspath(a.plik)
     stem = os.path.splitext(os.path.basename(plik))[0]
+    if not a.ze_specu:  # v14: najpierw rozpoznanie pliku - szablonu, wyniku programu i stylu marki nie konwertujemy
+        roz = rozpoznaj(plik)
+        if roz["tryb"] == "dopracowanie" and not a.mimo_to:
+            rob_p = os.path.abspath(a.robocze) if a.robocze else os.path.join(os.path.dirname(plik), "_robocze", stem)
+            pr = przeglad(plik, rob_p)
+            print(roz["powod"])
+            print("Tryb: dopracowanie (rodzaj pliku: %s). Niczego nie konwertuję; przegląd: %d slajdów, podpowiedzi w nawiasach: %d, "
+                  "możliwe błędy tekstu: %d." % (roz["rodzaj"], pr["slajdy"], len(pr["podpowiedzi"]), len(pr["bledy_tekstu"])))
+            for u in pr["uwagi"]:
+                print(" -", u)
+            if roz["spec"]:
+                print("Spec pliku: %s" % roz["spec"])
+            print("Żeby mimo to przekonwertować jak obcą: --mimo-to.")
+            return 0
+        if "Uwaga:" in roz["powod"]:
+            print(roz["powod"])
     rob = os.path.abspath(a.robocze) if a.robocze else os.path.join(os.path.dirname(plik), "_robocze", stem)
     os.makedirs(rob, exist_ok=True)
     model = extract(plik, rob)
@@ -3595,7 +5101,7 @@ def main(argv=None):
         spec["poprawki"] = list(spec.get("poprawki") or []) + z_pliku
     else:
         spec = compose(model, {"styl": a.styl, "cel": a.cel, "sekcje": sekcje, "wizualizacje": not a.bez_wizualizacji,
-                               "szablonuj": not a.bez_szablonowania, "poprawki": z_pliku,
+                               "szablonuj": not a.bez_szablonowania, "poprawki": z_pliku, "render_zrodla": a.render_zrodla or None,
                                "wyjscie": os.path.abspath(a.wyjscie) if a.wyjscie else None})
     poprawki = spec.get("poprawki") or []
     os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
@@ -3618,7 +5124,7 @@ def main(argv=None):
                 spec = json.load(f)
             print("Po obejrzeniu zrzutów poprawiłem układ slajdów: %s" % ", ".join(str(x) for x in sorted(poprawione)))
     cov = coverage(plik, pptx, spec["mapa"], rob=rob, poprawki=poprawki)
-    wier = wiernosc(model, pptx, spec["mapa"], poprawki=poprawki)
+    wier = wiernosc(model, pptx, spec["mapa"], poprawki=poprawki, zdjete=zdjete_znaki(spec))
     json.dump(dict(cov, wiernosc=wier), open(os.path.join(rob, "pokrycie.json"), "w", encoding="utf8"),
               ensure_ascii=False, indent=1)
     print("Cel: %s" % CELE[spec["cel"]]["nazwa"])

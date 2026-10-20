@@ -1,4 +1,4 @@
-/* Design system Dobra Kaloria 2.0.9 (2026-10-06) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
+/* Design system Dobra Kaloria 2.0.10 (2026-10-20) - PLIK GENEROWANY z tokens.json (scripts/build_tokens.py). Nie edytuj ręcznie. */
 /* Drabina powierzchni: --dk-color-surface-0 (tło okna) ... -4 (nakładka); tagi: --dk-color-tag-N-bg/-fg/-border. */
 :root, [data-theme="dobra-kaloria"] {
   color-scheme: light;
@@ -199,7 +199,7 @@
   --dk-color-switch-knob: var(--dk-white);
   --dk-color-btn2-bg: var(--dk-white);
   --dk-color-btn2-text: var(--dk-ink-900);
-  --dk-color-btn2-border: var(--dk-ink-900);
+  --dk-color-btn2-border: var(--dk-grey-500);
   --dk-color-btn2-hover-bg: var(--dk-stone-200);
   --dk-color-step-active-bg: var(--dk-green-750);
   --dk-color-step-active-text: var(--dk-white);
@@ -403,7 +403,7 @@
   --dk-color-switch-knob: var(--dk-white);
   --dk-color-btn2-bg: var(--dk-white);
   --dk-color-btn2-text: var(--dk-ink-900);
-  --dk-color-btn2-border: var(--dk-ink-900);
+  --dk-color-btn2-border: var(--dk-grey-500);
   --dk-color-btn2-hover-bg: var(--dk-stone-200);
   --dk-color-step-active-bg: var(--dk-green-750);
   --dk-color-step-active-text: var(--dk-white);
@@ -510,7 +510,7 @@
   --dk-color-switch-knob: var(--dk-white);
   --dk-color-btn2-bg: var(--dk-white);
   --dk-color-btn2-text: var(--dk-ink-900);
-  --dk-color-btn2-border: var(--dk-ink-900);
+  --dk-color-btn2-border: var(--dk-grey-500);
   --dk-color-btn2-hover-bg: var(--dk-stone-200);
   --dk-color-step-active-bg: var(--dk-green-750);
   --dk-color-step-active-text: var(--dk-white);

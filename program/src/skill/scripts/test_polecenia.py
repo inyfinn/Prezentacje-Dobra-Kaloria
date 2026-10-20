@@ -37,9 +37,10 @@ def test_czat_bez_plikow_nie_ma_nic_z_plikow():
             assert s not in t, (cel, s)
 
 
-def test_czat_wiernie_ma_7_punktow_wspolnych():
+def test_czat_wiernie_ma_7_punktow_wspolnych_i_dwa_na_koniec():
     pts = polecenia.polecenie_ai("wiernie", DANE, pliki=False)
-    assert len(pts) == 7
+    assert len(polecenia.WSPOLNE) == 7      # stała długość: cele dokument i dopracowanie biorą punkty po indeksie
+    assert pts == polecenia.WSPOLNE + [polecenia.UKLAD, polecenia.BEZ_SKRYPTOW]
     assert [p.split(".")[0].split(":")[0].split(" ")[0] for p in pts][:2] == ["SLAJD", "HASŁOWANIE"]
 
 
@@ -59,7 +60,8 @@ def test_zadna_wersja_nie_ma_starych_zdan_ani_nierozwinietego_formatu():
 def test_rozwin_i_skroc_dostaja_dopisek_i_zestaw_agenta():
     for cel in ("rozwin", "skroc"):
         c = polecenia.POLECENIA[cel]
-        assert c["polecenie"][-1] == polecenia.DOPISEK_ROZWIN_SKROC
+        assert c["polecenie"][-4:] == [polecenia.DOPISEK_ROZWIN_SKROC, polecenia.BLEDY_KROTKO, polecenia.UKLAD,
+                                       polecenia.BEZ_SKRYPTOW]
         assert c["polecenie_pliki"] == [polecenia.P1, polecenia.P2, polecenia.P4, polecenia.P5, polecenia.P6]
         ag = polecenia.polecenie_ai(cel, DANE, pliki=True)
         assert ag[0] == polecenia.P1 and ag[-1] == polecenia.P6 and len(ag) == len(c["polecenie"]) + 5
@@ -119,3 +121,72 @@ def test_role_slajdu_inne_typy_i_smieci():
     assert polecenia.role_slajdu({"type": "section", "title": "x"}) == []
     assert polecenia.role_slajdu(None) == [] and polecenia.role_slajdu({"type": "uklad"}) == []
     assert polecenia.role_slajdu({"type": "uklad", "rows": [{"k": "nieznany", "t": "x"}, "śmieć"]}) == []
+
+
+# --- v15 (13.10, po teście na Claude): układ, granice korekty, praca bez skryptów ---------------------------------
+def _warianty():
+    """Wszystkie polecenia, które dostaje AI po konwersji i przy dopracowaniu: {nazwa: tekst punktów}."""
+    w = {"%s %s" % (cel, "agent" if pl else "czat"): _tekst(cel, pl) for cel in ("wiernie", "rozwin", "skroc") for pl in (True, False)}
+    w["dopracowanie czat"] = "\n".join(polecenia.punkty_dopracowanie(False))
+    w["dopracowanie agent kopia"] = "\n".join(polecenia.punkty_dopracowanie(True, None, "a.pptx", "a - dopracowana.pptx"))
+    w["dopracowanie agent spec"] = "\n".join(polecenia.punkty_dopracowanie(True, "s.json", "a.pptx", "a - dopracowana.pptx"))
+    return w
+
+
+def test_blok_ukladu_w_kazdym_wariancie():
+    for n, t in _warianty().items():
+        for s in ("PO KOREKCIE TEKSTU PRZEJDŹ SLAJD PO SLAJDZIE I NAPRAW UKŁAD", "„Sprawdź najpierw: slajd N - …”",
+                  "urwane na końcu myślnikiem, przecinkiem lub dwukropkiem", "urywa się na tej samej liczbie",
+                  "karta pusta w ponad połowie obok pełnej", "pusty dół slajdu (ponad 1/3 wysokości)",
+                  "z zachowaniem proporcji", "WYŁĄCZNIE tytuły i zdania przepisane z tej prezentacji",
+                  "W raporcie albo odpowiedzi jedna linia na każdą pozycję „Sprawdź najpierw”"):
+            assert s in t, (n, s)
+        assert t.index("PO KOREKCIE TEKSTU") > t.index("BŁĘDY"), n       # układ stoi po punkcie o błędach tekstu
+
+
+def test_galaz_bez_skryptow_w_kazdym_wariancie_i_jest_warunkiem():
+    for n, t in _warianty().items():
+        for s in ("NIE MASZ DOSTĘPU DO PLIKÓW I SKRYPTÓW SKILLA", "Pracuj bezpośrednio na otwartej prezentacji",
+                  "hasła czcionką Mindset, dopiski czcionką Lato", "hasło co najmniej 16 pt, dopisek 13 pt",
+                  "kolory tylko z motywu", "niczego nie rozciągaj", "zdjęcia paczek i zrzuty w całości"):
+            assert s in t, (n, s)
+    b = polecenia.BEZ_SKRYPTOW
+    assert b.startswith("NIE MASZ DOSTĘPU") and "?" in b[:140]           # warunek, nie opis narzędzia
+    for s in ("wtyczka umie", "wtyczka potrafi", "wtyczka nie ma", "render", "verify", "spec_konwersja", "build_dk"):
+        assert s not in b and s not in polecenia.UKLAD, s
+
+
+def test_zakaz_przeredagowania_w_kazdym_wariancie():
+    w = _warianty()
+    w["dokument czat"], w["dokument agent"] = _tekst("dokument", False), _tekst("dokument", True)
+    for n, t in w.items():
+        for s in ("NIE PRZEREDAGOWUJESZ", "„Społeczna rola snacków”", "nie dopisujesz liczb, wniosków ani zdań",
+                  "„do decyzji autora”"):
+            assert s in t, (n, s)
+        assert t.count(polecenia.GRANICE) == 1, n                        # raz, nie zdublowane
+    assert polecenia.GRANICE in polecenia.WSPOLNE[5] and polecenia.WSPOLNE[5].startswith("BŁĘDY W TEKŚCIE ORYGINAŁU")
+    r = polecenia.POLECENIA["rozwin"]["polecenie"]
+    assert "układ dopracowujesz" in r[0] and "kolejność i układ" not in r[0]        # nie „układ bez zmian”
+    assert "nie własnym streszczeniem" in r[1]
+
+
+def test_limit_dlugosci_dopisanych_blokow():
+    # dopisane 13.10: UKLAD + BEZ_SKRYPTOW (+ GRANICE w punkcie o błędach, + skrót punktu o błędach w rozwin / skroc);
+    # pełne polecenie agenta dla strategii miało 10 940 znaków -> limit ok. 25% = 2735
+    wspolne = len(polecenia.UKLAD) + len(polecenia.BEZ_SKRYPTOW)
+    assert wspolne + len(polecenia.GRANICE) <= 2500, wspolne
+    assert wspolne + len(polecenia.BLEDY_KROTKO) <= 2700, wspolne + len(polecenia.BLEDY_KROTKO)
+
+
+def test_dokument_i_dopracowanie_sa_w_skillu():
+    c = polecenia.POLECENIA["dokument"]
+    cz, ag = polecenia.polecenie_ai("dokument", pliki=False), polecenia.polecenie_ai("dokument", pliki=True)
+    assert len(cz) == 9 and len(ag) == 14 and cz[-2:] == [polecenia.UKLAD, polecenia.BEZ_SKRYPTOW] and cz[4] == polecenia.TRESC_DOKUMENT and ag[0] == polecenia.P1 and ag[-1] == polecenia.P6
+    assert c["nazwa"] == "Dokument" and "slajd N wyniku = slajd N oryginału" not in "\n".join(ag)
+    cz = polecenia.punkty_dopracowanie(False)
+    assert cz[1].startswith("DOPRACOWANIE, NIE PRZEBUDOWA") and cz[-2:] == [polecenia.UKLAD, polecenia.BEZ_SKRYPTOW]
+    kopia = polecenia.punkty_dopracowanie(True, None, "a.pptx", "b.pptx")
+    spec = polecenia.punkty_dopracowanie(True, "s.json", "a.pptx", "b.pptx")
+    assert kopia[0] == polecenia.P1 and kopia[-1] == polecenia.P6 and polecenia.P2 not in kopia and polecenia.P2 in spec
+    assert any(p.startswith("PRACUJ NA KOPII") for p in kopia) and any(p.startswith("PRACUJ NA SPECU") for p in spec)
+    assert "\n   A. BŁĘDY TEKSTU" in polecenia.FORMAT_DOPRACOWANIE and "„Sprawdź najpierw”" in polecenia.FORMAT_DOPRACOWANIE

@@ -4,7 +4,7 @@
     python -m pytest -p no:cacheprovider WORK\\logs\\test_prompty.py -q
 
 Silnik importuje skill z paths.SKILL_SCRIPTS; w zrodlach (bez builda) jest to stara kopia WORK\\src\\skill, wiec test
-wybiera pierwszy skill, ktory ma polecenia.py (kopia po buildzie albo ~\\.claude\\skills\\prezentacje).
+wybiera skill z NOWSZYM polecenia.py (kopia po buildzie albo ~\\.claude\\skills\\prezentacje - zrodlo tekstow polecen).
 """
 import json
 import os
@@ -18,8 +18,10 @@ WORK = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(WORK, "src", "app"))
 import paths  # noqa: E402
 
-for _k in (os.path.join(WORK, "src", "skill"), os.path.join(os.path.expanduser("~"), ".claude", "skills", "prezentacje")):
-    if os.path.exists(os.path.join(_k, "scripts", "polecenia.py")):
+_KAND = [k for k in (os.path.join(WORK, "src", "skill"), os.path.join(os.path.expanduser("~"), ".claude", "skills", "prezentacje"))
+         if os.path.exists(os.path.join(k, "scripts", "polecenia.py"))]
+for _k in sorted(_KAND, key=lambda k: -os.path.getmtime(os.path.join(k, "scripts", "polecenia.py"))):
+    if True:
         paths.SKILL_DIR, paths.SKILL_SCRIPTS = _k, os.path.join(_k, "scripts")
         paths.VERIFY_PS = os.path.join(_k, "scripts", "verify.ps1")
         break
@@ -80,7 +82,7 @@ def test_czat_ma_role_ksztalty_bledy_i_miesci_sie(tmp_path):
     model, spec = _model_i_spec(tmp_path)
     t = _czat(model, spec)
     for s in ("[hasło]", "[liczba]", "[wniosek]", "[tytuł]", "[etykieta nad tytułem]", "KSZTAŁT TREŚCI -> WZÓR Z SZABLONU",
-              "MOŻLIWE BŁĘDY W TEKŚCIE ORYGINAŁU", "FORMAT ODPOWIEDZI", "Nie masz dostępu do plików", "„dla agenta”"):
+              "MOŻLIWE BŁĘDY W TEKŚCIE ORYGINAŁU", "FORMAT ODPOWIEDZI", "Jeśli nie masz pliku prezentacji ani zrzutów", "„dla agenta”"):
         assert s in t, s
     # uwaga: sam punkt „Sprawdź pokrycie…” (PROMPTY.md D) zawiera tekst „(dalsza część … pominięta)” - szukamy znaczników ucięcia
     assert "(dalsza część wyniku pominięta" not in t and "(dalsza część oryginału pominięta" not in t
@@ -115,7 +117,7 @@ def test_agent_punkty_w_liniach_i_bledy_przed_uwagami(tmp_path):
     t = engine.ai_prompt_agent_pptx("DK.pptx", ORYG, r"C:\wynik\DK.pptx", str(tmp_path), spec,
                                     ["Sprawdź najpierw: slajd 3 - x", "inna uwaga"], cel="wiernie", dane=DANE)
     assert t.count("\n") >= 12
-    assert t.startswith("KROK 0") and "CO MASZ ZROBIĆ" in t and "\n1. ZANIM COKOLWIEK POPRAWISZ" in t
+    assert t.startswith("Nie masz dostępu do plików i skryptów") and (chr(10) + "KROK 0") in t and "CO MASZ ZROBIĆ" in t and "\n1. ZANIM COKOLWIEK POPRAWISZ" in t
     assert t.index("MOŻLIWE BŁĘDY W TEKŚCIE ORYGINAŁU") < t.index("UWAGI PROGRAMU")
     assert "dopracowanie.md" in t and "KSZTAŁT TREŚCI -> WZÓR Z SZABLONU" in t and "spec_program.json" in t
     assert "[hasło]" not in t and "ORYGINAŁ (tekst slajdów)" not in t   # agent czyta pliki sam
@@ -378,3 +380,69 @@ def test_lista_uwag_w_oknie_jest_krotka():
     # polecenie dla agenta dostaje pełne brzmienie
     ag = engine.ai_prompt_agent_pptx("a.pptx", "o.pptx", "a.pptx", ".", {"bledy_tekstu": bledy}, uw)
     assert "Ułożyłem w klocki szablonu marki" in ag and "Dobór układu z pomiaru" in ag and "dodałem wizualizacje" in ag
+
+
+# --- v15 (13.10, po teście na Claude): układ, granice korekty, praca bez skryptów - w 4 poleceniach z okna -----------------
+BLEDY2 = [{"slajd": 12, "rodzaj": "sklejone", "jest": "komunikacjaod", "propozycja": "komunikacja od", "kontekst": "x", "pewnosc": "wysoka"},
+          {"slajd": 38, "rodzaj": "interpunkcja", "jest": "odjechała..", "propozycja": "odjechała…", "kontekst": "x", "pewnosc": "wysoka"}]
+WYNIK = ORYG.replace(".pptx", " - nowy styl.pptx")
+ROB = os.path.join(os.path.dirname(ORYG), "_robocze", "DK_co_dalej_update")
+
+
+def _cztery(cel="wiernie"):
+    """Cztery polecenia, które okno daje do skopiowania: czat i agent po konwersji, czat i agent przy dopracowaniu
+    (bez plików na dysku: pusty model i spec, uwagi i błędy jak dla strategii)."""
+    spec = {"slides": [], "bledy_tekstu": BLEDY2}
+    rozp = {"rodzaj": "wynik_programu", "spec": None}
+    pr = {"teksty": [(1, ["Tytuł"]), (19, ["Białko –", "1,2 g/kg"])]}
+    kopia = WYNIK.replace(".pptx", " - dopracowana.pptx")
+    return {
+        "czat pptx": engine.ai_prompt_pptx(os.path.basename(WYNIK), ORYG, {"slajdy": [], "h_cm": 19.05}, spec, UWAGI_STRATEGIA,
+                                           {"tekst": "Treść: 100% akapitów (201/201) przeniesionych."}, {"szczegoly": []}, WYNIK,
+                                           cel=cel, dane=DANE),
+        "agent pptx": engine.ai_prompt_agent_pptx(os.path.basename(WYNIK), ORYG, WYNIK, ROB, spec, UWAGI_STRATEGIA, cel=cel, dane=DANE),
+        "czat dopracowanie": engine.ai_prompt_dopracowanie(WYNIK, rozp, pr, UWAGI_STRATEGIA, BLEDY2),
+        "agent dopracowanie": engine.ai_prompt_agent_dopracowanie(WYNIK, kopia, ROB, rozp, UWAGI_STRATEGIA, BLEDY2),
+    }
+
+
+@pytest.mark.parametrize("cel", ["wiernie", "rozwin", "skroc"])
+def test_cztery_polecenia_maja_uklad_granice_i_galaz_bez_skryptow(cel):
+    for n, t in _cztery(cel).items():
+        for s in ("PO KOREKCIE TEKSTU PRZEJDŹ SLAJD PO SLAJDZIE I NAPRAW UKŁAD", "pusty dół slajdu (ponad 1/3 wysokości)",
+                  "urwane na końcu myślnikiem, przecinkiem lub dwukropkiem", "karta pusta w ponad połowie obok pełnej",
+                  "NIE MASZ DOSTĘPU DO PLIKÓW I SKRYPTÓW SKILLA", "Pracuj bezpośrednio na otwartej prezentacji",
+                  "hasło co najmniej 16 pt, dopisek 13 pt", "NIE PRZEREDAGOWUJESZ", "„do decyzji autora”",
+                  "Sprawdź najpierw: slajd 12 - karta ma 57% wysokości pusta"):        # lista z pomiaru, od której polecenie każe zacząć
+            assert s in t, (cel, n, s)
+        assert t.count("PO KOREKCIE TEKSTU PRZEJDŹ") == 1 and t.count("NIE MASZ DOSTĘPU DO PLIKÓW I SKRYPTÓW") == 1, (cel, n)
+        assert t.index("PO KOREKCIE TEKSTU PRZEJDŹ") < t.index("UWAGI PROGRAMU"), (cel, n)
+        assert len(t) <= engine.LIMIT_POLECENIE, (cel, n, len(t))
+
+
+def test_czat_nadal_nie_dostaje_polecen_dla_plikow():
+    c = _cztery()
+    for n in ("czat pptx", "czat dopracowanie"):
+        for s in ("KROK 0", "verify", "spec_konwersja", "render.ps1", "build_dk", "dopracowanie.md"):
+            assert s not in c[n], (n, s)
+    assert "FORMAT ODPOWIEDZI" in c["czat dopracowanie"] and "z listy „Sprawdź najpierw”" in c["czat dopracowanie"]
+
+
+@pytest.mark.parametrize("cel", ["wiernie", "rozwin", "skroc"])
+def test_dopisane_bloki_to_najwyzej_cwierc_polecenia_agenta(cel):
+    """Limit z 13.10: polecenie nie rośnie o więcej niż ok. 25%. Liczone na poleceniach agenta (najkrótsze; czat ma do
+    tego tekst slajdów): dopisane = blok układu + gałąź bez skryptów + zdanie o przeredagowaniu (+ skrót punktu o błędach)."""
+    p = polecenia
+    c = _cztery(cel)
+    dop = len(p.UKLAD) + len(p.BEZ_SKRYPTOW) + (len(p.GRANICE) if cel == "wiernie" else len(p.BLEDY_KROTKO))
+    for n, d in (("agent pptx", dop), ("agent dopracowanie", len(p.UKLAD) + len(p.BEZ_SKRYPTOW) + len(p.GRANICE))):
+        przed = len(c[n]) - d
+        assert d <= 0.26 * przed, (cel, n, d, przed, round(d / przed, 3))
+
+
+def test_polecenia_dok_bierze_teksty_ze_skilla():
+    import polecenia_dok
+    assert polecenia_dok.punkty_dopracowanie is polecenia.punkty_dopracowanie and polecenia_dok.pracuj_na is polecenia.pracuj_na
+    assert polecenia_dok.FORMAT_DOPRACOWANIE is polecenia.FORMAT_DOPRACOWANIE
+    assert polecenia_dok.punkty(False) == polecenia.polecenie_ai("dokument", pliki=False)
+    assert polecenia_dok.punkty(True) == polecenia.polecenie_ai("dokument", pliki=True) == engine._punkty("dokument", {}, True, "dokument")

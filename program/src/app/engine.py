@@ -4,16 +4,22 @@
 Owija skill /prezentacje (szybka.py: inwentarz i grafiki; build_dk.py: nowy styl; build_deck.py: stary styl;
 verify.ps1: kontrola tekstu w PowerPoint). Deterministyczny - żadnych pytań: czego automat nie wie, wpisuje jako
 podpowiedź w [nawiasach] i zgłasza w "uwagi". Ten sam silnik obsługuje okno (gui.py) i wiersz poleceń dla AI (cli.py).
+
+Wejście (normalize_folder / tryb_wejscia): folder produktu, plik .pptx (obca = konwersja; już w stylu marki = DOPRACOWANIE: sam
+przegląd, plik użytkownika nietknięty) albo dokument (.docx, .pdf, .txt...).
 """
 import base64
 import glob
+import hashlib
 import io
 import copy
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import threading
 import time
 import traceback
 
@@ -30,6 +36,11 @@ import guard  # noqa: E402
 import make_template  # noqa: E402  - katalog typów slajdów szablonu
 import pptx_convert  # noqa: E402  - konwersja gotowej prezentacji (.pptx) na styl DK
 import polecenia  # noqa: E402  - polecenia dla AI: jedno źródło tekstów (agent z plikami i czat bez plików)
+import polecenia_dok  # noqa: E402  - punkty polecenia dla celu "dokument" (zapas, gdy skill nie ma ich w POLECENIA)
+try:  # prezentacja z dokumentu (docx, doc, rtf, odt, pdf, txt, md): moduł skilla; starszy skill go nie ma
+    import dokument  # noqa: E402
+except ImportError:
+    dokument = None
 import wizki  # noqa: E402  - biblioteka wizualizacji produktów (packshoty do slajdów portfolio)
 szybka.OCR_PS = os.path.join(paths.SKILL_SCRIPTS, "ocr_win.ps1")  # paczki bez smaku w nazwie: napis z opakowania
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
@@ -188,7 +199,17 @@ def template_slides(ids, produkt, flavors, packs, props, claim=""):
 STEPS = [("folder", "Czytam folder", 5), ("grafiki", "Przygotowuję grafiki", 40), ("slajdy", "Układam slajdy", 5),
          ("budowa", "Buduję prezentację", 20), ("qa", "Sprawdzam w PowerPoint", 25), ("zapis", "Zapisuję", 5)]
 _cache = {}  # folder -> (inv, mapa)
-PPTX_WEIGHTS = {"folder": 15, "grafiki": 5, "slajdy": 10, "budowa": 20, "qa": 45, "zapis": 5}
+ZAJETY_MNOZNIK = 1.5   # po tylu estymatach tekst postępu zmienia się na ZAJETY_TEKST
+ZAJETY_TEKST = "Komputer jest zajęty - to potrwa dłużej"
+MAX_SCIEZKA_PPT = 225   # PowerPoint (COM) nie otwiera plików ani nie zapisuje zrzutów przy ścieżce > 259 znaków; zapas na nazwy
+# Wagi kroków paska postępu (pomiar 13.10 na obciążonym komputerze, dokument 17 slajdów = 49 s: czytanie i składanie ok. 1 s, budowa ok. 0 s,
+# zrzuty 27 s, kontrola tekstu 19 s, reszta 1 s): prawie cały czas to PowerPoint, więc pasek nie może skakać do 50% na samym początku.
+PPTX_WEIGHTS = {"folder": 5, "grafiki": 1, "slajdy": 7, "budowa": 7, "qa": 74, "zapis": 6}
+DOPR_WEIGHTS = {"folder": 8, "grafiki": 0, "slajdy": 0, "budowa": 0, "qa": 82, "zapis": 10}   # dopracowanie: bez budowy slajdów
+# Szacunek czasu z liczby slajdów: stały narzut PowerPointa (start, zrzuty, kontrola) + czas na slajd. Pomiary 13.10 (komputer obciążony,
+# PowerPoint dzielony z innymi): dokument 5 / 7 / 15 / 17 slajdów = 24 / 31 / 25 / 49 s; dopracowanie 7 / 43 slajdy = 53 / 66 s.
+CZAS_DOPR = (25.0, 0.7)       # (stały, na slajd): zrzuty i kontrola kopii, bez budowy
+CZAS_PPTX = (20.0, 1.0)       # konwersja (na slajd wyniku): składanie + budowa + zrzuty + kontrola; pomiar 45 slajdów = 57 s bez przebudowy układu, z jedną ok. 90 s
 
 
 def powerpoint_available():
@@ -209,36 +230,196 @@ def _log_file(text):
 
 
 PPTX_EXT = (".pptx", ".ppsx", ".potx", ".pptm")
+DOK_EXT_ZAPAS = (".docx", ".doc", ".rtf", ".odt", ".pdf", ".txt", ".md")   # lista z kontraktu dokument.ROZSZERZENIA
+KOMUNIKAT_PROGRAM = "To folder programu. Upuść folder produktu albo plik z prezentacją lub dokumentem."
+KOMUNIKAT_TYP = ("Tego typu pliku nie umiem przeczytać. Upuść folder produktu, prezentację (.pptx) albo dokument "
+                 "(.docx, .doc, .rtf, .odt, .pdf, .txt, .md).")
+KOMUNIKAT_BEZ_PRZEGLADU = ("Ta wersja programu nie umie jeszcze sprawdzać prezentacji, które są już w stylu marki. "
+                           "Zaktualizuj program.")
+KOMUNIKAT_BEZ_DOKUMENTOW = ("Ta wersja programu nie czyta jeszcze dokumentów (.docx, .pdf, .txt…). Zaktualizuj program "
+                            "albo upuść folder produktu lub prezentację (.pptx).")
+
+
+def dok_ext():
+    """Rozszerzenia dokumentów, które program umie zamienić na prezentację (puste, gdy skill nie ma modułu `dokument`)."""
+    return tuple(getattr(dokument, "ROZSZERZENIA", DOK_EXT_ZAPAS)) if dokument is not None else ()
+
+
+def _w_folderze_programu(path):
+    """Folder programu (paths.ROOT) i wszystko w nim: tam leżą szablony i pliki programu, nie materiały użytkownika."""
+    r = os.path.normcase(os.path.abspath(paths.ROOT))
+    p = os.path.normcase(os.path.abspath(path))
+    return p == r or p.startswith(r + os.sep)
+
+
+def _ma_karty(folder):
+    return bool(_Glob.glob(os.path.join(glob.escape(folder), "Karta wprowadzenia*.xls*")))
+
+
+_POWOD_DOPR = {
+    "szablon_dk": "To szablon z podpowiedziami w nawiasach - sprawdzam go i przygotowuję polecenie; treść wpisz sam albo zleć AI.",
+    "wynik_programu": "To prezentacja zrobiona już przez ten program (nowy styl Dobra Kaloria) - nie przerabiam slajdów, "
+                      "sprawdzam je i przygotowuję polecenie do dopracowania.",
+    "styl_dk": "Ta prezentacja jest już w stylu Dobra Kaloria - nie przerabiam slajdów, sprawdzam je i przygotowuję polecenie "
+               "do dopracowania.",
+}
+RODZAJ_NAZWA = {"szablon_dk": "szablon Dobra Kaloria", "wynik_programu": "wynik tego programu",
+                "styl_dk": "prezentacja już w stylu marki", "obca": "prezentacja w obcym stylu"}
+
+
+def _rozpoznaj_zapas(plik):
+    """Zapas, gdy skill nie ma pptx_convert.rozpoznaj: po nazwie pliku (szablon DK, wynik programu)."""
+    n = os.path.basename(plik).lower()
+    if n.startswith("dk - szablon"):
+        rodzaj = "szablon_dk"
+    elif re.search(r" - (nowy styl|stary styl|dopracowana)", n):
+        rodzaj = "wynik_programu"
+    else:
+        return {"rodzaj": "obca", "tryb": "konwersja", "konwertowac": True, "spec": None, "podpowiedzi": 0, "powod": ""}
+    return {"rodzaj": rodzaj, "tryb": "dopracowanie", "konwertowac": False, "spec": None, "podpowiedzi": 0,
+            "powod": _POWOD_DOPR[rodzaj]}
+
+
+def _uzupelnij_rozpoznanie(r):
+    """Kontrakt pptx_convert.rozpoznaj: {"rodzaj", "tryb": konwersja | dopracowanie, "powod", "konwertowac", "spec", "podpowiedzi"}.
+    Starszy skill nie zwraca "tryb" (wynika z "konwertowac"), a powód w dawnym brzmieniu („nie ma czego konwertować”) jest odmową -
+    zamieniamy go na zdanie informacyjne, bo plik w stylu marki dopracowujemy, nie odrzucamy."""
+    r = dict(r)
+    if r.get("tryb") not in ("konwersja", "dopracowanie"):
+        r["tryb"] = "konwersja" if r.get("konwertowac") else "dopracowanie"
+    r["konwertowac"] = r["tryb"] == "konwersja"
+    r.setdefault("spec", None)
+    r.setdefault("podpowiedzi", 0)
+    if r["tryb"] == "dopracowanie" and (not r.get("powod") or "nie ma czego konwertować" in r["powod"]):
+        r["powod"] = _POWOD_DOPR.get(r.get("rodzaj"), _POWOD_DOPR["styl_dk"])
+    return r
+
+
+def _rozpoznaj(plik):
+    """Co to za prezentacja: pptx_convert.rozpoznaj(plik) -> {"rodzaj": obca | styl_dk | szablon_dk | wynik_programu,
+    "tryb": konwersja | dopracowanie, "powod", "konwertowac", "spec", "podpowiedzi"}. Błąd rozpoznania nie blokuje (wtedy zapas
+    po nazwie pliku)."""
+    f = getattr(pptx_convert, "rozpoznaj", None)
+    if f is not None:
+        try:
+            r = f(plik)
+            if isinstance(r, dict) and ("konwertowac" in r or "tryb" in r):
+                return _uzupelnij_rozpoznanie(r)
+        except Exception:
+            _log_file(traceback.format_exc())
+    return _uzupelnij_rozpoznanie(_rozpoznaj_zapas(plik))
+
+
+def _do_czytania(folder):
+    """Pliki w folderze (bez podfolderów), z których da się zrobić prezentację: dokumenty i prezentacje do konwersji.
+    Zwraca (lista, gotowe): gotowe = prezentacje już w stylu marki (szablon, wynik programu...; tryb dopracowania) - bierzemy
+    je dopiero wtedy, gdy w folderze nie ma nic innego do przeczytania."""
+    wyn, pom = [], []
+    try:
+        nazwy = sorted(os.listdir(folder), key=str.lower)
+    except OSError:
+        return [], []
+    for n in nazwy:
+        p = os.path.join(folder, n)
+        if n.startswith(("~$", ".")) or not os.path.isfile(p):
+            continue
+        e = os.path.splitext(n)[1].lower()
+        if e in PPTX_EXT:
+            (wyn if _rozpoznaj(p).get("tryb") != "dopracowanie" else pom).append(p)
+        elif e in dok_ext() or (dokument is None and e in DOK_EXT_ZAPAS):
+            wyn.append(p)
+    return wyn, pom
 
 
 def normalize_folder(path):
-    """Upuszczony może być folder ALBO dowolny plik z niego - bierzemy folder. Plik .pptx / .ppsx to gotowa
-    prezentacja do przełożenia na styl DK (tryb pptx): zwracamy ścieżkę pliku."""
+    """Co upuszczono: zwraca ścieżkę folderu produktu albo pliku (prezentacja .pptx / dokument), albo zgłasza ValueError
+    z jednym zdaniem „co zrobić”. Zasady (v14, po złym wyniku z folderu programu i szablonu):
+    - folder programu i jego podfoldery nigdy nie są materiałem (wyjątek: PLIK prezentacji z folderu programu, np. szablon -
+      to tryb dopracowania);
+    - plik z folderu produktu (są w nim „Karta wprowadzenia…”) = folder produktu (jak dotąd);
+    - folder bez kart: gdy leży w nim DOKŁADNIE jeden plik do przeczytania (dokument albo prezentacja do konwersji) -
+      bierzemy ten plik; gdy są tylko prezentacje już w stylu marki, a jest jedna - też ją; inaczej komunikat;
+    - plik innego typu niż prezentacja i dokument: komunikat z listą obsługiwanych."""
     path = (path or "").strip().strip('"')
     if not path:
-        raise ValueError("Nie wskazano folderu.")
+        raise ValueError("Nie wskazano pliku ani folderu.")
+    path = os.path.abspath(path)
+    if not os.path.exists(path):
+        raise ValueError("Nie znalazłem: %s" % path)
+    if _w_folderze_programu(path) and not (os.path.isfile(path) and os.path.splitext(path)[1].lower() in PPTX_EXT):
+        raise ValueError(KOMUNIKAT_PROGRAM)
     if os.path.isfile(path):
-        if path.lower().endswith(PPTX_EXT):  # gotowa prezentacja: tryb konwersji, ścieżką jest plik
-            return os.path.abspath(path)
-        if path.lower().endswith(".ppt"):
+        e = os.path.splitext(path)[1].lower()
+        if e in PPTX_EXT:  # gotowa prezentacja: tryb konwersji, ścieżką jest plik
+            return path
+        if e == ".ppt":
             raise ValueError("To stary format .ppt. Otwórz plik w PowerPoint i zapisz jako .pptx, potem upuść go tutaj.")
-        path = os.path.dirname(path)
-    if not os.path.isdir(path):
-        raise ValueError("Folder nie istnieje: %s" % path)
+        if _ma_karty(os.path.dirname(path)):  # plik z folderu produktu = folder produktu
+            return os.path.dirname(path)
+        if e in DOK_EXT_ZAPAS or e in dok_ext():
+            if dokument is None:
+                raise ValueError(KOMUNIKAT_BEZ_DOKUMENTOW)
+            return path
+        raise ValueError(KOMUNIKAT_TYP)
     if os.path.basename(path).lower() == "_robocze":
         path = os.path.dirname(path)
-    return os.path.abspath(path)
+        if _w_folderze_programu(path):
+            raise ValueError(KOMUNIKAT_PROGRAM)
+    if _ma_karty(path):
+        return path
+    wyn, pom = _do_czytania(path)
+    if len(wyn) == 1:
+        return wyn[0]
+    if not wyn and len(pom) == 1:
+        return pom[0]
+    if not wyn and not pom:
+        raise ValueError("W tym folderze nie ma kart wprowadzenia (plików 'Karta wprowadzenia_....xlsx') ani prezentacji "
+                         "czy dokumentu do przeczytania. Upuść folder produktu albo plik z prezentacją lub dokumentem.")
+    raise ValueError("W tym folderze jest kilka plików do przeczytania (%d). Upuść ten, z którego mam zrobić prezentację, "
+                     "albo folder produktu z kartami wprowadzenia." % (len(wyn) or len(pom)))
+
+
+def tryb_wejscia(sciezka):
+    """'pptx' | 'dokument' | 'folder' dla ścieżki zwróconej przez normalize_folder."""
+    if os.path.isfile(sciezka):
+        return "pptx" if sciezka.lower().endswith(PPTX_EXT) else "dokument"
+    return "folder"
+
+
+def _czy_dopracowanie(sciezka, opts=None):
+    """Plik .pptx już w stylu marki (szablon DK, wynik programu, prezentacja z szablonu) = tryb dopracowania; wyjątek: opts["mimo_to"]
+    (CLI --mimo-to) każe konwertować go jak obcą."""
+    return bool(os.path.isfile(sciezka) and sciezka.lower().endswith(PPTX_EXT) and not (opts or {}).get("mimo_to")
+                and _rozpoznaj(sciezka).get("tryb") == "dopracowanie")
 
 
 # --- 1. analiza folderu -------------------------------------------------------------------------------------------
-def analyze(path):
+def analyze(path, mimo_to=False):
+    """Analiza tego, co upuszczono: folder produktu, prezentacja .pptx do konwersji, prezentacja już w stylu DK (tryb
+    dopracowania: tylko przegląd) albo dokument. mimo_to: konwertuj mimo to prezentację rozpoznaną jako gotową w stylu DK
+    (tylko CLI --mimo-to; okno tego nie oferuje)."""
     folder = normalize_folder(path)
-    if os.path.isfile(folder):
-        return analyze_pptx(folder)
-    cards = _Glob.glob(os.path.join(folder, "Karta wprowadzenia*.xls*"))
+    t = tryb_wejscia(folder)
+    if t == "pptx":
+        try:
+            rozp = _rozpoznaj(folder)
+            if rozp["tryb"] == "dopracowanie" and not mimo_to:
+                return analyze_dopracowanie(folder, rozp)
+            return analyze_pptx(folder, mimo_to=mimo_to)
+        except ValueError:
+            raise
+        except PermissionError:
+            raise ValueError("Plik jest otwarty albo zablokowany przez inny program. Zamknij go (np. w PowerPoint) i upuść jeszcze raz.")
+        except Exception:
+            _log_file(traceback.format_exc())
+            raise ValueError("Nie mogę otworzyć tej prezentacji (plik jest uszkodzony albo chroniony hasłem). Zapisz ją jeszcze raz "
+                             "w PowerPoint jako .pptx i upuść ponownie.")
+    if t == "dokument":
+        return analyze_dokument(folder)
+    cards = _Glob.glob(os.path.join(glob.escape(folder), "Karta wprowadzenia*.xls*"))
     if not cards:
         raise ValueError("W tym folderze nie ma kart wprowadzenia (plików 'Karta wprowadzenia_....xlsx') - "
-                         "to nie wygląda na folder produktu. Gotową prezentację (.pptx) upuść jako plik.")
+                         "to nie wygląda na folder produktu. Upuść folder produktu albo plik z prezentacją lub dokumentem.")
     rob = os.path.join(folder, "_robocze")
     os.makedirs(rob, exist_ok=True)
     inv, mapa = szybka.inventory(folder, rob)
@@ -323,6 +504,8 @@ def _pptx_rob(plik):
     stem = os.path.splitext(os.path.basename(plik))[0]
     rob = os.path.join(os.path.dirname(plik), "_robocze", stem)
     try:
+        if _w_folderze_programu(plik):   # szablon z folderu programu: program nic tam nie zapisuje (może być tylko do odczytu)
+            raise OSError("folder programu")
         os.makedirs(rob, exist_ok=True)
         return rob
     except OSError:
@@ -344,7 +527,8 @@ def _pptx_model(plik):
     return model
 
 
-def analyze_pptx(plik):
+def analyze_pptx(plik, mimo_to=False):
+    rozp = _rozpoznaj(plik)
     model = _pptx_model(plik)
     st = pptx_convert.stats(model)
     chapters = pptx_convert.detect_chapters(model)
@@ -354,6 +538,12 @@ def analyze_pptx(plik):
     uwagi = [{"typ": "info", "tekst": t} for t in model["uwagi"] if not t.startswith("Animacje")]
     uwagi.append({"typ": "info", "tekst": "Cały tekst zostanie przeniesiony. Na końcu sprawdzę każdy akapit i układ "
                                           "slajdów i pokażę wynik."})
+    ost = rozp.get("powod") or ""
+    ost = ost[ost.find("Uwaga:"):] if "Uwaga:" in ost else ""   # wątpliwość rozpoznania (obca prezentacja, ale coś niepokoi)
+    if ost and rozp["tryb"] == "konwersja":
+        uwagi.insert(0, {"typ": "ostrzezenie", "tekst": ost})
+    if rozp["tryb"] == "dopracowanie":                           # --mimo-to
+        uwagi.insert(0, {"typ": "ostrzezenie", "tekst": "Konwertuję mimo to (rozpoznano: %s)." % RODZAJ_NAZWA.get(rozp.get("rodzaj"), rozp.get("rodzaj"))})
     sekcje = [{"id": c["id"], "nazwa": c["nazwa"], "dostepna": True, "domyslnie": True, "powod": "", "grupa": "rozdzialy",
                "rodzaj": "pptx", "slajdy": n_out[c["id"]],
                "opis": ("slajd %s z oryginału" if len(c["slajdy"]) == 1 else "slajdy %s z oryginału") % pptx_convert._range(c["slajdy"])}
@@ -365,7 +555,7 @@ def analyze_pptx(plik):
     n = len(spec["slides"])
     # pomiar 13.10 (strategia, 43 slajdy): budowa ok. 25 s, zrzuty + kontrola ok. 25 s (razem ok. 60 s), każda runda "oka" ze zmianą
     # układu ok. 25 s; zakładamy jedną rundę
-    est = 5 + 0.2 * n + ((10 + 0.7 * n) + 0.6 * n if powerpoint_available() else 0)
+    est = (CZAS_PPTX[0] + CZAS_PPTX[1] * n) if powerpoint_available() else 5 + 0.3 * n
     return {"ok": True, "tryb": "pptx", "folder": os.path.dirname(plik), "plik": plik, "nazwa_pliku": os.path.basename(plik),
             "produkt": pptx_convert.produkt(model), "slajdy": st["slajdy"], "slajdy_wynik": len(spec["slides"]),
             "akapity": st["akapity"], "grafiki": st["grafiki"], "tabele": st["tabele"], "wykresy": st["wykresy"],
@@ -378,6 +568,141 @@ def analyze_pptx(plik):
             "presety": {"0": [], "1": [], "2": []}, "smaki": [], "karty": 0, "uwagi": uwagi,
             "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1}, "szacowany_czas_s": int(est),
             "powerpoint": powerpoint_available()}
+
+
+# --- tryb dopracowanie: prezentacja JUŻ w stylu marki (szablon DK, wynik programu, prezentacja z szablonu) -------------------
+def _przeglad(plik, rob):
+    """pptx_convert.przeglad(plik, rob): przegląd gotowego pliku BEZ budowania - {"slajdy", "teksty" [(nr, [akapity])],
+    "bledy_tekstu", "podpowiedzi" [(nr, tekst)], "uwagi"}."""
+    f = getattr(pptx_convert, "przeglad", None)
+    if f is None:
+        raise ValueError(KOMUNIKAT_BEZ_PRZEGLADU)
+    return f(plik, rob)
+
+
+def _nazwa_prezentacji(plik):
+    stem = os.path.splitext(os.path.basename(plik))[0]
+    return re.sub(r" - (nowy styl|stary styl|dopracowana).*$", "", stem) or stem
+
+
+def analyze_dopracowanie(plik, rozp):
+    """Przegląd w oknie dla pliku w stylu marki: ile slajdów, ile podpowiedzi w [nawiasach], ile możliwych błędów tekstu i zdanie
+    „co program zrobi” (rozp["powod"], informacja, nie odmowa). Bez celu, rozdziałów i suwaków: dopracowanie niczego nie buduje."""
+    pr = _przeglad(plik, _pptx_rob(plik))
+    n = int(pr["slajdy"])
+    # liczba pól w zdaniu z rozpoznania liczy też opisy slajdów szablonu; w oknie stoi jedna liczba, z przeglądu (wiersz „Podpowiedzi…”)
+    powod = re.sub(r" [(][0-9]+ pól do wypełnienia[)]", "", rozp.get("powod") or "")
+    est = (CZAS_DOPR[0] + CZAS_DOPR[1] * n) if powerpoint_available() else 4   # zrzuty i kontrola kopii; bez budowy i bez „oka” z przebudową
+    return {"ok": True, "tryb": "dopracowanie", "rodzaj": rozp.get("rodzaj"), "folder": os.path.dirname(plik), "plik": plik,
+            "nazwa_pliku": os.path.basename(plik), "produkt": _nazwa_prezentacji(plik), "slajdy": n,
+            "podpowiedzi": len(pr["podpowiedzi"]), "bledy_tekstu_liczba": len(pr["bledy_tekstu"]), "spec": rozp.get("spec"),
+            "powod": powod, "uwagi": [{"typ": "info", "tekst": powod}],
+            "sekcje": [], "grupy": [], "cele": [], "smaki": [], "karty": 0, "presety": {"0": [], "1": [], "2": []},
+            "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1}, "szacowany_czas_s": int(est),
+            "powerpoint": powerpoint_available()}
+
+
+# --- tryb dokument: docx, doc, rtf, odt, pdf, txt, md -> prezentacja (moduł skilla `dokument`) ----------------------------
+_dcache = {}  # plik -> (mtime, model)
+DOK_MIN_ROZDZIALOW = 3   # od tylu rozdziałów program dokłada agendę (reguła w dokument.zloz); domyślna liczba przekładek >= tyle
+
+
+def _dok_model(plik):
+    """Model treści dokumentu (dokument.wczytaj) z cache: analiza i budowa czytają plik raz. Błędy po polsku (ValueError)."""
+    if dokument is None:
+        raise ValueError(KOMUNIKAT_BEZ_DOKUMENTOW)
+    mt = os.path.getmtime(plik)
+    c = _dcache.get(plik)
+    if c and c[0] == mt:
+        return c[1]
+    try:
+        with open(plik, "rb"):
+            pass
+    except PermissionError:
+        raise ValueError("Plik jest otwarty albo zablokowany przez inny program. Zamknij go (np. w Wordzie) i upuść jeszcze raz.")
+    except OSError as e:
+        raise ValueError("Nie mogę otworzyć pliku (%s). Sprawdź, czy istnieje i czy masz do niego dostęp." % e.strerror)
+    rob = _pptx_rob(plik)
+    try:
+        m = dokument.wczytaj(plik, rob)
+    except ValueError:
+        raise   # komunikaty modułu są po polsku i mówią, co zrobić (skan, za długi, brak Worda…)
+    except Exception as e:
+        _log_file(traceback.format_exc())
+        raise ValueError("Nie udało się przeczytać dokumentu (%s). Zapisz go jeszcze raz jako .docx albo .pdf i upuść ponownie."
+                         % type(e).__name__)
+    st = dokument.statystyka(m)
+    if not (st.get("slowa") or 0):
+        raise ValueError("Ten dokument jest pusty - nie ma w nim tekstu do zamiany na slajdy. Dopisz treść i upuść go jeszcze raz.")
+    _dcache[plik] = (mt, m)
+    return m
+
+
+def _suwaki_dokumentu(st):
+    """Zakresy i wartości domyślne dwóch suwaków trybu dokument, policzone Z DOKUMENTU (statystyka). Zawsze min <= domyślnie <= max."""
+    mn = max(1, int(st.get("slajdy_min") or 1))
+    mx = max(mn, int(st.get("slajdy_max") or mn))
+    dom = min(mx, max(mn, int(st.get("slajdy_domyslnie") or mn)))
+    rmax = max(0, int(st.get("rozdzialy_max") or 0))
+    if st.get("rozdzialy_domyslnie") is not None:
+        rdom = int(st["rozdzialy_domyslnie"])
+    elif rmax >= DOK_MIN_ROZDZIALOW:
+        rdom = max(DOK_MIN_ROZDZIALOW, int(round(dom / 6.0)))   # ok. jedna przekładka na 6 slajdów, nie mniej niż agenda
+    else:
+        rdom = rmax
+    return {"slajdy": {"min": mn, "max": mx, "domyslnie": dom},
+            "rozdzialy": {"max": rmax, "domyslnie": max(0, min(rmax, rdom))}}
+
+
+def _czas_dokumentu():
+    """Szacunek czasu: stały + na slajd SUWAKA (okno liczy go na żywo przy przesuwaniu). Silnik dzieli slajdy, na których treść się nie mieści,
+    więc w pliku jest do 1,7 razy tyle slajdów, ile na suwaku (pomiar 13.10: 3 -> 5, 5 -> 7, 9 -> 15, 11 -> 17, 79 -> 81). Pomiary czasu (komputer
+    obciążony): suwak 3 / 5 / 9 / 11 / 79 = 24 / 31 / 24 / 48 / 288 s; duży dokument częściej wymaga przebudowy układu po zrzutach, stąd człon kwadratowy
+    (stały + na_slajd * v + kw * v^2)."""
+    pp = powerpoint_available()
+    return {"stale": 18 if pp else 4, "na_slajd": 1.5 if pp else 0.5, "kw": 0.02 if pp else 0.0}
+
+
+def analyze_dokument(plik):
+    """Analiza dokumentu do okna: nazwa, tytuł, statystyka, zakresy dwóch suwaków (z dokumentu), ostrzeżenia."""
+    m = _dok_model(plik)
+    st = dokument.statystyka(m)
+    sw = _suwaki_dokumentu(st)
+    czas = _czas_dokumentu()
+    nag = {str(k): int(v) for k, v in (st.get("naglowki") or {}).items()}
+    uwagi = [{"typ": "ostrzezenie", "tekst": t} for t in (m.get("ostrzezenia") or [])]
+    uwagi.append({"typ": "info", "tekst": "Cały tekst dokumentu trafi na slajdy - niczego nie dopiszę i nie pominę. "
+                                          "Na końcu sprawdzę każdy akapit i pokażę wynik."})
+    v = sw["slajdy"]["domyslnie"]
+    est = czas["stale"] + czas["na_slajd"] * v + czas["kw"] * v * v
+    return {"ok": True, "tryb": "dokument", "folder": os.path.dirname(plik), "plik": plik, "nazwa_pliku": os.path.basename(plik),
+            "produkt": m.get("tytul") or os.path.splitext(os.path.basename(plik))[0], "tytul": m.get("tytul") or "",
+            "slowa": int(st.get("slowa") or 0), "akapity": int(st.get("akapity") or 0), "naglowki": nag,
+            "tabele": int(st.get("tabele") or 0), "obrazy": int(st.get("obrazy") or 0),
+            "suwaki": sw, "czas": czas, "uwagi": uwagi,
+            "sekcje": [], "grupy": [], "cele": [], "presety": {"0": [], "1": [], "2": []}, "smaki": [], "karty": 0,
+            "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1}, "szacowany_czas_s": int(est),
+            "powerpoint": powerpoint_available()}
+
+
+_TYPY_BLOKOW = {"h1": "nagłówek 1", "h2": "nagłówek 2", "h3": "nagłówek 3", "p": "akapit", "li": "punkt", "tabela": "tabela",
+                "obraz": "obraz", "cytat": "cytat"}
+
+
+def _dok_dump(model, limit=18000):
+    """Tekst dokumentu blok po bloku (do polecenia dla czatu): [h1] …, [p] …, [li] …, [tabela] …, [obraz]."""
+    L = []
+    for b in model.get("bloki", []):
+        typ = b.get("typ", "p")
+        if typ == "tabela":
+            t = " || ".join(" | ".join(str(c) for c in r) for r in b.get("wiersze") or [])
+        elif typ == "obraz":
+            t = b.get("t") or ""
+        else:
+            t = " ".join(str(b.get("t") or "").split())
+        L.append("[%s]%s" % (typ, (" " + t) if t else ""))
+    t = "\n".join(L)
+    return t if len(t) <= limit else t[:limit] + "\n(dalsza część dokumentu pominięta - za długa)"
 
 
 def _source_dump(model, limit=24000):
@@ -408,10 +733,10 @@ LIMIT_POLECENIE = 60000
 LIMIT_UWAG = 40        # linii "UWAGI PROGRAMU" w poleceniu (nadmiar: "…i N kolejnych")
 LIMIT_BLEDOW = 60      # linii błędów tekstu w poleceniu
 FORMAT_ODPOWIEDZI = (
-    "FORMAT ODPOWIEDZI - trzy części, nic poza nimi:\n"
+    "FORMAT ODPOWIEDZI - trzy części, nic poza nimi (jeśli poprawiasz plik: to jest Twój raport):\n"
     "   A. BŁĘDY TEKSTU - tabela: slajd | było | jest | powód. Tylko ewidentne (punkt o błędach). Na końcu jedno zdanie:\n"
     "      „W PowerPoincie: Ctrl+H, wpisz „było”, zamień na „jest”.”\n"
-    "   B. SLAJDY DO POPRAWY - tylko slajdy, które łamią zasady z punktów wyżej: numer | kształt treści | wzór (nazwa\n"
+    "   B. SLAJDY DO POPRAWY - tylko slajdy, które łamią zasady z punktów wyżej albo są z listy „Sprawdź najpierw”: numer | kształt treści | wzór (nazwa\n"
     "      z tabeli „kształt treści -> wzór”; gdy żaden nie pasuje: „brak”) | role tekstu, każda w osobnej linii: LICZBA: … /\n"
     "      HASŁO: … / DOPISEK: … / WNIOSEK: … / ETYKIETA: … / PUNKT: … Po złożeniu pól w tej kolejności ma wyjść dokładnie\n"
     "      tekst slajdu z oryginału (wyjątek: LICZBA powtarza liczbę z HASŁA); jeśli się nie zgadza, slajd idzie do części C.\n"
@@ -422,8 +747,10 @@ POKRYCIE_CZAT = (
     "części C. Jeśli widzisz „(dalsza część … pominięta)”, nie zgłaszaj braków dla tych slajdów - napisz „nie sprawdzone: "
     "slajdy N-M”.")
 BEZ_PLIKOW = (
-    "Nie masz dostępu do plików, więc nie widzisz wyglądu slajdów - oceniasz treść i role tekstu (prefiksy w nawiasach "
-    "kwadratowych w bloku WYNIK). Pisma, kolorów i ikon nie oceniasz.")
+    "Jeśli nie masz pliku prezentacji ani zrzutów: nie widzisz wyglądu slajdów - oceniasz treść i role tekstu (prefiksy w "
+    "nawiasach kwadratowych w bloku WYNIK). Pisma, kolorów i ikon nie oceniasz.")
+BEZ_SKRYPTOW_AGENT = ("Nie masz dostępu do plików i skryptów (np. wtyczka Claude w PowerPoincie)? Pomiń KROK 0 i przejdź do "
+                      "punktu „NIE MASZ DOSTĘPU…”.")
 DLA_AGENTA = ("Jeśli pracujesz jako agent z dostępem do plików (Claude Cowork / Code, Codex, Gemini CLI), użyj zamiast "
               "tego polecenia „dla agenta” z programu.")
 ZALACZNIKI = (
@@ -432,6 +759,8 @@ ZALACZNIKI = (
     "się słowo po słowie, czy nie ma pustych kart i pustego dołu slajdu, czy ikona pasuje do treści - uwagi wpisz w części B "
     "przy numerze slajdu. Jeśli obrazów nie widzisz, oceniasz tylko treść i role tekstu.")
 NAGLOWEK_BLEDOW = "Możliwe błędy w tekście oryginału"
+NAGLOWEK_BLEDOW_DOK = "Możliwe błędy w tekście dokumentu"
+NAGLOWEK_BLEDOW_DOPR = "Możliwe błędy w tekście prezentacji"
 
 
 def _lint_opis(u):
@@ -454,7 +783,8 @@ def _linie_bledow(bledy):
 def _bez_linii_bledow(uwagi, bledy):
     """Uwagi bez linii z lintu (mają własny blok): nagłówek, opisy pojedynczych błędów, „…i N innych podejrzeń”."""
     opisy = {_lint_opis(u) for u in bledy or []}
-    return [u for u in uwagi if u not in opisy and not u.startswith(NAGLOWEK_BLEDOW)
+    return [u for u in uwagi if u not in opisy
+            and not u.startswith((NAGLOWEK_BLEDOW, NAGLOWEK_BLEDOW_DOK, NAGLOWEK_BLEDOW_DOPR, "Możliwe błędy w tekście:"))
             and not re.match(r"…i \d+ innych podejrze", u)]
 
 
@@ -477,6 +807,64 @@ def _blok_bledow(bledy, limit=LIMIT_BLEDOW):
     return [" - " + x for x in lin]
 
 
+TOP_UWAG = 5   # tyle wierszy uwag widać od razu na ekranie końcowym; reszta pod „Pokaż wszystkie”
+
+
+def _mn(n, jeden, kilka, wiele):
+    """Polska liczba: 1 jeden, 2-4 kilka, reszta wiele."""
+    return jeden if n == 1 else (kilka if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else wiele)
+
+
+def _uwagi_top(uwagi, bledy=None, oko=None, wiz=None, ukryte=0, limit=TOP_UWAG):
+    """Widoczne wiersze uwag na ekranie końcowym: najwyżej `limit` wpisów {"typ": "warn" | "info", "tekst"} w kolejności ważności.
+    1. czego brakuje i co nie przeszło kontroli wierności (Brakuje…, Do sprawdzenia…); 2. podpowiedzi w [nawiasach]; 3. błędy tekstu:
+    JEDNA linia z liczbą i dwoma przykładami; 4. „Sprawdź najpierw: slajd N…” z oka (do dwóch wierszy); 5. wstawione paczki do
+    sprawdzenia; 6. slajdy ukryte. Pełna lista (`uwagi`) zostaje w poleceniach dla AI, w raport.json i w uwagi.txt."""
+    uwagi = list(uwagi or [])
+    wiersze = []
+
+    def zwin(przedrostek):
+        a = [u for u in uwagi if u.startswith(przedrostek)]
+        if a:
+            wiersze.append({"typ": "warn", "tekst": a[0] if len(a) == 1 else "%s - i %d kolejnych" % (a[0], len(a) - 1)})
+    zwin("Brakuje")
+    zwin("Do sprawdzenia")
+    pod = [u for u in uwagi if re.match(r"Slajdy? [0-9].* (ma|mają) podpowiedzi w nawiasach", u) or u.startswith("Podpowiedzi w nawiasach kwadratowych")]
+    if pod:
+        wiersze.append({"typ": "warn", "tekst": pod[0]})
+    if bledy:
+        ks = sorted(bledy, key=lambda u: 0 if u.get("pewnosc") == "wysoka" else 1)[:2]
+        przyklady = "; ".join("slajd %s „%s”%s" % (u.get("slajd"), u.get("jest"), (" -> „%s”" % u["propozycja"]) if u.get("propozycja") else "")
+                              for u in ks)
+        wiersze.append({"typ": "warn", "tekst": "Możliwe błędy w tekście: %d (np. %s) - program ich nie poprawia, lista pod „Pokaż wszystkie”"
+                        % (len(bledy), przyklady)})
+    linie = [u for u in uwagi if u.startswith("Sprawdź najpierw: slajd ")]
+    reszta = sum(int(m.group(1)) for m in (re.match(r"…i (\d+) kolejnych usterek wyglądu", u) for u in uwagi) if m)
+    if linie:
+        wiersze.append({"typ": "warn", "tekst": linie[0]})
+        if len(linie) + reszta > 1:
+            wiersze.append({"typ": "warn", "tekst": "…i %d kolejnych usterek wyglądu - lista pod „Pokaż wszystkie”" % (len(linie) + reszta - 1)})
+    if wiz:
+        nr = sorted({int(x) for x in wiz})
+        lista = ", ".join(str(n) for n in nr[:5]) + (" i %d innych" % (len(nr) - 5) if len(nr) > 5 else "")
+        wiersze.append({"typ": "info", "tekst": "Wstawiłem paczki z biblioteki produktów na %s nr %s: sprawdź dobór." % (
+            "slajdzie" if len(nr) == 1 else "slajdach", lista)})
+    if ukryte:
+        wiersze.append({"typ": "info", "tekst": "%d %s. Przed wysłaniem pliku poza firmę usuń %s albo zapisz PDF." % (
+            ukryte, _mn(ukryte, "slajd jest ukryty", "slajdy są ukryte", "slajdów jest ukrytych"), "go" if ukryte == 1 else "je")})
+    return wiersze[:limit]
+
+
+def _zapisz_uwagi(rob, uwagi, say=None):
+    """Pełna lista uwag programu w pliku <robocze>\\uwagi.txt (po jednej w wierszu): okno pokazuje tylko najważniejsze."""
+    try:
+        with open(os.path.join(rob, "uwagi.txt"), "w", encoding="utf8") as fh:
+            fh.write("\n".join(" ".join(str(u).split()) for u in uwagi) + "\n")
+    except OSError as e:
+        if say:
+            say("Nie zapisałem uwagi.txt (%s)." % e.strerror)
+
+
 def _uwaga_okna(u, max_znakow=180):
     """Krótka wersja uwagi do listy w oknie (pełne brzmienie zostaje w poleceniach dla AI i w raport.json): None = pomiń."""
     if u.startswith("Dobór układu z pomiaru") or u.startswith("Animacje, przejścia i tła"):
@@ -493,27 +881,58 @@ def _uwaga_okna(u, max_znakow=180):
     return u if len(u) <= max_znakow else u[:max_znakow].rsplit(" ", 1)[0] + " …"
 
 
-def uwagi_okno(uwagi, bledy, ile=5):
+OKNO_OKO = 3   # usterek wyglądu z „oka” pokazywanych osobno w oknie (reszta: jedna linia „…i N kolejnych”)
+
+
+def _oko_w_oknie(rest):
+    """Linie „Sprawdź najpierw: slajd N - …” z oka: w oknie najwyżej OKNO_OKO osobno + jedna linia „…i N kolejnych usterek
+    wyglądu w poleceniu dla AI” (pełna lista: polecenia dla AI i raport.json)."""
+    oko = [u for u in rest if u.startswith("Sprawdź najpierw: slajd ")]
+    dod = [u for u in rest if re.match(r"…i \d+ kolejnych usterek wyglądu", u)]
+    ile_dod = sum(int(re.match(r"…i (\d+)", u).group(1)) for u in dod)
+    reszta = max(0, len(oko) - OKNO_OKO) + ile_dod
+    if not reszta:
+        return rest
+    out, wstawiono = [], False
+    for u in rest:
+        if u in oko or u in dod:
+            if not wstawiono:
+                out += oko[:OKNO_OKO] + ["…i %d kolejnych usterek wyglądu w poleceniu dla AI" % reszta]
+                wstawiono = True
+            continue
+        out.append(u)
+    return out
+
+
+def uwagi_okno(uwagi, bledy, ile=5, rodzaj="pptx"):
     """Uwagi do okna „Gotowe”: na początku blok błędów tekstu oryginału - nagłówek i najwyżej `ile` linii (pewność wysoka
     najpierw), nadmiar jako „…i N kolejnych w poleceniu dla AI”; potem reszta uwag bez linii z lintu, skrócona (_uwaga_okna)."""
-    rest = [x for x in (_uwaga_okna(u) for u in _bez_linii_bledow(uwagi, bledy)) if x]
+    rest = _oko_w_oknie([x for x in (_uwaga_okna(u) for u in _bez_linii_bledow(uwagi, bledy)) if x])
     glowa = [u for u in rest if u.startswith(("Treść:", "Układ:"))]   # wyniki kontroli stoją zawsze na samej górze
     rest = glowa + [u for u in rest if u not in glowa]
     lin = _linie_bledow(bledy)
     if not lin:
         return rest, []
-    blok = ["%s: %d (program ich nie poprawia - popraw w pliku albo zleć AI)" % (NAGLOWEK_BLEDOW, len(lin))] + lin[:ile]
+    if rodzaj == "dokument":
+        naglowek = "%s: %d (program ich nie poprawia - popraw w dokumencie i zrób prezentację jeszcze raz albo zleć AI)" % (
+            NAGLOWEK_BLEDOW_DOK, len(lin))
+    elif rodzaj == "dopracowanie":
+        naglowek = "%s: %d (program ich nie poprawia - popraw w pliku albo zleć AI)" % (NAGLOWEK_BLEDOW_DOPR, len(lin))
+    else:
+        naglowek = "%s: %d (program ich nie poprawia - popraw w pliku albo zleć AI)" % (NAGLOWEK_BLEDOW, len(lin))
+    blok = [naglowek] + lin[:ile]
     if len(lin) > ile:
         blok.append("…i %d kolejnych w poleceniu dla AI" % (len(lin) - ile))
     return glowa + blok + rest[len(glowa):], blok
 
 
-def _wynik_linie(spec, max_chars):
+def _wynik_linie(spec, max_chars, rodzaj="pptx"):
     """Wynik konwersji slajd po slajdzie. Slajdy `uklad` z rolą tekstu w nawiasie kwadratowym ([hasło], [liczba]…),
     inne typy slajdów bez prefiksu. Powyżej max_chars: „(dalsza część wyniku pominięta - za długa)”."""
     L = []
     for i, s in enumerate(spec.get("slides", []), 1):
-        skad = "NOWY, pusty slajd z szablonu" if s.get("nowy") else "z oryginału %s" % s.get("zrodlo", "?")
+        skad = ("NOWY, pusty slajd z szablonu" if s.get("nowy") else
+                ("z dokumentu" if rodzaj == "dokument" else "z oryginału %s" % s.get("zrodlo", "?")))
         L.append("Slajd %d (%s%s):" % (i, skad, ", ukryty" if s.get("hidden") else ""))
         role = polecenia.role_slajdu(s)
         if role:
@@ -534,51 +953,172 @@ def _wynik_linie(spec, max_chars):
     return L
 
 
+def _punkty(cel, dane, pliki, rodzaj="pptx"):
+    """Punkty polecenia dla AI. rodzaj "dokument": wpis POLECENIA["dokument"] ze skilla, a gdy go nie ma - zapas z polecenia_dok."""
+    if rodzaj == "dokument":
+        c = getattr(polecenia, "POLECENIA", {}).get("dokument")
+        if c:
+            return (c["polecenie_pliki"][:1] + c["polecenie"] + c["polecenie_pliki"][1:]) if pliki else list(c["polecenie"])
+        return polecenia_dok.punkty(pliki)
+    return polecenia.polecenie_ai(cel, dane, pliki=pliki)
+
+
 def _plikow(n):
     return "%d %s" % (n, "plik" if n == 1 else ("pliki" if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else "plików"))
 
 
 def ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa=None, pptx=None, max_chars=None, cel="wiernie", dane=None,
-                   plansze=None):
+                   plansze=None, rodzaj="pptx"):
     """Polecenie dla czatu (opis: _ai_prompt_pptx). Całość ma najwyżej LIMIT_POLECENIE znaków: za długą składa od nowa
     z mniejszymi limitami bloków oryginału i wyniku (ucięcie jest nazwane w tekście)."""
     t = ""
     for lz, lw in ((LIMIT_ZRODLO, max_chars or LIMIT_WYNIK),) + LIMITY_ZAPASOWE:
-        t = _ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa, pptx, lw, cel, dane, plansze, lz)
+        t = _ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa, pptx, lw, cel, dane, plansze, lz, rodzaj)
         if len(t) <= LIMIT_POLECENIE:
             break
     return t
 
 
-def _ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa, pptx, max_chars, cel, dane, plansze, limit_zrodlo):
+def _ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa, pptx, max_chars, cel, dane, plansze, limit_zrodlo, rodzaj="pptx"):
     """Polecenie dla CZATU BEZ PLIKÓW (Claude.ai / ChatGPT / Gemini w przeglądarce) po konwersji gotowej prezentacji.
     Czat dostaje tylko wklejony tekst: punkty wspólne (polecenia.polecenie_ai(..., pliki=False)), tabelę „kształt treści ->
     wzór”, tekst ORYGINAŁU i WYNIKU (z rolami tekstu), uwagi i błędy tekstu - bez ścieżek, renderu i kontroli, których nie
     wykona. plansze = {"folder", "pliki"}: obrazy slajdów do dołączenia (czat ocenia wtedy także wygląd)."""
+    dok = rodzaj == "dokument"
     cel = cel if cel in pptx_convert.CELE else "wiernie"
     max_chars = max_chars or LIMIT_WYNIK
     bledy = (spec or {}).get("bledy_tekstu") or []
     pl = (plansze or {}).get("pliki") or []
-    L = ["To konwersja prezentacji \"%s\" na styl marki Dobra Kaloria. Cel: %s. Program ułożył slajdy automatycznie: te same "
-         "słowa, w hasłach, liczbach i wnioskach z szablonu marki. Kontrola pokrycia treści: %s. Plik wynikowy: \"%s\". "
-         "Zasady i źródła stylu są w punktach poniżej - wykonaj je w tej kolejności, nie z własnego wyczucia." % (
-             os.path.basename(plik), pptx_convert.CELE[cel]["nazwa"].lower(),
-             cov.get("tekst", "-").replace("Treść: ", "").rstrip("."), nazwa), ""]
+    pokrycie = cov.get("tekst", "-").replace("Treść: ", "").rstrip(".")
+    if dok:
+        d = dane or {}
+        L = ["To prezentacja zrobiona z dokumentu \"%s\" w stylu marki Dobra Kaloria. Program ułożył slajdy automatycznie: "
+             "te same słowa, w kolejności dokumentu, w hasłach, liczbach i wnioskach z szablonu marki. Liczbę slajdów (%s) "
+             "i przekładek rozdziałów (%s) ustawił człowiek suwakiem - nie zmieniaj jej. Kontrola pokrycia treści: %s. "
+             "Plik wynikowy: \"%s\". Zasady i źródła stylu są w punktach poniżej - wykonaj je w tej kolejności, nie z "
+             "własnego wyczucia." % (os.path.basename(plik), d.get("slajdy", "?"), d.get("rozdzialy", "?"), pokrycie, nazwa), ""]
+    else:
+        L = ["To konwersja prezentacji \"%s\" na styl marki Dobra Kaloria. Cel: %s. Program ułożył slajdy automatycznie: te same "
+             "słowa, w hasłach, liczbach i wnioskach z szablonu marki. Kontrola pokrycia treści: %s. Plik wynikowy: \"%s\". "
+             "Zasady i źródła stylu są w punktach poniżej - wykonaj je w tej kolejności, nie z własnego wyczucia." % (
+                 os.path.basename(plik), pptx_convert.CELE[cel]["nazwa"].lower(), pokrycie, nazwa), ""]
     if pl:   # plansze zastępują zdanie o braku wyglądu; zdanie o agencie zostaje
         L += [ZALACZNIKI % ((plansze or {}).get("folder", ""), _plikow(len(pl))) + " " + DLA_AGENTA, ""]
     else:
         L += [BEZ_PLIKOW + " " + DLA_AGENTA, ""]
     L += ["Oryginał: %s" % os.path.basename(plik), "Wynik: %s" % (os.path.basename(pptx) if pptx else nazwa), ""]
-    pts = polecenia.polecenie_ai(cel, dane, pliki=False)
-    pts += [POKRYCIE_CZAT,
-            "Sprawdź wielkie litery nazw własnych i skrótów oraz dobór wizualizacji produktów, jeśli program je dodał "
-            "(lista jest w UWAGACH PROGRAMU).", FORMAT_ODPOWIEDZI]
+    pts = _punkty(cel, dane, False, rodzaj)
+    if dok:
+        pts += [POKRYCIE_CZAT.replace("ORYGINAŁ i WYNIK", "DOKUMENT i WYNIK"), FORMAT_ODPOWIEDZI]
+    else:
+        pts += [POKRYCIE_CZAT,
+                "Sprawdź wielkie litery nazw własnych i skrótów oraz dobór wizualizacji produktów, jeśli program je dodał "
+                "(lista jest w UWAGACH PROGRAMU).", FORMAT_ODPOWIEDZI]
     L += ["CO MASZ ZROBIĆ"] + ["%d. %s" % (i, p) for i, p in enumerate(pts, 1)]
     tab = polecenia.tabela_ksztaltow()
     if tab:
         L += ["", "KSZTAŁT TREŚCI -> WZÓR Z SZABLONU", tab]
-    L += ["", "ORYGINAŁ (tekst slajdów)", _source_dump(model, limit=limit_zrodlo), "", "WYNIK (slajdy po konwersji)"]
-    L += _wynik_linie(spec or {}, max_chars)
+    if dok:
+        L += ["", "DOKUMENT (tekst źródłowy, blok po bloku)", _dok_dump(model, limit=limit_zrodlo), "", "WYNIK (slajdy z dokumentu)"]
+    else:
+        L += ["", "ORYGINAŁ (tekst slajdów)", _source_dump(model, limit=limit_zrodlo), "", "WYNIK (slajdy po konwersji)"]
+    L += _wynik_linie(spec or {}, max_chars, rodzaj)
+    ua = _uwagi_dla_ai(uwagi, bledy, gdzie="pominięto (za dużo)")
+    if ua:
+        L += ["", "UWAGI PROGRAMU"] + [" - " + u for u in ua]
+    if bledy:
+        L += ["", "MOŻLIWE BŁĘDY W TEKŚCIE %s (program ich nie poprawia)" % ("DOKUMENTU" if dok else "ORYGINAŁU")] + _blok_bledow(bledy)
+    if qa and qa.get("szczegoly"):
+        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in qa["szczegoly"][:12]]
+    return "\n".join(L)
+
+
+def ai_prompt_agent_pptx(nazwa, plik, pptx, rob, spec, uwagi, cel="wiernie", dane=None, rodzaj="pptx"):
+    """Polecenie dla AGENTA Z PLIKAMI (Claude Code / Cowork, Codex, Gemini CLI, Cursor): krok 0, zadanie, punkty
+    (polecenia.polecenie_ai(..., pliki=True)), tabela „kształt treści -> wzór”, błędy tekstu, uwagi. Każdy element w nowej
+    linii, punkty numerowane. Agent czyta skill i pliki sam, więc nie dostaje tekstu slajdów."""
+    dok = rodzaj == "dokument"
+    cel = cel if cel in pptx_convert.CELE else "wiernie"
+    bledy = (spec or {}).get("bledy_tekstu") or []
+    d = dane or {}
+    zadanie = (("Dopracuj prezentację \"%s\" (zrobiona z dokumentu \"%s\"). To wersja z automatu: układ, hasła i liczby są "
+                "wstępnie zrobione, Ty robisz z niej prezentację gotową do pokazania; liczbę slajdów (%s) i przekładek "
+                "rozdziałów (%s) ustawił człowiek suwakiem. Pracuj na autopilocie według \"%s\" (sekcja 3b) i "
+                "references\\dopracowanie.md - krok po kroku, do bramek, bez pytań o zgodę na kolejne kroki.")
+               % (pptx, plik, d.get("slajdy", "?"), d.get("rozdzialy", "?"), paths.AGENTS_MD)) if dok else (
+        "Dopracuj prezentację \"%s\" (konwersja z \"%s\", cel: %s). To wersja z automatu: układ, hasła i liczby są wstępnie "
+        "zrobione, Ty robisz z niej prezentację gotową do pokazania. Pracuj na autopilocie według \"%s\" (sekcja 3b) i "
+        "references\\dopracowanie.md - krok po kroku, do bramek, bez pytań o zgodę na kolejne kroki." % (
+            pptx, plik, pptx_convert.CELE[cel]["nazwa"].lower(), paths.AGENTS_MD))
+    L = [BEZ_SKRYPTOW_AGENT, krok0(), zadanie,
+         "Pliki robocze (spec układu spec_program.json - w poleceniach nazywany spec_konwersja.json, to ten sam plik; "
+         "decyzje-szablon.json, raport.json): \"%s\"." % rob,
+         "CO MASZ ZROBIĆ"]
+    L += ["%d. %s" % (i, p) for i, p in enumerate(_punkty(cel, dane, True, rodzaj), 1)]
+    tab = polecenia.tabela_ksztaltow()
+    if tab:
+        L += ["KSZTAŁT TREŚCI -> WZÓR Z SZABLONU", tab]
+    L += ["MOŻLIWE BŁĘDY W TEKŚCIE %s (program ich nie poprawia)" % ("DOKUMENTU" if dok else "ORYGINAŁU")] + _blok_bledow(bledy)
+    ua = _uwagi_dla_ai(uwagi, bledy)
+    if ua:
+        L += ["UWAGI PROGRAMU"] + [" - " + u for u in ua]
+    return "\n".join(L)
+
+
+BEZ_PLIKOW_DOPR = ("Jeśli nie masz pliku prezentacji ani zrzutów: nie widzisz wyglądu slajdów - oceniasz treść (blok TEKST "
+                   "PREZENTACJI). Pisma, kolorów i ikon nie oceniasz.")
+
+
+def _teksty_dump(teksty, limit=18000):
+    """Tekst prezentacji slajd po slajdzie (z pptx_convert.przeglad) do polecenia dla czatu."""
+    L = []
+    for nr, ps in teksty or []:
+        t = " || ".join(" ".join(str(p).split()) for p in ps if str(p).strip())
+        L.append("Slajd %s: %s" % (nr, t or "(bez tekstu)"))
+    t = "\n".join(L)
+    return t if len(t) <= limit else t[:limit] + "\n(dalsza część tekstu pominięta - za długa)"
+
+
+def _nazwa_kopii(plik):
+    """Kopia, którą poprawia agent: „<nazwa> - dopracowana.pptx” obok oryginału; istniejącego pliku nigdy nie nadpisuje
+    („… - dopracowana 2.pptx”, 3…). Zwraca pełną ścieżkę."""
+    stem = re.sub(r" - dopracowana( [0-9]+)?$", "", os.path.splitext(os.path.basename(plik))[0])
+    kat = os.path.dirname(plik)
+    p, n = os.path.join(kat, stem + " - dopracowana.pptx"), 1
+    while os.path.exists(p):
+        n += 1
+        p = os.path.join(kat, "%s - dopracowana %d.pptx" % (stem, n))
+    return p
+
+
+def ai_prompt_dopracowanie(plik, rozp, pr, uwagi, bledy, qa=None, plansze=None):
+    """Polecenie dla CZATU BEZ PLIKÓW po przeglądzie pliku w stylu marki: wklejony tekst slajdów, uwagi i błędy tekstu, plansze
+    do dołączenia (czat ocenia wtedy też wygląd). Najwyżej LIMIT_POLECENIE znaków (za długie: mniejszy limit bloku tekstu)."""
+    t = ""
+    for lz in (LIMIT_ZRODLO,) + tuple(z for z, _w in LIMITY_ZAPASOWE):
+        t = _ai_prompt_dopracowanie(plik, rozp, pr, uwagi, bledy, qa, plansze, lz)
+        if len(t) <= LIMIT_POLECENIE:
+            break
+    return t
+
+
+def _ai_prompt_dopracowanie(plik, rozp, pr, uwagi, bledy, qa, plansze, limit_zrodlo):
+    pl = (plansze or {}).get("pliki") or []
+    L = ["Prezentacja \"%s\" jest już w stylu marki Dobra Kaloria (%s). Program niczego w niej nie zmienił ani nie przebudował: "
+         "sprawdził ją i podaje listę uwag poniżej. Twoje zadanie to DOPRACOWANIE, nie przebudowa. Zasady i źródła stylu są "
+         "w punktach poniżej - wykonaj je w tej kolejności, nie z własnego wyczucia." % (
+             os.path.basename(plik), RODZAJ_NAZWA.get(rozp.get("rodzaj"), "prezentacja w stylu marki")), ""]
+    if pl:
+        L += [ZALACZNIKI % ((plansze or {}).get("folder", ""), _plikow(len(pl))) + " " + DLA_AGENTA, ""]
+    else:
+        L += [BEZ_PLIKOW_DOPR + " " + DLA_AGENTA, ""]
+    L += ["Plik: %s" % os.path.basename(plik), ""]
+    pts = polecenia_dok.punkty_dopracowanie(False) + [polecenia_dok.FORMAT_DOPRACOWANIE]
+    L += ["CO MASZ ZROBIĆ"] + ["%d. %s" % (i, p) for i, p in enumerate(pts, 1)]
+    tab = polecenia.tabela_ksztaltow()
+    if tab:
+        L += ["", "KSZTAŁT TREŚCI -> WZÓR Z SZABLONU", tab]
+    L += ["", "TEKST PREZENTACJI (slajd po slajdzie)", _teksty_dump((pr or {}).get("teksty"), limit_zrodlo)]
     ua = _uwagi_dla_ai(uwagi, bledy, gdzie="pominięto (za dużo)")
     if ua:
         L += ["", "UWAGI PROGRAMU"] + [" - " + u for u in ua]
@@ -589,21 +1129,18 @@ def _ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa, pptx, max_chars, c
     return "\n".join(L)
 
 
-def ai_prompt_agent_pptx(nazwa, plik, pptx, rob, spec, uwagi, cel="wiernie", dane=None):
-    """Polecenie dla AGENTA Z PLIKAMI (Claude Code / Cowork, Codex, Gemini CLI, Cursor): krok 0, zadanie, punkty
-    (polecenia.polecenie_ai(..., pliki=True)), tabela „kształt treści -> wzór”, błędy tekstu, uwagi. Każdy element w nowej
-    linii, punkty numerowane. Agent czyta skill i pliki sam, więc nie dostaje tekstu slajdów."""
-    cel = cel if cel in pptx_convert.CELE else "wiernie"
-    bledy = (spec or {}).get("bledy_tekstu") or []
-    L = [krok0(),
-         "Dopracuj prezentację \"%s\" (konwersja z \"%s\", cel: %s). To wersja z automatu: układ, hasła i liczby są wstępnie "
-         "zrobione, Ty robisz z niej prezentację gotową do pokazania. Pracuj na autopilocie według \"%s\" (sekcja 3b) i "
-         "references\\dopracowanie.md - krok po kroku, do bramek, bez pytań o zgodę na kolejne kroki." % (
-             pptx, plik, pptx_convert.CELE[cel]["nazwa"].lower(), paths.AGENTS_MD),
-         "Pliki robocze (spec układu spec_program.json - w poleceniach nazywany spec_konwersja.json, to ten sam plik; "
-         "decyzje-szablon.json, raport.json): \"%s\"." % rob,
+def ai_prompt_agent_dopracowanie(plik, kopia, rob, rozp, uwagi, bledy):
+    """Polecenie dla AGENTA Z PLIKAMI po przeglądzie pliku w stylu marki: krok 0, zadanie, punkty (polecenia_dok.punkty_dopracowanie:
+    ze specem - pracuj na specu, bez speca - na kopii „… - dopracowana.pptx” w ramach istniejących kształtów i motywu), tabela
+    „kształt treści -> wzór”, błędy tekstu, uwagi. Agent czyta skill i pliki sam, więc nie dostaje tekstu slajdów."""
+    zadanie = ("Dopracuj prezentację \"%s\" (%s). Jest już w stylu marki Dobra Kaloria: program niczego w niej nie zmienił ani nie "
+               "przebudował, tylko ją sprawdził (listy niżej). Pracuj na autopilocie według \"%s\" (sekcja 3b) i "
+               "references\\dopracowanie.md - krok po kroku, do bramek, bez pytań o zgodę na kolejne kroki." % (
+                   plik, RODZAJ_NAZWA.get(rozp.get("rodzaj"), "prezentacja w stylu marki"), paths.AGENTS_MD))
+    L = [BEZ_SKRYPTOW_AGENT, krok0(), zadanie,
+         "Pliki robocze (kopia do renderu w podfolderze „kopia”, zrzuty w „qa”, plansze w „plansze”, raport.json): \"%s\"." % rob,
          "CO MASZ ZROBIĆ"]
-    L += ["%d. %s" % (i, p) for i, p in enumerate(polecenia.polecenie_ai(cel, dane, pliki=True), 1)]
+    L += ["%d. %s" % (i, p) for i, p in enumerate(polecenia_dok.punkty_dopracowanie(True, rozp.get("spec"), plik, kopia), 1)]
     tab = polecenia.tabela_ksztaltow()
     if tab:
         L += ["KSZTAŁT TREŚCI -> WZÓR Z SZABLONU", tab]
@@ -1143,9 +1680,17 @@ def _zbuduj_plik(spec, uwagi, say):
     return pptx
 
 
-def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), sufiks=""):
+def _ps_z_biciem(emit, krok, opis, od, do, szacunek_s, script, *args):
+    """`_ps` z „biciem serca”: co sekundę zgłasza postęp w przedziale (od, do) kroku, żeby długi render albo kontrola w PowerPoint nie
+    wyglądały na zawieszenie (i żeby po przekroczeniu estymaty mógł się pojawić tekst „komputer jest zajęty”). Bez anulowania w środku:
+    PowerShell i PowerPoint dokańczają swoją pracę (kolejne uruchomienie nie wejdzie im w drogę)."""
+    return _z_postepem(lambda: _ps(script, *args), lambda k, o, fr: emit(k, o, od + (do - od) * fr), lambda: None, krok, opis, szacunek_s)
+
+
+def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), sufiks="", osadzaj=True):
     """Osadzenie czcionek, zrzuty (PNG) i kontrola tekstu w PowerPoint. Zwraca (qa, miniatury); qa["png"] = katalog zrzutów
-    (None, gdy zrzutów nie zrobiono). zakres = (od, do) części paska kroku "qa" dla tego przebiegu."""
+    (None, gdy zrzutów nie zrobiono). zakres = (od, do) części paska kroku "qa" dla tego przebiegu. osadzaj=False (dopracowanie,
+    kopia pliku użytkownika): render_app.ps1 -NoEmbed - PowerPoint otwiera plik tylko do odczytu i niczego nie zapisuje."""
     def f(x):
         return zakres[0] + (zakres[1] - zakres[0]) * x
     qa = {"problemy": None, "szczegoly": [], "wykonano": False, "png": None}
@@ -1153,27 +1698,30 @@ def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), suf
     if powerpoint_available() and not opts.get("bez_qa"):
         name = os.path.splitext(os.path.basename(pptx))[0]
         png = os.path.join(rob, "qa", name)
-        if len(png) > 225:
-            import hashlib
+        if len(png) > MAX_SCIEZKA_PPT:
             skrot = hashlib.sha1(png.encode("utf8")).hexdigest()[:10]
             png = os.path.join(rob, "qa", skrot)
-            if len(png) > 225:
+            if len(png) > MAX_SCIEZKA_PPT:
                 png = os.path.join(paths.USER_DIR, "qa", skrot)
             say("Długa ścieżka folderu - zrzuty slajdów zapisuję w: " + png)
-        emit("qa", "Osadzam czcionki i robię zrzuty slajdów" + sufiks, f(0.15))
+        emit("qa", ("Osadzam czcionki i robię zrzuty slajdów" if osadzaj else "Robię zrzuty slajdów") + sufiks, f(0.15))
         for old in glob.glob(os.path.join(png, "s*.png")):  # stare zrzuty (własne pliki) - inaczej dłuższa poprzednia
             os.remove(old)                                    # wersja zostawiłaby nadmiarowe miniatury
-        r = _ps(paths.RENDER_PS, "-Src", pptx, "-Out", png)
+        flagi = [] if osadzaj else ["-NoEmbed"]
+        opis_r = ("Osadzam czcionki i robię zrzuty slajdów" if osadzaj else "Robię zrzuty slajdów") + sufiks
+        r = _ps_z_biciem(emit, "qa", opis_r, f(0.15), f(0.55), 40, paths.RENDER_PS, "-Src", pptx, "-Out", png, *flagi)
         if not glob.glob(os.path.join(png, "s*.png")):  # PowerPoint zajety: jedna powtorka po chwili
             time.sleep(5)
-            r = _ps(paths.RENDER_PS, "-Src", pptx, "-Out", png)
+            r = _ps_z_biciem(emit, "qa", opis_r, f(0.15), f(0.55), 40, paths.RENDER_PS, "-Src", pptx, "-Out", png, *flagi)
         say(r.strip()[-300:])
-        guard.record(pptx)  # PowerPoint zapisał plik od nowa - odśwież sumę (inaczej następna budowa uzna go za ręczny)
+        if osadzaj:
+            guard.record(pptx)  # PowerPoint zapisał plik od nowa - odśwież sumę (inaczej następna budowa uzna go za ręczny)
         emit("qa", "Sprawdzam tekst (sieroty, kolizje, krawędzie)" + sufiks, f(0.6))
-        rep = _ps(paths.VERIFY_PS, "-Src", pptx)
+        opis_v = "Sprawdzam tekst (sieroty, kolizje, krawędzie)" + sufiks
+        rep = _ps_z_biciem(emit, "qa", opis_v, f(0.6), f(0.88), 40, paths.VERIFY_PS, "-Src", pptx)
         if _COM_ERR.search(rep):
             time.sleep(5)
-            rep = _ps(paths.VERIFY_PS, "-Src", pptx)
+            rep = _ps_z_biciem(emit, "qa", opis_v, f(0.6), f(0.88), 40, paths.VERIFY_PS, "-Src", pptx)
         m = re.search(r"Tekst - problemy:\s*(\d+)", rep)
         zajety = bool(_COM_ERR.search(rep)) or not glob.glob(os.path.join(png, "s*.png"))
         qa["wykonano"] = bool(m) and not zajety
@@ -1411,6 +1959,56 @@ def _oko_dla_pptx(spec, wynik, rob, opts, emit, say, t_pierwszy_s):
         return None
 
 
+def _oko_dla_dokumentu(spec, wynik, rob, opts, emit, say, t_pierwszy_s):
+    """Pętla poprawek dokumentu: `dokument.petla_poprawek` (po renderze ocena zrzutów i kontroli tekstu, inny wariant układu slajdów
+    z usterkami, ponowna budowa; nowy układ zostaje tylko gdy ma MNIEJ usterek niż przed) - to samo co `petla_oka` w konwersji, ale
+    na specu z `dokument.zloz` (warianty układu siedzą w spec["warianty"]). Brak funkcji w skillu albo wyjątek = None (wpis w logu),
+    wynik jak z petla_oka: {spec, wynik: (pptx, qa, miniatury), ocena, zmienione, odrzucone, rundy}."""
+    petla = getattr(dokument, "petla_poprawek", None)
+    pomiar_f = getattr(dokument, "usterki_po_renderze", None)
+    if petla is None or pomiar_f is None:
+        say("Pętla poprawek dokumentu niedostępna w skillu - pomijam poprawianie układu po zrzutach.")
+        return None
+    try:
+        import oko as oko_mod
+    except Exception:  # bez oka tylko kontrola tekstu z PowerPointa
+        oko_mod = None
+    rundy = 1 if t_pierwszy_s > OKO_LIMIT_S else OKO_RUNDY
+    if rundy < OKO_RUNDY:
+        say("Budowa i kontrola trwały %d s - robię tylko 1 rundę poprawiania układu." % t_pierwszy_s)
+    st = {"pptx": wynik[0], "qa": wynik[1], "thumbs": wynik[2], "do_renderu": False, "buduj": 0}
+    spec.setdefault("uwagi", [])
+
+    def pomiar():
+        if st["do_renderu"]:
+            lo = 0.5 + 0.1 * min(st["buduj"], 4)
+            suf = " (przebudowa %d)" % st["buduj"]
+            st["qa"], st["thumbs"] = _render_i_kontrola(st["pptx"], rob, opts, [], emit, say, (lo, lo + 0.1), suf)
+            st["do_renderu"] = False
+        qa = st["qa"]
+        if not (qa.get("wykonano") and qa.get("png")):   # PowerPoint nie oddał zrzutów: nie ma czego oceniać
+            return {}, ""
+        v = "\n".join("   " + x for x in (qa.get("szczegoly") or []))   # linie verify.ps1 w postaci, jakiej oczekuje usterki_po_renderze
+        return pomiar_f(qa["png"], spec, v), v
+
+    def buduj():
+        st["buduj"] += 1
+        emit("qa", "Buduję poprawiony układ (przebudowa %d)" % st["buduj"], 0.5 + 0.1 * min(st["buduj"], 4))
+        st["pptx"] = _zbuduj_plik(spec, [], say)
+        st["do_renderu"] = True
+
+    emit("qa", "Oglądam zrzuty i poprawiam układ", 0.5)
+    try:
+        _wyn, poprawione = petla(spec, pomiar, buduj, rundy)
+        ocena = ocena_slajdow(st["qa"], spec, oko_mod)
+    except Exception as e:  # pętla nigdy nie psuje wyniku; stan sprzed wyjątku jest w ostatnio zbudowanym pliku
+        _log_file(traceback.format_exc())
+        say("Pętla poprawek dokumentu przerwana (%s: %s) - zostaje ostatnio zbudowany plik." % (type(e).__name__, e))
+        return None
+    return {"spec": spec, "wynik": (st["pptx"], st["qa"], st["thumbs"]), "ocena": ocena, "zmienione": sorted(set(poprawione)),
+            "odrzucone": [], "rundy": st["buduj"]}
+
+
 def build(folder, opts, progress=None, log=None, cancel=None):
     """Główna praca. progress(krok_id, opis, procent, eta_s); log(tekst); cancel = threading.Event."""
     t0 = time.time()
@@ -1419,15 +2017,19 @@ def build(folder, opts, progress=None, log=None, cancel=None):
     est_total = float(opts.get("szacowany_czas_s") or 40)
     done_w = 0
     weights = dict((s, wt) for s, _, wt in STEPS)
+    dopr = _czy_dopracowanie(folder, opts)
     if os.path.isfile(folder):
-        weights.update(PPTX_WEIGHTS)
+        weights.update(DOPR_WEIGHTS if dopr else PPTX_WEIGHTS)
 
     def emit(step, opis, frac):
         nonlocal done_w
         w = weights[step]
         pct = min(99, int(done_w + w * max(0.0, min(1.0, frac))))
         el = time.time() - t0
-        eta = max(1, int(el / pct * (100 - pct))) if pct >= 8 else max(1, int(est_total - el))
+        lin = int(el / pct * (100 - pct)) if pct >= 8 else 0   # ekstrapolacja z dotychczasowego postępu
+        eta = max(1, int(max(lin, est_total - el)))             # nigdy mniej, niż zostało do szacunku (przy dobrym szacunku pasek nie „przyspiesza”)
+        if el > ZAJETY_MNOZNIK * est_total:   # trwa dłużej niż szacunek: tekst mówi, co się dzieje, zamiast stać
+            opis = ZAJETY_TEKST
         if progress:
             progress(step, opis, pct, eta)
         _log_file("%3d%% %s" % (pct, opis))
@@ -1445,7 +2047,11 @@ def build(folder, opts, progress=None, log=None, cancel=None):
         if log:
             log(t)
 
-    if os.path.isfile(folder):  # gotowa prezentacja: konwersja bez utraty treści
+    if os.path.isfile(folder):  # gotowa prezentacja (konwersja bez utraty treści) albo dokument
+        if tryb_wejscia(folder) == "dokument":
+            return _build_dokument(folder, opts, t0, emit, finish_step, check, say, progress)
+        if dopr:   # plik już w stylu marki: niczego nie budujemy ani nie zmieniamy
+            return _build_dopracowanie(folder, opts, t0, emit, finish_step, check, say, progress)
         return _build_pptx(folder, opts, t0, emit, finish_step, check, say, progress)
     rob = os.path.join(folder, "_robocze")
     os.makedirs(rob, exist_ok=True)
@@ -1510,6 +2116,100 @@ def build(folder, opts, progress=None, log=None, cancel=None):
     return result
 
 
+def _jakosc(spec, rob, opts, uwagi, emit, finish_step, check, say, spec_json, dok=False):
+    """Wspólne dla konwersji i dokumentu: budowa + zrzuty + kontrola tekstu w PowerPoint + pętla „oka” (ocena zrzutów, inny
+    wariant układu slajdów z usterkami, ponowna budowa). dok=True: pętla poprawek dokumentu (dokument.petla_poprawek).
+    Kończy krok „qa”. Zwraca dict(pptx, qa, thumbs, spec, oko, oko_linie)."""
+    oko_on = opts.get("oko", True) is not False
+    t_qa = time.time()
+    pptx, qa, thumbs = _build_and_qa(spec, rob, opts, uwagi, emit, finish_step, check, say,
+                                     qa_zakres=(0.0, 0.5 if oko_on else 1.0), finish_qa=False)
+    t_pierwszy = int(time.time() - t_qa)
+    oko = {"uruchomione": False, "rundy": 0, "zmienione": [], "odrzucone": [], "pozostale": {}, "czas_s": 0, "pierwsza_budowa_s": t_pierwszy}
+    oko_linie = []
+    if oko_on and qa.get("wykonano") and qa.get("png"):
+        t_oko = time.time()
+        w = (_oko_dla_dokumentu if dok else _oko_dla_pptx)(spec, (pptx, qa, thumbs), rob, opts, emit, say, t_pierwszy)
+        if w:
+            spec, (pptx, qa, thumbs) = w["spec"], w["wynik"]
+            json.dump(spec, open(spec_json, "w", encoding="utf8"), ensure_ascii=False, indent=1)
+            wygladu = sorted(((nr, u) for nr, us in w["ocena"].items() for u in us if u.get("zrodlo") == "oko"),
+                             key=lambda x: (-x[1]["waga"], x[0]))   # usterki wyglądu (oko); tekstowe kontroli PowerPointa są w "Tekst na slajdach"
+            oko.update(uruchomione=True, rundy=w["rundy"], zmienione=w["zmienione"], odrzucone=w["odrzucone"],
+                       pozostale=[{"slajd": nr, "kod": u["kod"], "waga": u["waga"], "opis": u["opis"]} for nr, u in wygladu])
+            if w["zmienione"]:
+                oko_linie.append("Po obejrzeniu zrzutów poprawiłem układ slajdów: %s" % ", ".join(str(n) for n in w["zmienione"]))
+            oko_linie += ["Sprawdź najpierw: slajd %d - %s" % (nr, u["opis"]) for nr, u in wygladu[:OKO_LINII]]
+            if len(wygladu) > OKO_LINII:
+                oko_linie.append("…i %d kolejnych usterek wyglądu w raport.json (oko)" % (len(wygladu) - OKO_LINII))
+        oko["czas_s"] = int(time.time() - t_oko)
+    finish_step("qa")
+    if oko["uruchomione"] and not qa.get("wykonano"):
+        uwagi.append("PowerPoint nie oddał zrzutów po poprawce układu (był zajęty), więc kontrola tekstu po niej się nie "
+                     "wykonała. Zamknij okna dialogowe PowerPointa i stwórz prezentację jeszcze raz.")
+    return {"pptx": pptx, "qa": qa, "thumbs": thumbs, "spec": spec, "oko": oko, "oko_linie": oko_linie}
+
+
+def _plansze_wyniku(pptx, qa, say, folder=None):
+    """Plansze dla czatu (J): obrazy z ostatniego renderu, w podfolderze „plansze” obok prezentacji (otwiera go „Pokaż folder”);
+    `folder` wskazuje inne miejsce (dopracowanie: katalog roboczy, nie folder użytkownika)."""
+    plansze, folder_wl = [], folder
+    folder = None
+    if qa.get("png") and qa.get("wykonano"):
+        try:
+            folder = folder_wl or os.path.join(os.path.dirname(pptx), "plansze")
+            plansze = zrob_plansze(qa["png"], folder)
+        except Exception as e:
+            plansze = []
+            say("Plansze dla czatu się nie zrobiły (%s: %s)." % (type(e).__name__, e))
+        if not plansze:
+            folder = None
+    return plansze, folder
+
+
+def _uwaga_podpowiedzi(pptx, rob, zrodlo=""):
+    """Uwaga dla ekranu „Gotowe”, liczona z GOTOWEGO pliku: „Slajdy 43, 44 mają podpowiedzi w nawiasach - uzupełnij je albo usuń”
+    (pptx_convert.przeglad: pola tekstu w [nawiasach] na slajdach pliku). Podpowiedzi, które stały już w tekście oryginału (`zrodlo`,
+    np. przypisy [1]), nie liczą się. None = nic do zgłoszenia albo przegląd się nie udał (wpis w logu)."""
+    f = getattr(pptx_convert, "przeglad", None)
+    if f is None:
+        return None
+    try:
+        pr = f(pptx, rob)
+    except Exception:
+        _log_file(traceback.format_exc())
+        return None
+    zr = " ".join((zrodlo or "").split())
+    nry = sorted({nr for nr, t in (pr.get("podpowiedzi") or []) if " ".join(str(t).split()) not in zr})
+    if not nry:
+        return None
+    lista = ", ".join(str(n) for n in nry[:8]) + (" i %d innych" % (len(nry) - 8) if len(nry) > 8 else "")
+    if len(nry) == 1:
+        return "Slajd %s ma podpowiedzi w nawiasach - uzupełnij je albo usuń" % lista
+    return "Slajdy %s mają podpowiedzi w nawiasach - uzupełnij je albo usuń" % lista
+
+
+def _wyjscie_krotkie(spec, uwagi, say):
+    """PowerPoint (COM) nie otwiera pliku o ścieżce > 259 znaków: zrzuty i kontrola tekstu by się nie wykonały. Za długą nazwę skracamy
+    w tym samym folderze; gdy sam folder jest za długi - plik idzie do katalogu użytkownika (w uwagach jest informacja gdzie)."""
+    out = spec["output"]
+    if len(out) <= MAX_SCIEZKA_PPT:
+        return
+    kat, nazwa = os.path.split(out)
+    stem, ext = os.path.splitext(nazwa)
+    ile = MAX_SCIEZKA_PPT - len(kat) - 1 - len(ext)
+    m = re.search(r" - (nowy styl|stary styl|prezentacja).*$", stem)   # końcówka z nazwy wyniku („ - nowy styl - rozwinięta”) zostaje cała
+    ogon, glowa = (m.group(0), stem[:m.start()]) if m else ("", stem)
+    if ile - len(ogon) >= 15:
+        nowy = os.path.join(kat, glowa[:ile - len(ogon)].rstrip(" -") + ogon + ext)
+        uwagi.append("Nazwa pliku była za długa dla PowerPointa - zapisałem prezentację jako „%s”." % os.path.basename(nowy))
+    else:
+        nowy = os.path.join(paths.USER_DIR, "wyniki", stem[:60].rstrip(" -") + ext)
+        uwagi.append("Folder ma bardzo długą ścieżkę (PowerPoint takich plików nie otwiera) - zapisałem prezentację w: %s" % nowy)
+    say("Ścieżka wyniku za długa (%d znaków) - zapis w: %s" % (len(out), nowy))
+    spec["output"] = nowy
+
+
 def _build_pptx(plik, opts, t0, emit, finish_step, check, say, progress):
     """Konwersja gotowej prezentacji: extract -> compose (układ 1:1 z pozycji na starym slajdzie, klocki szablonu) -> build_dk
     -> kontrola w PowerPoint -> "oko" (ocena zrzutów, inny wariant układu slajdów z usterkami, ponowna budowa) -> pokrycie
@@ -1520,7 +2220,6 @@ def _build_pptx(plik, opts, t0, emit, finish_step, check, say, progress):
     opts["oko"]: False wyłącza pętlę poprawiania układu po zrzutach (CLI --bez-oka)."""
     rob = _pptx_rob(plik)
     cel = opts.get("cel") if opts.get("cel") in pptx_convert.CELE else "wiernie"
-    oko_on = opts.get("oko", True) is not False
     emit("folder", "Czytam prezentację", 0)
     model = _pptx_model(plik)
     say("Prezentacja: %s, slajdów: %d, akapitów: %d" % (os.path.basename(plik), len(model["slajdy"]), model["akapity"]))
@@ -1540,61 +2239,33 @@ def _build_pptx(plik, opts, t0, emit, finish_step, check, say, progress):
     if nowe:
         uwagi.insert(0, "Dołożyłem puste slajdy z szablonu: %d (nr %s, przed zakończeniem). Uzupełnij teksty "
                         "w [nawiasach] - sam program niczego nie dopisuje." % (len(nowe), ", ".join(str(n) for n in nowe)))
+    _wyjscie_krotkie(spec, uwagi, say)
     os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
     spec_json = os.path.join(rob, "spec_program.json")
     json.dump(spec, open(spec_json, "w", encoding="utf8"), ensure_ascii=False, indent=1)
     finish_step("slajdy")
     check()
-    t_qa = time.time()
-    pptx, qa, thumbs = _build_and_qa(spec, rob, opts, uwagi, emit, finish_step, check, say,
-                                     qa_zakres=(0.0, 0.5 if oko_on else 1.0), finish_qa=False)
-    t_pierwszy = int(time.time() - t_qa)
-    oko = {"uruchomione": False, "rundy": 0, "zmienione": [], "odrzucone": [], "pozostale": {}, "czas_s": 0, "pierwsza_budowa_s": t_pierwszy}
-    oko_linie = []
-    if oko_on and qa.get("wykonano") and qa.get("png"):
-        t_oko = time.time()
-        w = _oko_dla_pptx(spec, (pptx, qa, thumbs), rob, opts, emit, say, t_pierwszy)
-        if w:
-            spec, (pptx, qa, thumbs) = w["spec"], w["wynik"]
-            json.dump(spec, open(spec_json, "w", encoding="utf8"), ensure_ascii=False, indent=1)
-            wygladu = sorted(((nr, u) for nr, us in w["ocena"].items() for u in us if u.get("zrodlo") == "oko"),
-                             key=lambda x: (-x[1]["waga"], x[0]))   # usterki wyglądu (oko); tekstowe kontroli PowerPointa są w "Tekst na slajdach"
-            oko.update(uruchomione=True, rundy=w["rundy"], zmienione=w["zmienione"], odrzucone=w["odrzucone"],
-                       pozostale=[{"slajd": nr, "kod": u["kod"], "waga": u["waga"], "opis": u["opis"]} for nr, u in wygladu])
-            if w["zmienione"]:
-                oko_linie.append("Po obejrzeniu zrzutów poprawiłem układ slajdów: %s" % ", ".join(str(n) for n in w["zmienione"]))
-            oko_linie += ["Sprawdź najpierw: slajd %d - %s" % (nr, u["opis"]) for nr, u in wygladu[:OKO_LINII]]
-            if len(wygladu) > OKO_LINII:
-                oko_linie.append("…i %d kolejnych usterek wyglądu w raport.json (oko)" % (len(wygladu) - OKO_LINII))
-        oko["czas_s"] = int(time.time() - t_oko)
-    finish_step("qa")
-    if oko["uruchomione"] and not qa.get("wykonano"):
-        uwagi.append("PowerPoint nie oddał zrzutów po poprawce układu (był zajęty), więc kontrola tekstu po niej się nie "
-                     "wykonała. Zamknij okna dialogowe PowerPointa i stwórz prezentację jeszcze raz.")
+    j = _jakosc(spec, rob, opts, uwagi, emit, finish_step, check, say, spec_json)
+    pptx, qa, thumbs, spec, oko, oko_linie = j["pptx"], j["qa"], j["thumbs"], j["spec"], j["oko"], j["oko_linie"]
     emit("zapis", "Sprawdzam, czy nic nie zginęło", 0.3)
     poprawki = spec.get("poprawki") or None
     cov = pptx_convert.coverage(plik, pptx, spec["mapa"], rob=rob, poprawki=poprawki)
-    wier = pptx_convert.wiernosc(model, pptx, spec["mapa"], nowe=len(nowe), poprawki=poprawki)
+    wier = pptx_convert.wiernosc(model, pptx, spec["mapa"], nowe=len(nowe), poprawki=poprawki,
+                                 zdjete=pptx_convert.zdjete_znaki(spec))
     say(cov["tekst"])
     say(wier["tekst"])
     for m in cov["brakuje"][:10]:
         uwagi.append("Brakuje (slajd %d oryginału): %s" % (m["slajdy"] if "slajdy" in m else m["slajd"], m["tekst"]))
     for u in wier["usterki"][:10]:
         uwagi.append("Do sprawdzenia - " + u)
+    pod = _uwaga_podpowiedzi(pptx, rob, _source_dump(model, limit=10 ** 9))
+    if pod:   # jedno zdanie z numerami slajdów zastępuje ogólne „Dołożyłem puste slajdy…”: mówi, które slajdy zostały z podpowiedziami
+        uwagi[:] = [u for u in uwagi if not u.startswith("Dołożyłem puste slajdy z szablonu")]
+        uwagi.insert(0, pod)
     uwagi[0:0] = oko_linie
     uwagi.insert(0, wier["tekst"])
     uwagi.insert(0, cov["tekst"])
-    # plansze dla czatu (J): obrazy z ostatniego renderu, w podfolderze obok prezentacji (otwiera go "Pokaż folder")
-    plansze, plansze_folder = [], None
-    if qa.get("png") and qa.get("wykonano"):
-        try:
-            plansze_folder = os.path.join(os.path.dirname(pptx), "plansze")
-            plansze = zrob_plansze(qa["png"], plansze_folder)
-        except Exception as e:
-            plansze = []
-            say("Plansze dla czatu się nie zrobiły (%s: %s)." % (type(e).__name__, e))
-        if not plansze:
-            plansze_folder = None
+    plansze, plansze_folder = _plansze_wyniku(pptx, qa, say)
     wszystkie = len(spec["slides"])
     ukryte = sum(1 for x in spec["slides"] if x.get("hidden"))
     try:
@@ -1606,7 +2277,9 @@ def _build_pptx(plik, opts, t0, emit, finish_step, check, say, progress):
     emit("zapis", "Zapisuję raport", 0.6)
     bledy = spec.get("bledy_tekstu") or []
     uwagi_wyniku, bledy_okno = uwagi_okno(uwagi, bledy)
-    result = {"ok": True, "tryb": "pptx", "pptx": pptx, "nazwa": os.path.basename(pptx), "folder": os.path.dirname(plik),
+    _zapisz_uwagi(rob, uwagi, say)
+    result = {"ok": True, "tryb": "pptx", "uwagi_top": _uwagi_top(uwagi_wyniku, bledy, oko, [w.get("slajd") for w in spec.get("wizualizacje", [])
+                                                                                           if isinstance(w, dict) and w.get("slajd")], ukryte), "pptx": pptx, "nazwa": os.path.basename(pptx), "folder": os.path.dirname(plik),
               "plik": plik, "slajdy": wszystkie, "ukryte": ukryte, "nowe": nowe, "cel": cel,
               "cel_nazwa": pptx_convert.CELE[cel]["nazwa"], "cel_slajdy": dane["cel_slajdy"] if cel == "skroc" else None,
               "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa,
@@ -1626,11 +2299,228 @@ def _build_pptx(plik, opts, t0, emit, finish_step, check, say, progress):
     return result
 
 
+def _z_postepem(praca, emit, check, krok, opis, szacunek_s):
+    """Wykonuje praca() w wątku, a w tym czasie co sekundę zgłasza postęp (długi krok bez wiadomości wygląda jak zawieszenie) i
+    sprawdza anulowanie (check() może rzucić Cancelled: wątek dokańcza w tle, jego wynik jest wyrzucany). Wyjątek z praca()
+    leci dalej bez zmian."""
+    wynik = {}
+
+    def run():
+        try:
+            wynik["v"] = praca()
+        except BaseException as e:  # noqa: BLE001 - przekazujemy dalej w wątku wywołującego
+            wynik["e"] = e
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t0 = time.time()
+    while t.is_alive():
+        t.join(1.0)
+        emit(krok, opis, min(0.95, (time.time() - t0) / max(float(szacunek_s), 1.0)))
+        check()
+    if "e" in wynik:
+        raise wynik["e"]
+    return wynik["v"]
+
+
+def _w_zakresie(v, lo, hi, dom):
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        v = dom
+    return max(lo, min(hi, v))
+
+
+def _build_dokument(plik, opts, t0, emit, finish_step, check, say, progress):
+    """Prezentacja z dokumentu: dokument.wczytaj -> dokument.zloz (liczba slajdów i rozdziałów z dwóch suwaków) -> build_dk ->
+    kontrola w PowerPoint -> „oko” -> dokument.pokrycie (wiersz „Treść”) -> plansze. Ta sama ścieżka jakości co konwersja.
+    opts["slajdy"], opts["rozdzialy"]: wartości suwaków (poza zakresem z dokumentu są przycinane); opts["oko"]: False wyłącza pętlę."""
+    rob = _pptx_rob(plik)
+    emit("folder", "Czytam dokument", 0)
+    model = _dok_model(plik)
+    st = dokument.statystyka(model)
+    sw = _suwaki_dokumentu(st)
+    say("Dokument: %s, słów: %d, akapitów: %d, nagłówków: %d" % (
+        os.path.basename(plik), st.get("slowa", 0), st.get("akapity", 0), sum((st.get("naglowki") or {}).values())))
+    finish_step("folder")
+    check()
+    emit("grafiki", "Przygotowuję obrazy (%d)" % (st.get("obrazy") or 0), 0.5)
+    finish_step("grafiki")
+    check()
+    emit("slajdy", "Układam slajdy", 0.3)
+    n_sl = _w_zakresie(opts.get("slajdy"), sw["slajdy"]["min"], sw["slajdy"]["max"], sw["slajdy"]["domyslnie"])
+    n_rz = _w_zakresie(opts.get("rozdzialy"), 0, sw["rozdzialy"]["max"], sw["rozdzialy"]["domyslnie"])
+    # składanie slajdów liczy układy z pomiaru (pomiar 13.10: ok. 1,5 s na slajd) - w tle, żeby pasek postępu się nie zatrzymał
+    spec = _z_postepem(lambda: dokument.zloz(model, {"slajdy": n_sl, "rozdzialy": n_rz, "wyjscie": opts.get("wyjscie"), "styl": "nowy"}),
+                       emit, check, "slajdy", "Układam slajdy", 1.6 * n_sl)
+    uwagi = list(spec.get("uwagi", []))
+    spec["uwagi"] = []   # dokument.popraw_po_renderze dopisuje tu wpis o zmianie układu; własną linię z oka składa silnik
+    _wyjscie_krotkie(spec, uwagi, say)
+    os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
+    spec_json = os.path.join(rob, "spec_program.json")
+    json.dump(spec, open(spec_json, "w", encoding="utf8"), ensure_ascii=False, indent=1)
+    finish_step("slajdy")
+    check()
+    j = _jakosc(spec, rob, opts, uwagi, emit, finish_step, check, say, spec_json, dok=True)
+    pptx, qa, thumbs, spec, oko, oko_linie = j["pptx"], j["qa"], j["thumbs"], j["spec"], j["oko"], j["oko_linie"]
+    spec.pop("uwagi", None)
+    emit("zapis", "Sprawdzam, czy nic nie zginęło", 0.3)
+    cov = dokument.pokrycie(model, pptx)
+    say(cov.get("tekst", ""))
+    for m in (cov.get("brakuje") or [])[:10]:
+        uwagi.append("Brakuje: %s" % (m if isinstance(m, str) else (m.get("tekst") or str(m))))
+    uwagi[0:0] = oko_linie
+    uwagi.insert(0, cov.get("tekst", ""))
+    plansze, plansze_folder = _plansze_wyniku(pptx, qa, say)
+    wszystkie = len(spec["slides"])
+    if wszystkie != n_sl:
+        say("Liczba slajdów treści w pliku: %d (suwak: %d) - program podzielił slajdy, na których treść nie mieściła się czytelnie."
+            % (wszystkie, n_sl))
+    dane = {"slajdy": n_sl, "rozdzialy": n_rz, "cel_slajdy": n_sl, "widoczne": wszystkie, "wszystkie": wszystkie}
+    emit("zapis", "Zapisuję raport", 0.6)
+    bledy = spec.get("bledy_tekstu") or []
+    uwagi_wyniku, bledy_okno = uwagi_okno(uwagi, bledy, rodzaj="dokument")
+    _zapisz_uwagi(rob, uwagi, say)
+    result = {"ok": True, "tryb": "dokument", "uwagi_top": _uwagi_top(uwagi_wyniku, bledy, oko), "pptx": pptx, "nazwa": os.path.basename(pptx), "folder": os.path.dirname(plik),
+              "plik": plik, "slajdy": wszystkie, "ukryte": 0, "nowe": [], "cel": "dokument", "cel_nazwa": "Dokument",
+              "suwaki": {"slajdy": n_sl, "rozdzialy": n_rz},
+              "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa,
+              "uwagi": uwagi_wyniku, "uwagi_pelne": uwagi, "bledy_okno": bledy_okno, "bledy_tekstu": bledy, "oko": oko,
+              "pokrycie": cov, "wiernosc": {"usterki": [], "tekst": ""}, "sprawdz": [], "wizualizacje": [], "styl": "nowy",
+              "plansze": plansze, "plansze_folder": plansze_folder,
+              "prompt_ai": ai_prompt_pptx(os.path.basename(pptx), plik, model, spec, uwagi, cov, qa, pptx, cel="wiernie", dane=dane,
+                                          plansze={"folder": plansze_folder, "pliki": plansze}, rodzaj="dokument"),
+              "prompt_agent": ai_prompt_agent_pptx(os.path.basename(pptx), plik, pptx, rob, spec, uwagi, cel="wiernie", dane=dane,
+                                                   rodzaj="dokument"),
+              "raport": os.path.join(rob, "raport.json")}
+    json.dump({k: v for k, v in result.items() if k != "miniatury"},
+              open(result["raport"], "w", encoding="utf8"), ensure_ascii=False, indent=1)
+    finish_step("zapis")
+    if progress:
+        progress("zapis", "Gotowe", 100, 0)
+    return result
+
+
+def _sha256(plik):
+    h = hashlib.sha256()
+    with open(plik, "rb") as f:
+        for blok in iter(lambda: f.read(1 << 20), b""):
+            h.update(blok)
+    return h.hexdigest()
+
+
+def _oko_przeglad(qa, say):
+    """„Oko” na zrzutach kopii w trybie dopracowania: tylko OCENA (lista „Sprawdź najpierw: slajd N - …”), bez zmiany układu i bez
+    ponownej budowy - program nie przebudowuje prezentacji, która jest już w stylu marki. Zwraca (oko, linie uwag)."""
+    oko = {"uruchomione": False, "rundy": 0, "zmienione": [], "odrzucone": [], "pozostale": [], "czas_s": 0}
+    if not (qa.get("wykonano") and qa.get("png")):
+        return oko, []
+    t = time.time()
+    try:
+        import oko as oko_mod
+        ocena = ocena_slajdow(qa, None, oko_mod)
+    except Exception as e:  # brak modułu oka nie psuje przeglądu
+        _log_file(traceback.format_exc())
+        say("Oko programu niedostępne (%s: %s) - pomijam ocenę wyglądu zrzutów." % (type(e).__name__, e))
+        return oko, []
+    wygladu = sorted(((nr, u) for nr, us in ocena.items() for u in us if u.get("zrodlo") == "oko"),
+                     key=lambda x: (-x[1]["waga"], x[0]))
+    oko.update(uruchomione=True, czas_s=int(time.time() - t),
+               pozostale=[{"slajd": nr, "kod": u["kod"], "waga": u["waga"], "opis": u["opis"]} for nr, u in wygladu])
+    linie = ["Sprawdź najpierw: slajd %d - %s" % (nr, u["opis"]) for nr, u in wygladu[:OKO_LINII]]
+    if len(wygladu) > OKO_LINII:
+        linie.append("…i %d kolejnych usterek wyglądu w raport.json (oko)" % (len(wygladu) - OKO_LINII))
+    return oko, linie
+
+
+def _build_dopracowanie(plik, opts, t0, emit, finish_step, check, say, progress):
+    """Dopracowanie pliku JUŻ w stylu marki (szablon DK, wynik programu, prezentacja z szablonu): NIE buduje slajdów i NIE zmienia
+    pliku użytkownika. Kroki: przegląd (pptx_convert.przeglad: podpowiedzi w [nawiasach], błędy tekstu) -> zrzuty i kontrola
+    PowerPointa na KOPII w katalogu roboczym (bez osadzania czcionek) -> „oko” (sama ocena) -> plansze -> dwa polecenia dla AI.
+    Wynik: res["pptx"] = plik użytkownika; res["plik_bez_zmian"] = suma SHA-256 sprzed i po jest ta sama."""
+    rob = _pptx_rob(plik)
+    rozp = _rozpoznaj(plik)
+    try:
+        suma0 = _sha256(plik)
+    except PermissionError:
+        raise ValueError("Plik jest otwarty albo zablokowany przez inny program. Zamknij go (np. w PowerPoint) i spróbuj jeszcze raz.")
+    emit("folder", "Czytam prezentację", 0)
+    pr = _przeglad(plik, rob)
+    bledy = list(pr.get("bledy_tekstu") or [])
+    podp = list(pr.get("podpowiedzi") or [])
+    say("Prezentacja: %s, slajdów: %d, podpowiedzi w [nawiasach]: %d, możliwe błędy tekstu: %d" % (
+        os.path.basename(plik), pr["slajdy"], len(podp), len(bledy)))
+    finish_step("folder")
+    check()
+    kopia = os.path.join(rob, "kopia", os.path.basename(plik))   # render i kontrola idą na kopii; PowerPoint nie dotyka pliku użytkownika
+    if len(kopia) > MAX_SCIEZKA_PPT:   # za długa ścieżka: PowerPoint nie otworzy kopii (zrzuty i kontrola by się nie wykonały)
+        kopia = os.path.join(rob, "kopia", "kopia.pptx")
+        if len(kopia) > MAX_SCIEZKA_PPT:
+            kopia = os.path.join(paths.USER_DIR, "kopia", hashlib.sha1(kopia.encode("utf8")).hexdigest()[:10] + ".pptx")
+        say("Długa ścieżka folderu - kopię do sprawdzenia zapisuję w: " + kopia)
+    os.makedirs(os.path.dirname(kopia), exist_ok=True)
+    shutil.copy2(plik, kopia)
+    uwagi_pp = []
+    qa, thumbs = _render_i_kontrola(kopia, rob, opts, uwagi_pp, emit, say, (0.0, 0.7), osadzaj=False)
+    uwagi_pp = [u.replace("stwórz prezentację jeszcze raz", "sprawdź prezentację jeszcze raz") for u in uwagi_pp]
+    check()
+    emit("qa", "Oglądam zrzuty slajdów", 0.75)
+    oko, oko_linie = _oko_przeglad(qa, say)
+    emit("qa", "Przygotowuję plansze", 0.9)
+    plansze, plansze_folder = _plansze_wyniku(kopia, qa, say, os.path.join(rob, "plansze"))
+    finish_step("qa")
+    check()
+    emit("zapis", "Zapisuję raport", 0.3)
+    uwagi = oko_linie + _bez_linii_bledow(pr.get("uwagi") or [], bledy) + uwagi_pp
+    bez_zmian = _sha256(plik) == suma0
+    if not bez_zmian:
+        uwagi.insert(0, "Plik zmienił się w trakcie sprawdzania (ktoś zapisał go w PowerPoint) - zrzuty mogą być nieaktualne. "
+                        "Sprawdź prezentację jeszcze raz.")
+    nazwa_kopii = _nazwa_kopii(plik)
+    uwagi_wyniku, bledy_okno = uwagi_okno(uwagi, bledy, rodzaj="dopracowanie")
+    _zapisz_uwagi(rob, uwagi, say)
+    result = {"ok": True, "tryb": "dopracowanie", "uwagi_top": _uwagi_top(uwagi_wyniku, bledy, oko), "rodzaj": rozp.get("rodzaj"), "pptx": plik, "nazwa": os.path.basename(plik),
+              "folder": os.path.dirname(plik), "folder_pokaz": plansze_folder or rob, "plik": plik,
+              "kopia_przegladu": kopia, "slajdy": pr["slajdy"], "ukryte": 0, "nowe": [], "cel": "dopracowanie",
+              "cel_nazwa": "Dopracowanie", "podpowiedzi": len(podp), "spec": rozp.get("spec"), "plik_bez_zmian": bez_zmian,
+              "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa,
+              "uwagi": uwagi_wyniku, "uwagi_pelne": uwagi, "bledy_okno": bledy_okno, "bledy_tekstu": bledy, "oko": oko,
+              "pokrycie": {}, "wiernosc": {"usterki": [], "tekst": ""}, "sprawdz": [], "wizualizacje": [], "styl": "nowy",
+              "plansze": plansze, "plansze_folder": plansze_folder,
+              "prompt_ai": ai_prompt_dopracowanie(plik, rozp, pr, uwagi, bledy, qa, {"folder": plansze_folder, "pliki": plansze}),
+              "prompt_agent": ai_prompt_agent_dopracowanie(plik, nazwa_kopii, rob, rozp, uwagi, bledy),
+              "raport": os.path.join(rob, "raport.json")}
+    with open(result["raport"], "w", encoding="utf8") as fh:
+        json.dump({k: v for k, v in result.items() if k != "miniatury"}, fh, ensure_ascii=False, indent=1, default=str)
+    finish_step("zapis")
+    if progress:
+        progress("zapis", "Gotowe", 100, 0)
+    return result
+
+
+# Komunikat w oknie nie może mieć surowego wyjątku: nazwy klasy, „WinError”, „Errno”, śladu stosu ani podwójnych ukośników
+# (repr ścieżki w tekście wyjątku). Nasze własne komunikaty (ValueError po polsku) przechodzą bez zmian, reszta dostaje zdanie
+# domyślne; szczegóły techniczne zostają w logu programu i w „Pokaż szczegóły”.
+_SUROWY = re.compile(r"WinError|Traceback|Errno|Error\b|Exception|\\\\|File \"|0x[0-9A-Fa-f]{4,}|<[^>]+object at")
+BLAD_TWORZENIA = ("Nie udało się stworzyć prezentacji. Spróbuj jeszcze raz; jeśli to się powtórzy, szczegóły są pod "
+                  "„Pokaż szczegóły”.")
+BLAD_PLIKU = ("Nie udało się przeczytać tego pliku ani folderu. Sprawdź, czy istnieje i czy masz do niego dostęp, "
+              "i spróbuj jeszcze raz.")
+
+
+def komunikat_bledu(e, domyslny=BLAD_PLIKU):
+    """Tekst błędu dla człowieka: własny komunikat programu (ValueError po polsku bez śladów surowego wyjątku) albo `domyslny`."""
+    t = " ".join(str(e).split())
+    if isinstance(e, ValueError) and t and not _SUROWY.search(t):
+        return t
+    return domyslny
+
+
 def safe_build(*a, **kw):
     try:
         return build(*a, **kw)
     except Cancelled:
         return {"ok": False, "blad": "Przerwano.", "przerwano": True}
     except Exception as e:
-        _log_file(traceback.format_exc())
-        return {"ok": False, "blad": "%s: %s" % (type(e).__name__, e), "traceback": traceback.format_exc()}
+        tb = traceback.format_exc()
+        _log_file(tb)
+        return {"ok": False, "blad": komunikat_bledu(e, BLAD_TWORZENIA), "traceback": tb}

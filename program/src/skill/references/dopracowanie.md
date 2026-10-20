@@ -37,7 +37,7 @@ Wersaliki robi czcionka Mindset: w specu tekst zostaje w wielkości liter orygin
 
 Zostaje bez zmian: liczba slajdów (slajd N = slajd N), każde słowo i każda liczba, kolejność czytania, obrazy w
 całości, słowa wyróżnione kolorem przez autora, hiperłącza, znaki interpunkcyjne (przecinek, na którym tniesz zdanie,
-zostaje na końcu hasła).
+zostaje na końcu hasła; wyjątek: znak, na którym pole się urywa - pkt 7a lit. a).
 
 Wolno: podzielić zdanie na hasło i dopisek; powtórzyć liczbę z hasła jako liczbę-bohatera nad nim; pokazać liczby
 zdania jako słupki pod nim, z tymi samymi nazwami i liczbami (liczba-bohater i słupki to jedyne powtórzenia tekstu,
@@ -46,7 +46,8 @@ jakie wolno dodać); rozdzielić akapit na kafle (jedno zdanie = jeden kafel, na
 środka slajdu nie jedzie na dół); dać ikonę ze słownika; zrobić z nagłówka slajdu tytuł, a z belki rozdziału etykietę
 nad tytułem.
 
-Nie wolno: dodawać ani kasować slajdów, agendy, przekładek; pisać własnych tytułów i haseł; dopisywać, skracać ani
+Nie wolno: dodawać ani kasować slajdów, agendy, przekładek (wyjątek: pusty slajd z podpowiedziami dodany przez program -
+pkt 7a lit. e); pisać własnych tytułów i haseł; dopisywać, skracać ani
 przestawiać treści; wymyślać liczb; kadrować obrazów; używać kolorów i czcionek spoza motywu; zmniejszać pisma, żeby
 „się zmieściło” (pkt 6); edytować skryptów skilla ani programu (błąd skryptu zgłoś w DO DECYZJI).
 
@@ -83,6 +84,12 @@ Co się w tym mieści (przykłady z prezentacji strategii; „było -> jest”):
 Czego nie poprawiasz, tylko zgłaszasz: nazwy własne i marki („Mcdonaldsem”), skróty branżowe, liczby i jednostki,
 wielokropki i myślniki autora („odjechała..”, „hiper - człowieka”), zdania niezręczne stylistycznie, powtórzenia
 retoryczne, wszystko, co zmienia sens.
+
+Granica korekty (13.10.2026, test na Claude: ok. 40 poprawek, w tym tytuł „Rola socjalna snacków” zmieniony na „Społeczna
+rola snacków”, „po 80.,” rozwinięte do „po 80. roku życia,” i dwa slajdy wypełnione własnym streszczeniem): tytułów, haseł
+i zdań nie przeredagowujesz - poprawiasz w nich tylko błąd spełniający warunki a-d. Nie dopisujesz liczb, wniosków ani zdań,
+których nie ma w źródle. Każda zmiana słowa inna niż taki błąd (lepszy szyk, zgrabniejsze słowo, rozwinięty skrót, poprawiona
+nazwa) trafia do DO DECYZJI jako „do decyzji autora” i nie wchodzi do pliku.
 
 Zawieszki i sieroty (spójnik albo jedna litera na końcu linii, jedno słowo w ostatniej linii, skrót lub liczba
 oderwane od swojego słowa: „ok. / 12 mln”) to nie błąd tekstu, tylko łamania: builder łamie sam (skrót „ok.”, „np.”
@@ -219,6 +226,41 @@ Czego nie robić (to już raz odrzucono): goły akapit Mindset na całą szeroko
 zielony napis na zielonym przycisku; maleńkie kafle z pismem 9 pt; kremowe tło całego slajdu; liczba-bohater wzięta
 z dopisku; pusty dół slajdu przy małym piśmie; drugi `lead` w wąskiej karcie.
 
+## 7a. Przegląd układu po korekcie tekstu (obowiązkowy)
+
+13.10.2026 AI poprawiło w gotowym pliku ok. 40 literówek i nie ruszyło układu: ta sama liczba kształtów i to samo pismo na
+każdym slajdzie. Sama korekta tekstu to nie jest wykonane zadanie. Po niej przechodzisz slajd po slajdzie, zaczynając od linii
+„Sprawdź najpierw: slajd N - …” z uwag programu (pomiar zrzutów, `oko.py`). Lista do sprawdzenia okiem:
+
+| | Co widać | Co robisz |
+|---|---|---|
+| a | hasło albo pas urwane na końcu myślnikiem, przecinkiem lub dwukropkiem („BIAŁKO –”, „…pewien manifest –”) | złącz z ciągiem dalszym zdania z tego slajdu (jedno pole albo hasło + dopisek w tej samej karcie); gdy ciągu dalszego nie ma - zdejmij sam końcowy znak i wpisz to w raporcie |
+| b | duża liczba, a hasło pod nią urywa się na tej samej liczbie („7,7 MLN” nad „…osoby 65+ to 7,7 mln,”) | złącz hasło z dopiskiem w jedno zdanie (wtedy liczba nie kończy pola) albo zdejmij liczbę-bohatera; liczby w zdaniu autora nie ruszasz. Liczba-bohater nad pełnym zdaniem to nie błąd (pkt 6 reguła 4) |
+| c | karta pusta w ponad połowie obok pełnej | wyrównaj treść kart (inny podział hasło / dopisek) albo zmień układ kart (pkt 5, pkt 6 „upraszczasz układ”) |
+| d | pusty dół slajdu, ponad 1/3 wysokości (np. dwa małe wykresy i źródło na dole) | powiększ obrazy z zachowaniem proporcji albo rozłóż treść na całą wysokość; obrazów nie kadrujesz i nie rozciągasz |
+| e | slajd z podpowiedziami w [nawiasach] | wpisz wyłącznie tytuły i zdania przepisane z tej prezentacji, bez własnych streszczeń, wniosków i liczb; gdy nie ma czym wypełnić slajdu: slajd dodany przez program (w notatkach „NOWY”) usuń i napisz o tym w raporcie, a pojedyncze puste pole zostaw w nawiasach i wpisz do DO DECYZJI. Slajdów autora nie usuwasz nigdy |
+
+W raporcie jedna linia na każdą pozycję „Sprawdź najpierw” i na każdy slajd z listy: slajd - co było - co zrobiłeś albo
+dlaczego zostaje.
+
+Lit. a w specu: zdjęcie końcowego przecinka zapisz w `poprawki` (mieści się w granicach: 1 znak w słowie). Zdjęcia końcowego
+myślnika po spacji („Białko –” -> „Białko”) kontrola treści dziś nie przyjmuje (`pptx_convert.poprawka_w_granicach` zwraca
+False: znika osobny znak, nie litera w słowie) - wtedy znak zostaje, a slajd idzie do DO DECYZJI. Program zgłasza takie pola
+w „Możliwe błędy w tekście” jako błąd interpunkcji o średniej pewności.
+
+## 7b. Bez skryptów: wtyczka w PowerPoincie albo sam plik .pptx
+
+Gdy nie masz dostępu do plików i skryptów skilla (np. pracujesz we wtyczce Claude w PowerPoincie albo dostałeś tylko plik
+.pptx), nie zatrzymujesz się na braku specu: pracujesz bezpośrednio na otwartej prezentacji. Co taka wtyczka potrafi, nie
+było sprawdzane - dlatego w poleceniu z programu jest to warunek („nie masz dostępu…?”), a nie opis narzędzia.
+
+- Robisz to samo co wyżej: korekta tekstu w granicach pkt 4, potem przegląd układu z pkt 7a - w pliku, nie tylko w odpowiedzi.
+- Zamiast buildera pilnujesz stylu ręcznie: hasła czcionką Mindset, dopiski czcionką Lato; hasło co najmniej 16 pt, dopisek
+  i punkty 13 pt (nie zmniejszasz pisma, żeby się zmieściło); kolory tylko z motywu prezentacji; niczego nie rozciągasz -
+  obrazy i kształty zmieniasz z zachowaniem proporcji; zdjęcia paczek i zrzuty w całości, bez przycinania.
+- Kroki, które wymagają skryptów (spec, `poprawki`, render, kontrole z pkt 8), pomijasz i piszesz w raporcie wprost, czego nie
+  sprawdziłeś. Nie piszesz „gotowe”.
+
 ## 8. Bramki oddania (wszystkie, z dowodem)
 
 Wszystkie trzy wypisuje polecenie z pkt 7 krok 5 (`pptx_convert.py … --ze-specu`); kontrolę tekstu można też puścić
@@ -236,4 +278,7 @@ Bez tych wyników nie piszesz „gotowe”.
 2. Co zmieniłeś względem wersji z programu: slajd -> wzór z katalogu.
 3. Poprawione błędy tekstu: slajd, było -> jest.
 4. DO DECYZJI: wątpliwe słowa i nazwy, slajdy, gdzie treść się nie mieści mimo uproszczeń, slajdy z własnym układem,
-   niepewne ikony i wizualizacje produktów, zmiany wielkości liter (`wielkosc-liter.txt`).
+   niepewne ikony i wizualizacje produktów, zmiany wielkości liter (`wielkosc-liter.txt`), każda zmiana słowa inna niż
+   błąd z pkt 4 („do decyzji autora”).
+5. Układ (pkt 7a): każda pozycja „Sprawdź najpierw” z uwag programu i każdy slajd z listy a-e - co było, co zrobiłeś albo
+   dlaczego zostaje; usunięte slajdy-podpowiedzi.

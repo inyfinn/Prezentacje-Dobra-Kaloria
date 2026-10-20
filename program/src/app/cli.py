@@ -15,6 +15,19 @@
         (pusty dół, puste karty, tekst przy krawędzi…) i buduje ponownie, najwyżej 2 rundy; --bez-oka wyłącza tę pętlę.
         Podfolder "plansze" obok wyniku: obrazy slajdów (6 na planszę) do dołączenia w czacie bez dostępu do plików.
         Raport (raport.json) ma gotowe polecenia dla AI: prompt_agent (agent z plikami) i prompt_ai (czat bez plików).
+    stworz-cli.exe "<dokument .docx|.doc|.rtf|.odt|.pdf|.txt|.md>" [--slajdy N] [--rozdzialy N] [--wyjscie <katalog>]
+                   [--robocze <katalog>] [--bez-qa] [--bez-oka] [--json] [--tylko-analiza]
+        prezentacja z dokumentu: nagłówki i akapity stają się slajdami w stylu marki (hasła, liczby, wnioski), bez gubienia
+        i bez wymyślania treści. --slajdy N: ile slajdów (domyślnie wg dokumentu; zakres wypisuje --tylko-analiza),
+        --rozdzialy N: ile przekładek rozdziałów (0 = bez przekładek). Folder z JEDNYM takim plikiem (bez kart wprowadzenia)
+        też działa. Folder programu jest odrzucany z komunikatem (kod 2).
+    stworz-cli.exe "<prezentacja .pptx już w stylu marki: szablon DK, wynik programu, zrobiona z szablonu>" [--robocze <katalog>]
+                   [--bez-qa] [--json] [--tylko-analiza]
+        DOPRACOWANIE (program sam rozpoznaje taki plik): niczego nie buduje i nie zmienia pliku. Robi przegląd: liczy podpowiedzi
+        w [nawiasach] i możliwe błędy tekstu, robi zrzuty i kontrolę tekstu w PowerPoint na KOPII w katalogu roboczym, ocenia
+        wygląd zrzutów („Sprawdź najpierw: slajd N…”), robi plansze (<robocze>\\plansze) i zapisuje dwa polecenia dla AI
+        (raport.json: prompt_agent, prompt_ai) z celem „dopracuj prezentację w stylu DK”. Plik z folderu programu (np. szablon)
+        też jest dopracowaniem - program nic tam nie zapisuje. --mimo-to: skonwertuj taki plik jak obcą prezentację.
 Kod wyjścia 0 = gotowe. Raport także w <folder>\\_robocze\\raport.json (konwersja: <folder>\\_robocze\\<nazwa>\\raport.json).
 """
 import argparse
@@ -55,7 +68,7 @@ def main(argv=None):
     ap.add_argument("--cel", choices=["wiernie", "rozwin", "skroc"], default="wiernie",
                     help="tylko .pptx: wiernie = ten sam slajd w nowym wyglądzie; rozwin = baza do dokończenia "
                          "(z --dodaj); skroc = baza do skrócenia (z --sekcje i --slajdy)")
-    ap.add_argument("--slajdy", type=int, default=0, help="tylko .pptx, cel skroc: ile slajdów ma zostać w pokazie")
+    ap.add_argument("--slajdy", type=int, default=0, help="dokument: ile slajdów; .pptx, cel skroc: ile slajdów ma zostać w pokazie")
     ap.add_argument("--dodaj", default="", help="tylko .pptx, cel rozwin: puste slajdy z szablonu do dołożenia, "
                                                 "np. t10,t58 (id z --tylko-analiza)")
     ap.add_argument("--bez-wizualizacji", action="store_true",
@@ -66,6 +79,11 @@ def main(argv=None):
     ap.add_argument("--wyjscie", default="", help="katalog na PPTX (domyślnie folder produktu)")
     ap.add_argument("--robocze", default="", help="tylko .pptx: katalog roboczy konwersji (raport.json, spec, zrzuty, obrazy "
                                                   "z oryginału); domyślnie <folder pliku>\\_robocze\\<nazwa>")
+    ap.add_argument("--rozdzialy", type=int, default=-1,
+                    help="tylko dokument: ile przekładek rozdziałów (0 = bez przekładek; domyślnie wg dokumentu)")
+    ap.add_argument("--mimo-to", action="store_true",
+                    help="tylko .pptx: skonwertuj jak obcą także prezentację, którą program uznał za już gotową w stylu Dobra "
+                         "Kaloria (szablon, wynik programu); domyślnie taki plik tylko sprawdza (dopracowanie)")
     ap.add_argument("--bez-oka", action="store_true",
                     help="tylko .pptx: nie poprawiaj układu po obejrzeniu zrzutów (domyślnie program ocenia zrzuty slajdów "
                          "i zmienia układ slajdów z usterkami wyglądu)")
@@ -76,12 +94,24 @@ def main(argv=None):
     import engine
     engine.set_robocze(a.robocze)
     try:
-        an = engine.analyze(a.folder)
+        an = engine.analyze(a.folder, mimo_to=a.mimo_to)
     except Exception as e:
         print("BŁĄD:", e)
         return 2
     pptx = an.get("tryb") == "pptx"
-    if pptx:
+    dok = an.get("tryb") == "dokument"
+    dopr = an.get("tryb") == "dopracowanie"
+    if dopr:
+        print("Dopracowanie: %s | %d slajdów, podpowiedzi w [nawiasach]: %d, możliwe błędy tekstu: %d | spec: %s"
+              % (an["produkt"], an["slajdy"], an["podpowiedzi"], an["bledy_tekstu_liczba"], an.get("spec") or "brak"))
+    elif dok:
+        sw = an["suwaki"]
+        print("Dokument: %s | %d słów, %d akapitów, nagłówki: %s, %d tabel, %d obrazów | slajdy: %d-%d (domyślnie %d), "
+              "przekładki rozdziałów: 0-%d (domyślnie %d)"
+              % (an["produkt"], an["slowa"], an["akapity"], ", ".join("%s:%s" % kv for kv in sorted(an["naglowki"].items())) or "brak",
+                 an["tabele"], an["obrazy"], sw["slajdy"]["min"], sw["slajdy"]["max"], sw["slajdy"]["domyslnie"],
+                 sw["rozdzialy"]["max"], sw["rozdzialy"]["domyslnie"]))
+    elif pptx:
         print("Prezentacja: %s | %d slajdów, %d akapitów, %d grafik, %d tabel, %d wykresów | rozdziały: %s"
               % (an["produkt"], an["slajdy"], an["akapity"], an["grafiki"], an["tabele"], an["wykresy"],
                  "; ".join("%s=%s" % (x["id"], x["nazwa"]) for x in an["sekcje"] if x.get("rodzaj") == "pptx")))
@@ -94,18 +124,27 @@ def main(argv=None):
         print(" -", u["tekst"])
     if a.tylko_analiza:
         print(json.dumps({k: v for k, v in an.items() if k != "sekcje"}, ensure_ascii=False, indent=1))
+        if dok or dopr:
+            return 0
         print("Sekcje:", ", ".join("%s%s" % (s["id"], "" if s["dostepna"] else "(brak danych)") for s in an["sekcje"]))
         if pptx:
             print("Puste slajdy do dołożenia (--cel rozwin --dodaj ...):",
                   ", ".join("%s=%s" % (s["id"], s["nazwa"]) for s in an["sekcje"] if s.get("rodzaj") == "szablon"))
         return 0
+    if dok:
+        opts = {"slajdy": a.slajdy or None, "rozdzialy": None if a.rozdzialy < 0 else a.rozdzialy, "wyjscie": a.wyjscie or None,
+                "bez_qa": a.bez_qa, "oko": not a.bez_oka, "szacowany_czas_s": an["szacowany_czas_s"]}
+        return _run(engine, an, opts, a)
+    if dopr:  # plik w stylu marki: bez rozdziałów, celu i suwaków - sam przegląd
+        opts = {"wyjscie": None, "bez_qa": a.bez_qa, "szacowany_czas_s": an["szacowany_czas_s"]}
+        return _run(engine, an, opts, a)
     if pptx:  # konwersja: domyślnie wszystkie rozdziały; nie ma długości ani ilości tekstu - treść zawsze w całości
         sekcje = [s.strip() for s in a.sekcje.split(",") if s.strip()] or \
             [s["id"] for s in an["sekcje"] if s.get("rodzaj") == "pptx"]
         if a.cel == "rozwin":  # puste slajdy z szablonu (t10, t58...) idą tą samą listą co rozdziały
             sekcje += [s.strip() for s in a.dodaj.split(",") if s.strip()]
         opts = {"styl": a.styl, "sekcje": sekcje, "wyjscie": a.wyjscie or None, "bez_qa": a.bez_qa, "cel": a.cel,
-                "cel_slajdy": a.slajdy, "wizualizacje": not a.bez_wizualizacji, "oko": not a.bez_oka,
+                "cel_slajdy": a.slajdy, "wizualizacje": not a.bez_wizualizacji, "oko": not a.bez_oka, "mimo_to": a.mimo_to,
                 "szacowany_czas_s": an["szacowany_czas_s"]}
         return _run(engine, an, opts, a)
     dl = {"krotka": 0, "standard": 1, "pelna": 2}[a.dlugosc]
@@ -136,9 +175,19 @@ def _run(engine, an, opts, a):
         if res.get("traceback"):
             print(res["traceback"])
         return 1
-    print("\nGOTOWE: %s (%d slajdów, %d s)" % (res["pptx"], res["slajdy"], res["czas_s"]))
-    if res.get("tryb") == "pptx":
-        print("Cel: %s | ukryte slajdy: %d | nowe slajdy z szablonu: %d" % (res["cel_nazwa"], res["ukryte"], len(res["nowe"])))
+    if res.get("tryb") == "dopracowanie":
+        print("\nSPRAWDZONE: %s (%d slajdów, %d s); plik %s" % (res["pptx"], res["slajdy"], res["czas_s"],
+                                                           "nie został zmieniony" if res.get("plik_bez_zmian") else "ZMIENIŁ SIĘ w trakcie sprawdzania"))
+    else:
+        print("\nGOTOWE: %s (%d slajdów, %d s)" % (res["pptx"], res["slajdy"], res["czas_s"]))
+    if res.get("tryb") in ("pptx", "dokument", "dopracowanie"):
+        if res["tryb"] == "pptx":
+            print("Cel: %s | ukryte slajdy: %d | nowe slajdy z szablonu: %d" % (res["cel_nazwa"], res["ukryte"], len(res["nowe"])))
+        elif res["tryb"] == "dokument":
+            print("Z dokumentu | suwaki: slajdy %s, przekładki rozdziałów %s" % (res["suwaki"]["slajdy"], res["suwaki"]["rozdzialy"]))
+        else:
+            print("Dopracowanie | podpowiedzi w [nawiasach]: %d | spec: %s | kopia do renderu: %s" % (
+                res["podpowiedzi"], res.get("spec") or "brak", res["kopia_przegladu"]))
         ok = res.get("oko") or {}
         if ok.get("uruchomione"):
             print("Oko programu: rundy %d, zmieniony układ slajdów: %s, cofnięte: %s, usterki do sprawdzenia: %d (%d s)" % (

@@ -270,7 +270,7 @@ Nowa aplikacja = nowy wpis w `APPS` (np. `"nowa": "NA"`).
 1. Wybierz wariant (rozdz. 2) i tryb odstępów (wygodny: kreator; zwarty: narzędzie).
 2. Wczytaj tokeny: web `tokens.css` + `data-theme`; Qt `VARIANTS[...]` + szablon QSS. Zadeklaruj czcionki.
 3. Narysuj drzewo kontenerów i przypisz poziomy L0-L4 (rozdz. 3.2). Zapisz je w komentarzu w arkuszu stylów.
-4. Złóż ekran z komponentów (rozdz. 4, `components.md` rozdz. 25). Tło okna białe; panel → biała karta → kafel. Nagłówki Mindset WERSALIKAMI.
+4. Złóż ekran z komponentów (rozdz. 4, `components.md` rozdz. 25 i wzorce rozdz. 26: wybór pigułkami, „Więcej ustawień”, karty zwijane, okno ustawień jako strona). Tło okna białe; panel → biała karta → kafel. Nagłówki Mindset WERSALIKAMI.
 5. Tagi z generatora (rozdz. 5), ikony Lucide zielone (rozdz. 7).
 6. Aplikacja okienkowa: plansza startowa (rozdz. 8) i ikona (rozdz. 9).
 7. `python scripts/build_tokens.py --check` (gdy dodałeś tokeny), zrzuty ekranu każdego wariantu, który aplikacja ma,
@@ -286,7 +286,7 @@ Nowa aplikacja = nowy wpis w `APPS` (np. `"nowa": "NA"`).
 | tekst `#222222`, pomocniczy `#666666` | brązowy tekst w stylach jasnych, czerń `#000` poza menu |
 | tytuł główny, zakładka aktywna, podpis ikony ciemnozielone | zielony tytuł karty z treścią (te `#222222`) |
 | przycisk główny zielony pełny, jedna żółta wyróżniona akcja na widok | dwa żółte przyciski, żółty tekst na jasnym tle |
-| przycisk drugorzędny biały z obrysem `#222222` | zielony obrys 2 px albo brązowy obrys |
+| przycisk drugorzędny biały z lekkim obrysem `btn2-border` (grey-500, S59), szerokości napisu, obok pola | zielony obrys 2 px, brązowy albo czarny `#222222` obrys; drugorzędny na całą szerokość |
 | ikony liniowe zielone, kreska 2, przycisk-ikona kwadrat 44 px | okrągłe przyciski-ikony (kółko tylko: awatar, kropka, gałka, radio) |
 | checkbox i radio z białym wnętrzem, zielony znak | ciemny wypełniony kwadrat po zaznaczeniu |
 | tagi z generatora (zielone odcienie), etykieta kategorii | stałe barwy tagów (fiolet, niebieski, pomarańcz) |
@@ -294,6 +294,17 @@ Nowa aplikacja = nowy wpis w `APPS` (np. `"nowa": "NA"`).
 | link w treści pogrubiony, podkreślony, `#222222` | link w treści niepodkreślony |
 | tabela w pasy `zebra` / biel, bez linii pionowych | linie pionowe i obrysy komórek |
 | wartości z tokenów | kolory wpisane w komponent na sztywno |
+| wybór wartości jako pigułki, potem jeden żółty przycisk akcji (components 26.1) | pastelowe kafle-przyciski (miętowy, brzoskwiniowy, błękitny), które od razu coś uruchamiają (S58) |
+| lista wielokrotnego wyboru zostaje otwarta po kliknięciu | lista, która zwija się po każdym kliknięciu |
+| rzadkie ustawienia w „Więcej ustawień” przy opcji, która ich potrzebuje (26.2) | rząd dużych zielonych przełączników w najprostszej ścieżce; usunięcie funkcji „bo makieta jej nie ma” |
+| białe karty sekcji, zwijane z podsumowaniem, siatka etykieta / pole (26.3) | długa kolumna sekcji oddzielonych kreskami, przyciski różnej wysokości |
+| okno ustawień jako jedna strona z kotwicami (26.5) | zakładki nad pustym polem |
+| ok. 70 px między krokami ekranu (S60) | kroki sklejone, suwak jakości ściśnięty między innymi kontrolkami |
+| dopracowany ekran poprawiasz punktowo (S61) | przebudowa działającego ekranu „pod nowy styl” |
+| lista produktów / plików jako lista wierszy (S62) | zamiana listy w kafle lub karty |
+| jeden przycisk „Zmień wersję” z listą F - Ukończona, X - Archiwalna, D - Demo (S63) | rząd jednoliterowych przycisków stanu w każdym wierszu |
+| metki stonowane, z szarością (S64) | nasycony turkus / cyjan metki w liście |
+| lekkie pole wyszukiwania (S65) | gruby zielony obrys pola i duży przycisk „Szukaj” |
 
 ## 12. Źródła i zrzuty
 

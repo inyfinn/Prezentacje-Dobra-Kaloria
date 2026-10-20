@@ -28,6 +28,14 @@ firmę, usuń ukryte slajdy w PowerPoincie albo zapisz PDF.
 Na slajdach z liniami produktów program sam dokłada paczki z biblioteki produktów i wypisuje na końcu, które wstawił -
 sprawdź, czy to te, o które chodziło.
 
+Masz dokument zamiast prezentacji? Upuść plik .docx, .doc, .rtf, .odt, .pdf, .txt albo .md - program zrobi z niego
+prezentację w stylu marki. Dwoma suwakami ustawiasz liczbę slajdów i liczbę rozdziałów (przekładek); wartości domyślne
+są dobre bez dotykania. Program niczego nie dopisuje i nie gubi: te same słowa, ułożone w hasła, liczby i wnioski.
+Skan bez tekstu (pdf z samych obrazów) nie zostanie odczytany - program to powie.
+
+Masz prezentację już w stylu Dobra Kaloria (z szablonu albo z tego programu)? Też ją upuść. Program jej nie przerabia,
+tylko sprawdza: pokazuje możliwe błędy w tekście, slajdy do poprawy i daje polecenie dla AI. Twój plik zostaje bez zmian.
+
 Pracujesz z AI? Wrzuć do agenta (czatu) plik CLAUDE.md / AGENTS.md / GEMINI.md / GROK.md z tego folderu - agent sam
 sprawdzi, czy ma skill /prezentacje, zainstaluje go z tego folderu (jeśli trzeba) i poprowadzi Cię dalej: podasz mu
 folder produktu albo plik .pptx, a on zrobi prezentację. Ręcznie skill instaluje plik zainstaluj-skill.cmd.
@@ -37,6 +45,8 @@ Program skopiuje polecenie i otworzy czat. Wklej je tam (Ctrl+V) i naciśnij Ent
 przeciągnij też obrazy z folderu "plansze" obok prezentacji - wtedy AI oceni także wygląd.
 Najlepiej działa agent z dostępem do plików (Claude na komputerze w trybie Cowork albo Code, Codex, Gemini CLI):
 kliknij "Polecenie dla agenta z plikami" i wklej je agentowi - sam otworzy pliki i dopracuje prezentację.
+Masz Claude na komputerze? Otwórz plik w PowerPoincie i użyj wtyczki Claude (Claude for Microsoft 365) -
+wklej to samo polecenie, poprawi slajdy od razu w pliku.
 
 Program sam sprawdza, czy jest nowsza wersja, i pokazuje przycisk "Zaktualizuj".
 Instrukcje dla AI w tym folderze: CLAUDE.md (Claude), AGENTS.md (ChatGPT / Codex), GEMINI.md (Gemini), GROK.md (Grok).

@@ -1183,11 +1183,11 @@ QLabel#pomocniczy {{ color: {color_text_muted}; font-size: {qt_fs_hint}; }}
 
 ### 25.3 Przyciski (S6)
 
-Główny: zielony pełny, biały tekst Lato 700 wersalikami, promień 4, hover `brand-hover`. Drugorzędny: biały, obrys 1 px `#222222`, hover `#F6F2EF`.
+Główny: zielony pełny, biały tekst Lato 700 wersalikami, promień 4, hover `brand-hover`. Drugorzędny: biały, obrys 1 px `btn2-border` (od 2.0.10 grey-500 `#868E96`, S59; wcześniej `#222222`), hover `#F6F2EF`.
 Żółty `.dk-btn--cta` = jedna wyróżniona akcja widoku, tekst `#222222`. `.dk-btn--display` to napis Mindset 20 px jak „DO KOSZYKA”. Wyłączony: tło `disabled-bg`.
 
 ```css
-/* przyciski: główny zielony, drugorzędny biały z ciemnym obrysem, wyróżniony żółty */
+/* przyciski: główny zielony, drugorzędny biały z lekkim obrysem (S59), wyróżniony żółty */
 .dk-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--dk-space-2); min-height: var(--dk-control-h);
   padding: 0 var(--dk-space-6); border-radius: var(--dk-radius-btn); border: 1px solid transparent; cursor: pointer;
   font: 700 15px/1 var(--dk-font-text); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap;
@@ -1261,7 +1261,7 @@ QLabel#podpisIkony {{ font-weight: 700; font-size: 11px; color: {color_heading_a
 ### 25.5 Zakładki i kroki (S10)
 
 Zakładki główne: Mindset, aktywna ciemnozielona, nieaktywna prawie czarna, pod spodem linia 1 px `#222222`. Podzakładki: Lato wersaliki `label`, aktywna z zieloną
-kreską 2 px. Kroki: pasek 5 px, aktywny `progress` `#47C33D`, reszta `#E9E9E9`.
+kreską 2 px. Kroki: pasek 5 px, aktywny `progress` `#47C33D`, reszta `#E9E9E9` (w programach marki od 20.10.2026 cienka linia z numerami - 26.7).
 
 ```css
 /* zakładki: Mindset, aktywna zielona, pod spodem linia 1 px */
@@ -1447,3 +1447,123 @@ Cel dotykowy >= 44 px, fokus 2 px `focus`.
 - Rób: jedną zieleń przycisków (`brand`), jeden żółty przycisk wyróżnionej akcji na widok.
 - Nie rób: beżowego, ecru ani szarego tła okna; brązowego tekstu w stylach jasnych; ikon-przycisków w kółku; nakładek na L4 (nakładka = `overlay` + cień).
 - Nie rób: kolorów na sztywno z tego rozdziału w aplikacji - tylko role. Hexy w opisach to wartości ról w 2.0.0.
+
+
+## 26. Wzorce z rund `/design` 20.10.2026 (program „Stwórz prezentację”, Photo Resizer) - tokeny 2.0.10
+
+Problemy, które user wskazał w gotowych aplikacjach, i rozwiązanie, które wybrał. Nowy ekran ma je mieć od początku.
+Reguły: `ZALECENIA-USERA.md` S20, S21, S30, S48, S58-S60. Kod wzorcowy: program „Stwórz prezentację” `WORK\src\ui`
+(kroki, karty liczb, „Więcej ustawień”), Photo Resizer 2.6.7 `app\main_window.py`, `dialogs\format_settings.py`,
+`dialogs\advanced_options.py`, `widgets\format_multi_combo.py`.
+
+| Problem w aplikacji | Wzorzec | Przepis |
+|---|---|---|
+| pastelowe kafle-przyciski (miętowy PNG, brzoskwiniowy JPG, błękitny AVIF), każdy od razu coś uruchamia | wybór jako pigułki `dk-seg`, potem JEDEN żółty przycisk akcji (S58) | 26.1 |
+| rozwijana lista wielokrotnego wyboru zamyka się po każdym kliknięciu | pigułki do zaznaczania; gdy lista musi zostać - klik przełącza i lista zostaje otwarta | 26.1 |
+| w trybie prostym rząd dużych zielonych przełączników (rozdziały, wizualizacje) | rzadkie ustawienia w panelu „Więcej ustawień”, pokazywanym tylko przy opcji, która ich potrzebuje; funkcji nie usuwasz | 26.2 |
+| długa kolumna sekcji, chaos, każdy przycisk innej wysokości | białe karty sekcji na szarym panelu, siatka etykieta / pole, karty zwijane z podsumowaniem | 26.3 |
+| „Włącz…” jako zwykły checkbox na górze każdej sekcji | przełącznik w nagłówku karty, wyłączona treść przygaszona | 26.4 |
+| zakładki nad wielkim pustym polem (2 opcje i 600 px pustki) | okno ustawień jako jedna przewijana strona z sekcjami i skrótami u góry | 26.5 |
+| liczby schowane w zdaniach listy | karty liczb: nazwa i opis z lewej, duża liczba Mindset z prawej (S21) | 26.6 |
+| pasek kroków z grubych szarych belek | cienka linia, numer i nazwa kroku, aktywny z zieloną kreską 2 px | 26.7 |
+| przycisk drugorzędny na całą szerokość, zbyt mocne obrysy | przycisk na szerokość napisu obok pola; obrys `btn2-border` = grey-500 (S59) | 26.8 |
+| kroki ekranu sklejone | ok. 70 px między krokami jednej czynności (S60), 64 px między sekcjami (S24) | 26.8 |
+
+### 26.1 Wybór wartości: pigułki zamiast kolorowych kafli i list, które się zwijają
+
+Jedna wartość (format zapisu, cel): `dk-seg` z `aria-pressed`, aktywna zielona. Kilka wartości: ta sama pigułka jako
+przełącznik (`aria-pressed` na każdej), co najmniej jedna zostaje włączona. Akcja to osobny przycisk (żółty, jeden na widok).
+Pigułka niczego nie uruchamia. Rzadkie wartości (np. TIFF, HEIC, BMP, JP2, PDF): ostatnia pigułka „Inne” otwiera listę.
+
+```css
+/* S58: wybór = pigułki; kolor tylko na wybranej (zielony), nigdy pastelowe tła na wartościach */
+.dk-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.dk-pick > button { min-height: 40px; padding: 0 var(--dk-space-5); border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--dk-color-icon-bg); color: var(--dk-color-text); font: 700 14px/1 var(--dk-font-text); }
+.dk-panel .dk-pick > button { background: var(--dk-color-surface-2); }
+.dk-pick > button[aria-pressed="true"] { background: var(--dk-color-brand); color: var(--dk-color-on-brand); }
+.dk-pick > button:focus-visible { outline: var(--dk-control-focus-width) solid var(--dk-color-focus); outline-offset: 2px; }
+```
+
+```css
+/* Qt: QPushButton z setCheckable(True) w QButtonGroup (setExclusive(True) dla jednej wartości, False dla wielu) */
+QPushButton[pigulka="true"] {{ min-height: 40px; padding: 0 {space_5}; border: 0; border-radius: 20px;
+    background: {color_icon_bg}; color: {color_text}; font-weight: 700; }}
+QPushButton[pigulka="true"]:checked {{ background: {color_brand}; color: {color_on_brand}; }}
+```
+
+Lista rozwijana wielokrotnego wyboru (gdy pigułek byłoby za dużo): każdy klik przełącza pozycję, lista zostaje otwarta,
+zamyka ją klik obok albo Esc. Qt: filtr zdarzeń na `view().viewport()` instalowany PO `setView` (działa przed filtrem
+kontenera popupu), połyka puszczenie przycisku bez wciśnięcia w liście i puszczenie po przełączeniu - wzór
+`format_multi_combo.py` + test `tests/test_format_combo_popup.py` (prawdziwe okno; na `offscreen` popup się nie otwiera).
+
+### 26.2 Tryb prosty: rzadkie ustawienia w „Więcej ustawień”
+
+Najprostsza ścieżka ekranu nie ma ani jednego przełącznika: karty wyboru (S26) i przycisk akcji. Panel L1
+„Więcej ustawień” (nagłówek `label` + dopisek, np. „przy skracaniu”) pojawia się pod kartami tylko przy opcji, która go
+potrzebuje; w środku białe wiersze L2 z checkboxem DS w 2 kolumnach. Zasada nadrzędna: przy przenoszeniu kontrolek
+do panelu NIE usuwasz funkcji - przed wdrożeniem wypisz, co ekran wysyła do silnika, i porównaj przed / po (lekcja
+20.10: makieta bez pola „ile slajdów” zgubiła funkcję).
+
+### 26.3 Karty sekcji zwijane z podsumowaniem
+
+Prawa kolumna ustawień: szary panel L1, w nim białe karty sekcji, odstęp 16 px. Nagłówek karty: tytuł Mindset
+wersalikami, z prawej akcja karty („Ustawienia…”) i strzałka zwijania. Treść w siatce `etykieta | pole`
+(etykiety ~150 px, jedna kolumna). Zwinięta karta: tytuł + jedna linia podsumowania `text-muted` („Tło zostaje ·
+segreguj do podfolderów”). Stan zwinięcia zapamiętany. Przyciski w karcie w jednym rzędzie, równej wysokości (S48);
+cztery narzędzia = 1 rząd albo siatka 2×2.
+
+```css
+.dk-sec { background: var(--dk-color-surface-2); border-radius: var(--dk-radius-card); padding: var(--dk-space-6); }
+.dk-sec + .dk-sec { margin-top: 16px; }
+.dk-sec > summary { display: flex; align-items: center; gap: var(--dk-space-4); cursor: pointer; list-style: none;
+  font: 400 20px/1.1 var(--dk-font-display); text-transform: uppercase; color: var(--dk-color-heading); }
+.dk-sec > summary .dk-sec__sum { font: 400 14px/1.4 var(--dk-font-text); text-transform: none; color: var(--dk-color-text-muted); }
+.dk-sec:not([open]) { padding-block: var(--dk-space-4); }
+.dk-form { display: grid; grid-template-columns: minmax(120px, 150px) 1fr; gap: 12px var(--dk-space-6); align-items: center; }
+@media (max-width: 720px) { .dk-form { grid-template-columns: 1fr; } }   /* wąsko: etykieta nad polem */
+```
+
+Qt: karta = `QFrame#karta` (tło `surface_2`) w `QScrollArea` z tłem `surface_1`; nagłówek = `QToolButton` z
+`setCheckable(True)` i strzałką, `toggled` ukrywa `QWidget` treści i pokazuje `QLabel` podsumowania; formularz
+`QGridLayout` (kolumna 0 etykiety, `setColumnMinimumWidth(0, 150)`, kolumna 1 `stretch`).
+
+### 26.4 Przełącznik w nagłówku karty
+
+Sekcja, którą się włącza (Zmiana rozmiaru, Kadrowanie): przełącznik DS (25.8) w prawym górnym rogu karty z napisem
+„Włączone / Wyłączone”; treść wyłączonej karty `opacity: .5` i `disabled`. Ta sama wartość w ustawieniach co dawny
+checkbox „Włącz…”.
+
+### 26.5 Okno ustawień: jedna strona zamiast zakładek nad pustym polem
+
+Gdy zakładki mają po 2-3 opcje: jedna przewijana strona, sekcja na format/grupę (szary panel, w nim siatka 26.3),
+u góry rząd skrótów-kotwic (pod-zakładki 25.5, klik przewija do sekcji). Opis grupy na górze sekcji, nie na dole okna.
+Na dole okna jeden rząd: cichy „Resetuj” z lewej, „Anuluj” (drugorzędny) i „OK” (główny) z prawej.
+
+### 26.6 Karty liczb
+
+„Co znalazłem” / podsumowanie: szary panel, białe karty w siatce 2×2: nazwa (700) i opis (`text-muted`) z lewej,
+liczba Mindset 48 px `heading-accent` z prawej (S21). Pozycja bez liczby („Tabele i wykresy: brak”) jako cicha linia
+pod kartami, nie karta z zerem.
+
+### 26.7 Pasek kroków: cienka linia (zastępuje paski 5 px z 25.5 w programach marki)
+
+```css
+.dk-steps2 { display: flex; gap: var(--dk-space-8); border-bottom: 1px solid var(--dk-color-border); }
+.dk-steps2 > li { list-style: none; padding: 0 0 var(--dk-space-4); margin-bottom: -1px; border-bottom: 2px solid transparent;
+  color: var(--dk-color-step-idle-text); font: 400 15px/1 var(--dk-font-text); display: flex; gap: 8px; }
+.dk-steps2 > li .n { font-weight: 700; }
+.dk-steps2 > li[aria-current="step"] { color: var(--dk-color-text); font-weight: 700; border-bottom-color: var(--dk-color-brand); }
+.dk-steps2 > li[aria-current="step"] .n { color: var(--dk-color-brand); }
+.dk-steps2 > li.done .n { color: var(--dk-color-brand); }   /* zakończony: ptaszek zamiast numeru */
+```
+
+### 26.8 Siatka, odstępy i rozmiar przycisków
+
+- Kroki jednej czynności (pliki → folder → format i jakość → akcja) oddzielone ok. 70 px (S60); sekcje 64 px (S24).
+- Przycisk drugorzędny ma szerokość napisu i stoi obok pola, którego dotyczy (pole `1fr`, przycisk `auto`); na całą
+  szerokość tylko główna akcja widoku. W wąskim oknie pole i przycisk zostają w jednym rzędzie, dopóki napis się mieści.
+- Suwak z wartością (jakość) zawsze w swoim rzędzie: etykieta, suwak `1fr`, liczba 40 px z prawej; nigdy ściśnięty
+  między pigułkami a przyciskiem.
+- Obrys przycisku drugorzędnego `btn2-border` (grey-500, S59) - nigdy `#222222` na sztywno.
+- Responsywnie: sprawdź 1280 i 960 px (okno aplikacji) albo 1440 / 768 / 390 px (web) - bez nachodzenia i ucinania.

@@ -80,18 +80,35 @@
   }
   function baseName(p) { return String(p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop(); }
   function dirName(p) { var s = String(p || ''), i = Math.max(s.lastIndexOf('\\'), s.lastIndexOf('/')); return i > 0 ? s.slice(0, i) : s; }
-  function errMsg(e) { return (e && e.message) ? e.message : String(e || 'Coś poszło nie tak.'); }
+  /* Komunikat w oknie nie może mieć surowego wyjątku (WinError, Errno, Traceback, nazwa klasy, podwójne ukośniki ze ścieżki):
+     takie zdanie zamieniamy na ogólne, a szczegóły zostają w konsoli i w logu programu. */
+  var SUROWY = /WinError|Traceback|Errno|Error\b|Exception|\\\\|File "|0x[0-9a-f]{4,}|object at/i;
+  function errMsg(e) {
+    var t = (e && e.message) ? e.message : String(e || '');
+    if (!t || SUROWY.test(t)) {
+      console.info('[błąd mostu] ' + t);
+      return 'Coś poszło nie tak. Spróbuj jeszcze raz; jeśli to się powtórzy, uruchom program ponownie.';
+    }
+    return t;
+  }
+  /* Odpowiedź open_path / open_folder: {ok, komunikat}. Przeniesiony albo usunięty plik = zdanie w tym samym tostcie co inne błędy. */
+  function openResult(r) {
+    if (r && r.komunikat) toast(r.komunikat, r.ok ? 'info' : 'error', 9000);
+  }
 
   /* ---------- stan ---------- */
   var state = {
     screen: 'start',
-    mode: 'folder',      /* 'folder' | 'pptx': wyznacza kroki ustawień i pasek kroków */
+    mode: 'folder',      /* 'folder' | 'pptx' | 'dokument' | 'dopracowanie': wyznacza kroki ustawień i pasek kroków */
+    dok: false,          /* tryb dokument: dwa suwaki (liczba slajdów, rozdziały) zamiast długości i ilości tekstu */
+    dopr: false,         /* tryb dopracowanie: plik już w stylu marki - sam przegląd (bez celu, rozdziałów i suwaków) */
     pane: 'materialy',   /* bieżący krok ustawień (body[data-pane]) */
     paneMax: 0,          /* najdalszy odwiedzony krok ustawień: do odwiedzonych wolno wrócić kliknięciem w pasek kroków */
     info: null,
     result: null,
     secs: [],
     cel: 'wiernie',
+    wizOk: false,        /* gotowa prezentacja: czy jest biblioteka produktów dla wizualizacji */
     packFiles: [],
     packs: {},
     analyzing: false,
@@ -134,11 +151,15 @@
 
   /* Kroki ustawień (07.10.2026): jeden temat na ekran, widać tylko krok z body[data-pane]. Ten sam krok 'slajdy'
      pokazuje slajdy folderu albo rozdziały gotowej prezentacji. Dodatki stoją przed slajdami, bo link do filmu
-     włącza slajd z filmem. Pasek kroków u góry = kroki ustawień + Tworzenie + Gotowe. */
-  var PANES = { folder: ['materialy', 'styl', 'dodatki', 'slajdy'], pptx: ['materialy', 'cel', 'slajdy'] };
+     włącza slajd z filmem. Gotowa prezentacja (20.10.2026, wariant 3B): Cel i rozdziały na jednym ekranie. Pasek kroków u góry =
+     kroki ustawień + Tworzenie + Gotowe. */
+  var PANES = { folder: ['materialy', 'styl', 'dodatki', 'slajdy'], pptx: ['materialy', 'cel'], dokument: ['materialy', 'slajdy'],
+    dopracowanie: ['materialy'] };
   var PANE_LBL = {
     folder: { materialy: 'Materiały', styl: 'Styl', dodatki: 'Dodatki', slajdy: 'Slajdy' },
-    pptx: { materialy: 'Przegląd', cel: 'Cel', slajdy: 'Rozdziały' }
+    pptx: { materialy: 'Przegląd', cel: 'Cel' },
+    dokument: { materialy: 'Przegląd', slajdy: 'Slajdy' },
+    dopracowanie: { materialy: 'Przegląd' }
   };
   function panes() { return PANES[state.mode] || PANES.folder; }
   function paneIdx() { return Math.max(0, panes().indexOf(state.pane)); }
@@ -154,7 +175,7 @@
 
   function updateSteps() {
     var ol = $('#steps'), list = panes(), lbl = PANE_LBL[state.mode] || PANE_LBL.folder;
-    var names = list.map(function (p) { return lbl[p]; }).concat(['Tworzenie', 'Gotowe']);
+    var names = list.map(function (p) { return lbl[p]; }).concat(state.mode === 'dopracowanie' ? ['Sprawdzanie', 'Sprawdzone'] : ['Tworzenie', 'Gotowe']);
     var cur = stepNow(), last = names.length;
     ol.hidden = state.screen === 'start';
     ol.setAttribute('aria-label', 'Postęp: krok ' + cur + ' z ' + last);
@@ -197,7 +218,8 @@
     var lastPane = i === list.length - 1;
     $('#btn-next').hidden = lastPane;
     $('#btn-build').hidden = !lastPane;
-    $('#back-lbl').textContent = i === 0 ? (state.mode === 'pptx' ? 'Inna prezentacja' : 'Inny folder') : 'Wstecz';
+    $('#back-lbl').textContent = i === 0 ? ({ pptx: 'Inna prezentacja', dokument: 'Inny dokument', dopracowanie: 'Inna prezentacja' }[state.mode] || 'Inny folder') : 'Wstecz';
+    $('#btn-build').lastChild.textContent = state.mode === 'dopracowanie' ? 'Sprawdź prezentację' : 'Stwórz prezentację';
     updateSteps();
     window.scrollTo(0, 0);
     if (!noFocus && state.screen === 'opcje') focusHead('.pane[data-pane="' + id + '"]');
@@ -215,6 +237,7 @@
   function toast(msg, kind, ms) {
     kind = kind || 'info';
     var host = $('#toasts');
+    $$('.toast', host).forEach(function (e) { if (e.textContent.indexOf(msg) === 0) host.removeChild(e); });   /* ten sam komunikat nie stoi dwa razy */
     while (host.children.length >= 3) host.removeChild(host.firstChild);
     var t = h('div', { class: 'toast ' + kind, role: kind === 'error' ? 'alert' : 'status' },
       icon(kind === 'error' ? 'circle-alert' : (kind === 'ok' ? 'check' : 'info')),
@@ -264,7 +287,9 @@
     else if (r.klucz === 'inny') s2 = ['Otwórz swój czat AI', 'Masz Claude na komputerze? Wybierz tryb Cowork albo Code, wtedy AI widzi pliki. W innym czacie dołącz plik prezentacji.'];
     else s2 = ['Dołącz plik prezentacji', r.nazwa + ' nie widzi plików na komputerze. Przeciągnij do czatu plik prezentacji z folderu.'];
     /* plansze slajdów leżą w podfolderze obok prezentacji (otwiera go "Pokaż folder"): czat bez plików ocenia z nich wygląd */
-    if (!agent && state.done && state.done.plansze_folder) s2[1] += ' Przeciągnij do czatu obrazy z folderu „plansze” obok prezentacji - wtedy AI oceni też wygląd.';
+    if (!agent && state.done && state.done.plansze_folder) s2[1] += (state.done.tryb === 'dopracowanie'
+      ? ' Przeciągnij do czatu obrazy z folderu „plansze” (przycisk „Pokaż folder”) - wtedy AI oceni też wygląd.'
+      : ' Przeciągnij do czatu obrazy z folderu „plansze” obok prezentacji - wtedy AI oceni też wygląd.');
     $('#guide-s2-t').textContent = s2[0];
     $('#guide-s2-d').textContent = s2[1];
     g.hidden = false;
@@ -299,11 +324,12 @@
     });
   }
 
-  /* Gotowa prezentacja (.pptx) do przełożenia na styl DK: ten sam przepływ co folder, analyze() rozpoznaje plik. */
+  /* Plik: gotowa prezentacja (.pptx) do przełożenia na styl DK albo dokument (Word, PDF, .txt...) do zamiany na slajdy.
+     Ten sam przepływ co folder, analyze() rozpoznaje, co to za plik. */
   function pickPptx() {
     if (state.picking || state.analyzing) return;
     state.picking = true;
-    call('pick_pptx').then(function (p) {
+    call(apiFn('pick_file') ? 'pick_file' : 'pick_pptx').then(function (p) {
       state.picking = false;
       if (p) analyze(p);
     }).catch(function (e) {
@@ -350,19 +376,23 @@
   function analyze(path) {
     if (state.analyzing) return;
     state.analyzing = true;
+    $$('#toasts .toast.error').forEach(function (e) { e.parentNode.removeChild(e); });   /* komunikat o poprzednim pliku nie zasłania nowego */
     var lbl = $('#analiza-folder');
     var name = baseName(path);
     lbl.textContent = name || '';
     var isPptx = /\.(pptx|ppsx|potx|pptm)$/i.test(name);
-    state.mode = isPptx ? 'pptx' : 'folder';
+    var isDok = /\.(docx?|rtf|odt|pdf|txt|md)$/i.test(name);   /* tylko napis na ekranie; właściwy tryb ustawia odpowiedź silnika (res.tryb) */
+    state.mode = isPptx ? 'pptx' : (isDok ? 'dokument' : 'folder');
+    state.dok = false;
+    state.dopr = false;
     state.pane = 'materialy';
     state.paneMax = 0;
-    $('#h-analiza').textContent = isPptx ? 'Czytam prezentację…' : 'Czytam folder…';
+    $('#h-analiza').textContent = isPptx ? 'Czytam prezentację…' : (isDok ? 'Czytam dokument…' : 'Czytam folder…');
     lbl.hidden = !name;
     goto('analiza');
     clearTimeout(analyzeWatchdog);
     analyzeWatchdog = setTimeout(function () {
-      if (state.analyzing && state.screen === 'analiza') onError('Czytanie folderu trwa za długo. Spróbuj jeszcze raz albo wybierz inny folder.');
+      if (state.analyzing && state.screen === 'analiza') onError(isDok ? 'Czytanie dokumentu trwa za długo. Spróbuj jeszcze raz albo wybierz inny plik.' : 'Czytanie folderu trwa za długo. Spróbuj jeszcze raz albo wybierz inny folder.');
     }, 180000);
     call('analyze', path).then(function (res) {
       clearTimeout(analyzeWatchdog);
@@ -373,15 +403,30 @@
     });
   }
 
-  /* ---------- opcje: lewa kolumna ---------- */
-  function foundRow(kind, main, sub, extra, wide) {
-    var ic = kind === 'ok' ? 'check' : (kind === 'warn' ? 'alert' : 'minus');
-    return h('li', { class: (kind === 'none' ? 'f-none' : '') + (wide ? ' f-wide' : '') },
-      h('span', { class: 'f-ic', 'aria-hidden': 'true' }, icon(ic)),
-      h('div', { class: 'f-txt' },
-        main,
-        sub ? h('span', { class: 'f-sub', text: sub }) : null,
-        extra || null));
+  /* ---------- opcje: Przegląd (wariant 2B, 20.10.2026) ---------- */
+  /* Białe karty w szarym panelu: nazwa i opis po lewej, duża cyfra po prawej. Pozycja bez liczby („brak”, „nie znalazłem”)
+     to cicha linia pod kartami. Wszystkie tryby (folder, pptx, dokument, dopracowanie) składają przegląd z tych dwóch funkcji. */
+  function foundStart() {
+    $('#found-list').replaceChildren();
+    $('#found-none').replaceChildren();
+  }
+  function stat(n, name, sub, extra) {
+    var li = h('li', { class: 'stat' + (extra ? ' stat-wide' : '') },
+      h('div', { class: 'stat-txt' }, h('b', { text: name }), sub ? h('span', { class: 'sub', text: sub }) : null),
+      h('span', { class: 'num', text: String(n) }),
+      extra ? h('div', { class: 'stat-extra' }, extra) : null);
+    $('#found-list').appendChild(li);
+    return li;
+  }
+  function none(text, ok) {
+    $('#found-none').appendChild(h('li', { class: 'stat-none' }, icon(ok ? 'check' : 'minus'), h('span', { text: text })));
+  }
+  function foundEnd() {
+    /* nieparzysta liczba kart (bez szerokiej): ostatnia zajmuje cały wiersz, żeby w siatce 2 x N nie została dziura */
+    var cards = $$('#found-list > .stat:not(.stat-wide)');
+    cards.forEach(function (c) { c.classList.remove('stat-fill'); });
+    if (cards.length % 2) cards[cards.length - 1].classList.add('stat-fill');
+    $('#found-none').hidden = !$('#found-none').children.length;
   }
 
   /* Karta smaku z miniaturą paczki. Klik w miniaturę = następny plik z packshoty_pliki. */
@@ -465,40 +510,76 @@
     box.hidden = !uw.length;
   }
 
-  /* Lewa kolumna dla gotowej prezentacji: ile slajdów, akapitów, grafik, tabel i wykresów, rozdziały. */
+  /* Przegląd gotowej prezentacji: ile slajdów, akapitów, grafik, tabel i wykresów, rozdziałów. */
   function renderFoundPptx(r) {
     $('#h-opcje').textContent = r.produkt || 'Prezentacja';
-    var list = $('#found-list');
-    list.replaceChildren();
+    foundStart();
     state.packFiles = [];
     state.packs = {};
-    list.appendChild(foundRow('ok', h('strong', { text: num(r.slajdy | 0, 'slajd', 'slajdy', 'slajdów') }), r.nazwa_pliku || null));
-    list.appendChild(foundRow('ok', h('strong', { text: num(r.akapity | 0, 'akapit', 'akapity', 'akapitów') }),
-      'cały tekst i notatki trafią do nowej prezentacji, na końcu sprawdzę każdy akapit'));
+    stat(r.slajdy | 0, 'Slajdy', r.nazwa_pliku || null);
+    stat(r.akapity | 0, 'Akapity', 'cały tekst i notatki trafią do nowej prezentacji');
     var g = r.grafiki | 0;
-    list.appendChild(g ? foundRow('ok', h('strong', { text: num(g, 'grafika', 'grafiki', 'grafik') }), 'przeniosę je w całości, bez przycinania')
-      : foundRow('none', h('span', { text: 'Grafiki: brak' })));
+    if (g) stat(g, 'Grafiki', 'przeniosę je w całości, bez przycinania'); else none('Grafiki: brak');
     var t = r.tabele | 0, w = r.wykresy | 0;
-    if (t || w) {
-      var parts = [];
-      if (t) parts.push(num(t, 'tabela', 'tabele', 'tabel'));
-      if (w) parts.push(num(w, 'wykres', 'wykresy', 'wykresów'));
-      list.appendChild(foundRow('ok', h('strong', { text: parts.join(' i ') }), w ? 'wykresy zostaną edytowalne' : null));
-    } else {
-      list.appendChild(foundRow('none', h('span', { text: 'Tabele i wykresy: brak' })));
-    }
+    if (t) stat(t, 'Tabele');
+    if (w) stat(w, 'Wykresy', 'zostaną edytowalne');
+    if (!t && !w) none('Tabele i wykresy: brak');
     var rz = r.rozdzialy || [];
-    list.appendChild(foundRow(rz.length ? 'ok' : 'none', rz.length
-      ? h('strong', { text: num(rz.length, 'rozdział', 'rozdziały', 'rozdziałów') }) : h('span', { text: 'Rozdziały: brak' }),
-      rz.length ? rz.slice(0, 4).join(', ') + (rz.length > 4 ? '…' : '') : null));
+    if (rz.length) stat(rz.length, 'Rozdziały', rz.slice(0, 4).join(', ') + (rz.length > 4 ? '…' : '')); else none('Rozdziały: brak');
+    foundEnd();
+    renderNotes(r);
+  }
+
+  /* Przegląd dokumentu: słowa, nagłówki, tabele, obrazy. Ostrzeżenia modułu (np. "pominąłem numery stron") idą do uwag. */
+  function renderFoundDok(r) {
+    $('#h-opcje').textContent = r.produkt || 'Dokument';
+    foundStart();
+    state.packFiles = [];
+    state.packs = {};
+    stat(r.slowa | 0, 'Słowa', (r.akapity | 0) ? num(r.akapity | 0, 'akapit', 'akapity', 'akapitów') + ' w pliku ' + (r.nazwa_pliku || '') : (r.nazwa_pliku || null));
+    var n = r.naglowki || {}, k1 = n['1'] | 0, k2 = n['2'] | 0, k3 = n['3'] | 0, kk = k1 + k2 + k3;
+    if (kk) {
+      var det = [];
+      if (k1) det.push('poziom 1: ' + k1);
+      if (k2) det.push('poziom 2: ' + k2);
+      if (k3) det.push('poziom 3: ' + k3);
+      stat(kk, 'Nagłówki', det.join(', '));
+    } else {
+      none('Nagłówki: brak');
+    }
+    var t = r.tabele | 0, o = r.obrazy | 0;
+    if (t) stat(t, 'Tabele');
+    if (o) stat(o, 'Obrazy', 'wstawię je w całości, bez przycinania');
+    if (!t && !o) none('Tabele i obrazy: brak');
+    foundEnd();
+    renderNotes(r);
+  }
+
+  /* Przegląd pliku już w stylu marki (szablon, wynik programu): ile slajdów, ile podpowiedzi w [nawiasach], ile możliwych
+     błędów tekstu. Zdanie „co program zrobi” (r.uwagi) stoi w uwagach jako informacja, nie ostrzeżenie. */
+  function renderFoundDopr(r) {
+    $('#h-opcje').textContent = r.produkt || 'Prezentacja';
+    foundStart();
+    state.packFiles = [];
+    state.packs = {};
+    stat(r.slajdy | 0, 'Slajdy', r.nazwa_pliku || null);
+    var p = r.podpowiedzi | 0;
+    if (p) stat(p, 'Podpowiedzi w [nawiasach]', 'miejsca na treść; program ich nie wypełnia, zrobi to człowiek albo AI');
+    else none('Podpowiedzi w [nawiasach]: brak');
+    var b = r.bledy_tekstu_liczba | 0;
+    if (b) stat(b, 'Możliwe błędy w tekście', 'program ich nie poprawia, pokażę je na końcu');
+    else none('Błędy w tekście: nie znalazłem', true);
+    if (r.spec) none('Spec układu: jest, AI może pracować na nim zamiast na pliku', true);
+    foundEnd();
     renderNotes(r);
   }
 
   function renderFound(r) {
+    if (r.tryb === 'dopracowanie') { renderFoundDopr(r); return; }
+    if (r.tryb === 'dokument') { renderFoundDok(r); return; }
     if (r.tryb === 'pptx') { renderFoundPptx(r); return; }
     $('#h-opcje').textContent = r.produkt || 'Produkt';
-    var list = $('#found-list');
-    list.replaceChildren();
+    foundStart();
 
     var smaki = r.smaki || [];
     state.packFiles = (r.packshoty_pliki || []).filter(function (f) { return f && f.plik; });
@@ -509,37 +590,25 @@
       var hint = state.packFiles.length > 1
         ? h('span', { class: 'f-sub f-hint' }, icon('refresh'), h('span', { text: 'Paczka nie pasuje do smaku? Kliknij miniaturę, żeby zamienić.' }))
         : null;
-      list.appendChild(foundRow('ok',
-        h('strong', { text: num(smaki.length, 'smak', 'smaki', 'smaków') }), null, [cards, hint], true));
+      stat(smaki.length, 'Smaki', null, [cards, hint]);
     } else {
-      list.appendChild(foundRow('none', h('span', { text: 'Nie znalazłem żadnego smaku' })));
+      none('Nie znalazłem żadnego smaku');
     }
 
     var karty = r.karty | 0;
-    list.appendChild(karty
-      ? foundRow('ok', h('strong', { text: num(karty, 'karta wprowadzenia', 'karty wprowadzenia', 'kart wprowadzenia') }))
-      : foundRow('none', h('span', { text: 'Brak kart wprowadzenia' })));
+    if (karty) stat(karty, 'Karty wprowadzenia'); else none('Brak kart wprowadzenia');
 
     var ak = r.copy_akapity | 0;
     var cp = r.copy_pliki || [], wsz = r.copy_wszystkie | 0, licz = r.copy_liczby | 0;
     if (cp.length) {
-      var sub = ak
-        ? num(ak, 'akapit', 'akapity', 'akapitów') + ' tekstu' + (licz ? ', ' + num(licz, 'liczba', 'liczby', 'liczb') + ' z badania' : '')
-        : 'same liczby i notatki z badania (' + num(wsz, 'akapit', 'akapity', 'akapitów') + '), trafią na slajd z wynikami';
-      list.appendChild(foundRow('ok', h('span', null, 'Teksty: ', h('strong', { text: cp.join(', ') }),
-        h('span', { class: 'f-sub', text: sub }))));
+      if (ak) stat(ak, 'Akapity tekstu', cp.join(', ') + (licz ? ', ' + num(licz, 'liczba', 'liczby', 'liczb') + ' z badania' : ''));
+      else stat(wsz, 'Notatki z badania', 'same liczby i notatki (' + cp.join(', ') + '), trafią na slajd z wynikami');
     } else {
-      list.appendChild(foundRow('none', h('span', null, 'Brak pliku z tekstem',
-        h('span', { class: 'f-sub', text: 'dodaj plik Word o nazwie zaczynającej się od „Copy”' }))));
+      none('Brak pliku z tekstem: dodaj plik Word o nazwie zaczynającej się od „Copy”');
     }
 
     var bad = r.badania || [];
-    if (bad.length) {
-      list.appendChild(foundRow('ok', h('span', null, 'Badanie: ', h('strong', { text: bad[0] })),
-        bad.length > 1 ? '+ ' + num(bad.length - 1, 'inny plik', 'inne pliki', 'innych plików') : null));
-    } else {
-      list.appendChild(foundRow('none', h('span', { text: 'Badanie: brak' })));
-    }
+    if (bad.length) stat(bad.length, 'Badania', bad.join(', ')); else none('Badanie: brak');
 
     var g = r.grafiki || {};
     var pk = g.packshoty | 0, el = g.elementy | 0, pom = g.pominiete | 0;
@@ -547,13 +616,12 @@
       var parts = [];
       if (pk) parts.push(num(pk, 'zdjęcie opakowania', 'zdjęcia opakowań', 'zdjęć opakowań'));
       if (el) parts.push(num(el, 'element', 'elementy', 'elementów'));
-      list.appendChild(foundRow('ok',
-        h('span', null, 'Grafiki: ', h('strong', { text: parts.join(' i ') })),
-        pom ? num(pom, 'plik pominięty', 'pliki pominięte', 'plików pominiętych') : null));
+      stat(pk + el, 'Grafiki', parts.join(' i ') + (pom ? ', ' + num(pom, 'plik pominięty', 'pliki pominięte', 'plików pominiętych') : ''));
     } else {
-      list.appendChild(foundRow('none', h('span', { text: 'Grafiki: brak' })));
+      none('Grafiki: brak');
     }
 
+    foundEnd();
     renderNotes(r);
   }
 
@@ -616,6 +684,8 @@
   function setSlider(key, v) { $(SLIDERS[key].input).value = String(v); syncSlider(key); }
 
   function refreshCounts() {
+    if (state.dopr) { $('#bar-count').textContent = num((state.result && state.result.slajdy) | 0, 'slajd', 'slajdy', 'slajdów'); return; }
+    if (state.dok) { refreshDokBar(); return; }
     if (!state.secs) return;
     syncSlider('dlugosc');
     var cnt = slideCount();
@@ -644,6 +714,117 @@
   }
   function pulse(el) { if (!el) return; el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse'); }
 
+  /* ---------- tryb dokument: dwa suwaki (liczba slajdów, rozdziały), te same komponenty co suwaki folderu ----------
+     Zakresy i wartości domyślne liczy silnik Z DOKUMENTU (r.suwaki). Suwak liczby slajdów ma trzy podpisy: Krótko (najmniej
+     slajdów, gęsto), Standardowo (wartość domyślna), Szczegółowo (najwięcej, jedna myśl na slajd). Klik w podpis ustawia suwak. */
+  var DOK = { sl: { min: 1, max: 1, dom: 1 }, rz: { max: 0, dom: 0 }, slowa: 0, czas: null };
+
+  function dokPct(v, mn, mx) { return mx > mn ? Math.max(0, Math.min(1, (v - mn) / (mx - mn))) : 0; }
+  /* Krótko / Standardowo / Szczegółowo: pozycja względem wartości domyślnej, liczona od zakresu z dokumentu (skrajna ćwierć odcinka = skraj) */
+  function dokLabel(v) {
+    var sl = DOK.sl;
+    if (v < sl.dom && (sl.dom - v) > (sl.dom - sl.min) * 0.25) return 'Krótko';
+    if (v > sl.dom && (v - sl.dom) > (sl.max - sl.dom) * 0.25) return 'Szczegółowo';
+    return 'Standardowo';
+  }
+  function stopAt(btn, p) { btn.style.left = 'calc(16px + (100% - 32px) * ' + p + ')'; }
+
+  function syncDokSlajdy() {
+    var sl = DOK.sl, root = $('#sl-dok-slajdy'), input = $('#in-dok-slajdy');
+    var v = Math.max(sl.min, Math.min(sl.max, +input.value || sl.dom));
+    var p = dokPct(v, sl.min, sl.max), pd = dokPct(sl.dom, sl.min, sl.max);
+    root.style.setProperty('--pct', (p * 100) + '%');
+    var dots = $$('.dot', root);
+    dots[1].style.left = (pd * 100) + '%';
+    dots.forEach(function (d, i) { d.classList.toggle('on', p >= (i === 0 ? 0 : (i === 2 ? 1 : pd)) - 1e-9); });
+    var fixed = sl.max <= sl.min;   /* krótki dokument: jedna możliwa liczba slajdów */
+    input.disabled = fixed;
+    var label = fixed ? 'Krótki tekst' : dokLabel(v);
+    var perSlide = DOK.slowa ? Math.max(1, Math.round(DOK.slowa / v)) : 0;
+    $('.slider-value strong', root).textContent = label;
+    $('.slider-value span', root).textContent = '';   /* liczbę slajdów podaje zdanie pod suwakiem */
+    var eff = perSlide ? 'ok. ' + v + ' slajdów, średnio ' + num(perSlide, 'słowo', 'słowa', 'słów') + ' na slajd. ' : '';
+    if (!fixed) eff += label === 'Krótko' ? 'Gęściej: kilka zdań na jednym slajdzie, w punktach.' : (label === 'Szczegółowo' ? 'Jedna myśl na slajd.' : 'Hasło i krótki opis na slajd.');
+    $('#dok-slajdy-effect').textContent = eff;
+    input.setAttribute('aria-valuetext', label + ', ok. ' + v + ' slajdów');
+    var st = $$('.stops button', root);
+    st.forEach(function (b) {
+      var k = b.getAttribute('data-k');
+      if (k === 'min') b.textContent = pd < 0.22 ? 'Standardowo' : 'Krótko';   /* domyślna liczba = najmniejsza: lewy skraj jest „standardowo” */
+      var at = k === 'min' ? 0 : (k === 'max' ? 1 : pd);
+      if (k === 'min') b.style.left = '0'; else if (k === 'max') b.style.left = '100%'; else stopAt(b, at);
+      b.hidden = fixed || (k === 'dom' && (pd < 0.22 || pd > 0.78));   /* podpis środkowy znika, gdy zaszedłby na skrajny */
+      b.classList.toggle('on', b.textContent === label);
+    });
+    refreshDokBar();
+  }
+
+  function syncDokRozdzialy() {
+    var rz = DOK.rz, root = $('#sl-dok-rozdzialy'), input = $('#in-dok-rozdzialy');
+    var v = Math.max(0, Math.min(rz.max, +input.value || 0));
+    var p = rz.max > 0 ? v / rz.max : 0;
+    root.style.setProperty('--pct', (p * 100) + '%');
+    var dots = $$('.dot', root);
+    dots[0].classList.add('on');
+    dots[1].classList.toggle('on', p >= 1 - 1e-9);
+    $('.slider-value strong', root).textContent = v === 0 ? 'Bez przekładek' : num(v, 'przekładka rozdziału', 'przekładki rozdziałów', 'przekładek rozdziałów');
+    $('.slider-value span', root).textContent = '';
+    $('#dok-rozdzialy-effect').textContent = v === 0 ? 'Slajdy idą jeden za drugim, bez slajdów z tytułami rozdziałów.'
+      : (v >= 3 ? num(v, 'rozdział dostaje', 'rozdziały dostają', 'rozdziałów dostaje') + ' slajd z tytułem, a na początku powstaje spis treści.'
+        : (v === 1 ? 'Jeden rozdział dostaje slajd z tytułem.' : 'Rozdziały dostają slajdy z tytułami.'));
+    input.setAttribute('aria-valuetext', v === 0 ? 'bez przekładek' : num(v, 'przekładka', 'przekładki', 'przekładek'));
+    $$('.stops button', root).forEach(function (b) {
+      var mn = b.getAttribute('data-k') === 'min';
+      b.style.left = mn ? '0' : '100%';
+      b.classList.toggle('on', mn === (v === 0));
+    });
+  }
+
+  /* Szacunek czasu dokumentu z suwaka: stały narzut + czas na slajd + człon kwadratowy (duże dokumenty częściej wymagają przebudowy
+     układu po obejrzeniu zrzutów: pomiar 13.10, 81 slajdów = 288 s). Stałe liczy silnik (engine._czas_dokumentu). */
+  function dokEst(c, v) { return c.stale + c.na_slajd * v + (c.kw || 0) * v * v; }
+
+  function refreshDokBar() {
+    var v = +$('#in-dok-slajdy').value || DOK.sl.dom;
+    $('#bar-count').textContent = 'ok. ' + v + ' slajdów';
+    var c = DOK.czas, est = c ? dokEst(c, v) : 30;
+    var s = Math.max(5, Math.round(est / 5) * 5);
+    $('#bar-eta').textContent = 'zwykle ok. ' + num(s, 'sekunda', 'sekundy', 'sekund');
+  }
+
+  function initDokSliders(r) {
+    var sw = r.suwaki || {}, sl = sw.slajdy || { min: 1, max: 1, domyslnie: 1 }, rz = sw.rozdzialy || { max: 0, domyslnie: 0 };
+    DOK.sl = { min: sl.min | 0, max: sl.max | 0, dom: sl.domyslnie | 0 };
+    DOK.rz = { max: rz.max | 0, dom: rz.domyslnie | 0 };
+    DOK.slowa = r.slowa | 0;
+    DOK.czas = r.czas || null;
+    var a = $('#in-dok-slajdy'), b = $('#in-dok-rozdzialy');
+    a.min = String(DOK.sl.min); a.max = String(Math.max(DOK.sl.max, DOK.sl.min)); a.value = String(DOK.sl.dom);
+    b.min = '0'; b.max = String(Math.max(1, DOK.rz.max)); b.value = String(DOK.rz.dom);
+    $('#blk-dok-rozdzialy').hidden = DOK.rz.max < 1;   /* dokument bez nagłówków: nie ma czego dzielić na rozdziały */
+    syncDokSlajdy();
+    syncDokRozdzialy();
+  }
+
+  function initDok() {
+    var a = $('#in-dok-slajdy'), b = $('#in-dok-rozdzialy');
+    a.addEventListener('input', function () { syncDokSlajdy(); pulse($('#dok-slajdy-effect')); });
+    b.addEventListener('input', function () { syncDokRozdzialy(); pulse($('#dok-rozdzialy-effect')); });
+    $$('#sl-dok-slajdy .stops button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var k = btn.getAttribute('data-k');
+        a.value = String(k === 'min' ? DOK.sl.min : (k === 'max' ? DOK.sl.max : DOK.sl.dom));
+        syncDokSlajdy(); pulse($('#dok-slajdy-effect'));
+      });
+    });
+    $$('#sl-dok-rozdzialy .stops button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        b.value = String(btn.getAttribute('data-k') === 'min' ? 0 : DOK.rz.max);
+        syncDokRozdzialy(); pulse($('#dok-rozdzialy-effect'));
+      });
+    });
+  }
+
   /* ---------- opcje: slajdy (grupy) ---------- */
   var LOCKED = { koniec: 1 };   /* 30.09: okładkę można wyłączyć */
 
@@ -665,24 +846,37 @@
       : (o.id === 'film' ? 'wpisz link w kroku Dodatki' : (o.powod || 'brak danych w folderze')));
   }
 
-  function secRow(s) {
+  function secRow(s, pptx) {
     var locked = !!LOCKED[s.id], auto = s.rodzaj !== 'szablon';
     var o = { id: s.id, nazwa: s.nazwa, opis: s.opis || '', dostepna: !!s.dostepna, powod: s.powod || '', grupa: s.grupa,
       rodzaj: auto ? 'auto' : 'szablon', slajdy: s.slajdy, locked: locked, checked: !!s.domyslnie || locked };
+    if (pptx) {   /* gotowa prezentacja (3B): biały wiersz z checkboxem DS - rozdział (nazwa + zakres slajdów) albo puste slajdy z szablonu (nazwa + opis) */
+      o.input = h('input', { type: 'checkbox', class: 'dk-check', name: 'sekcja', value: s.id });
+      if (s.rodzaj === 'pptx') {
+        o.opis = String(s.opis || '').replace(/\s+z oryginału$/, '');
+        o.desc = h('small', { class: 'rozdz-sl' });
+        o.row = h('label', { class: 'rozdz-row', 'data-id': s.id }, o.input, h('span', { class: 'rozdz-name', text: s.nazwa }), o.desc);
+      } else {
+        o.desc = h('small', { class: 'rozdz-desc', title: s.opis || null });
+        o.row = h('label', { class: 'rozdz-row rozdz-tpl', 'data-id': s.id }, o.input,
+          h('span', { class: 'rozdz-txt' }, h('span', { class: 'rozdz-name', text: s.nazwa }), o.desc));
+      }
+      o.li = h('li', null, o.row);
+      o.input.addEventListener('change', function () { o.checked = o.input.checked; refreshSec(o); refreshCounts(); });
+      return o;
+    }
     var nameId = 'sec-n-' + s.id, descId = 'sec-d-' + s.id;
     o.input = h('input', { type: 'checkbox', role: 'switch', name: 'sekcja', value: s.id, 'aria-labelledby': nameId, 'aria-describedby': descId });
     o.desc = h('span', { class: 'sec-desc', id: descId });
-    var noimg = s.rodzaj === 'pptx';   /* rozdziały gotowej prezentacji nie mają miniatur */
-    var img = noimg ? null : h('img', { class: 'sec-img', src: s.miniatura || ('img/sekcja-' + s.id + '.png'), alt: '', decoding: 'async', loading: 'lazy' });
-    if (img) img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
-    /* rozdział prezentacji = jeden wiersz: nazwa i zakres slajdów (bez metki i licznika, zakres mówi to samo) */
-    var multi = auto && !noimg && s.slajdy > 1 ? h('span', { class: 'sec-tag' }, num(s.slajdy, 'slajd', 'slajdy', 'slajdów')) : null;
-    o.row = h('label', { class: 'sec' + (noimg ? ' sec-noimg sec-line' : ''), 'data-id': s.id },
+    var img = h('img', { class: 'sec-img', src: s.miniatura || ('img/sekcja-' + s.id + '.png'), alt: '', decoding: 'async', loading: 'lazy' });
+    img.addEventListener('error', function () { img.style.visibility = 'hidden'; });
+    var multi = auto && s.slajdy > 1 ? h('span', { class: 'sec-tag' }, num(s.slajdy, 'slajd', 'slajdy', 'slajdów')) : null;
+    o.row = h('label', { class: 'sec', 'data-id': s.id },
       img,
       h('span', { class: 'sec-txt' },
         h('span', { class: 'sec-name', id: nameId },
           h('span', { text: s.nazwa }),
-          auto && !noimg ? h('span', { class: 'chip chip-auto', text: 'z folderu' }) : null,
+          auto ? h('span', { class: 'chip chip-auto', text: 'z folderu' }) : null,
           multi,
           locked ? h('span', { class: 'sec-tag' }, icon('lock'), 'zawsze') : null),
         o.desc),
@@ -693,13 +887,21 @@
   }
 
   function renderSecs(r) {
-    var host = $('#secs');
+    var host = $('#secs'), rl = $('#rozdz-list'), dl = $('#dod-list');
     host.replaceChildren();
+    rl.replaceChildren();
+    dl.replaceChildren();
     state.presety = r.presety || { 0: [], 1: [], 2: [] };
     var groups = r.grupy && r.grupy.length ? r.grupy : [{ id: '', nazwa: 'Slajdy', opis: '' }];
     host.classList.toggle('one-col', groups.length < 3);
-    host.classList.remove('solo');
-    state.secs = (r.sekcje || []).map(secRow);
+    var pp = r.tryb === 'pptx';
+    state.secs = (r.sekcje || []).map(function (s) { return secRow(s, pp); });
+    if (pp) {   /* gotowa prezentacja: rozdziały i puste slajdy z szablonu stoją w panelu „Więcej ustawień” kroku Cel */
+      state.groups = [];
+      state.secs.forEach(function (o) { refreshSec(o); (o.rodzaj === 'auto' ? rl : dl).appendChild(o.li); });
+      refreshCounts();
+      return;
+    }
     state.groups = groups.map(function (g) {
       var items = state.secs.filter(function (o) { return (o.grupa || '') === g.id; });
       items.sort(function (a, b) { return (a.rodzaj === 'auto' ? 0 : 1) - (b.rodzaj === 'auto' ? 0 : 1); });
@@ -767,33 +969,40 @@
   /* Tryb wyznacza kroki ustawień (PANES). Konwersja gotowej prezentacji: bez suwaków Długość / Tekst (treść zawsze
      w całości), bez dodatków i bez wyboru stylu (zawsze nowy); zamiast slajdów z folderu - rozdziały prezentacji. */
   function setMode(r) {
+    var dk = r.tryb === 'dokument';
     var pp = r.tryb === 'pptx';
+    var dp = r.tryb === 'dopracowanie';
     state.pptx = pp;
-    state.mode = pp ? 'pptx' : 'folder';
-    $('#l-found').textContent = pp ? 'Znalazłem w prezentacji' : 'Znalazłem w folderze';
-    $('#blk-dlugosc').hidden = pp;
+    state.dok = dk;
+    state.dopr = dp;
+    state.mode = dk ? 'dokument' : (pp ? 'pptx' : (dp ? 'dopracowanie' : 'folder'));
+    $('#l-found').textContent = dk ? 'Znalazłem w dokumencie' : ((pp || dp) ? 'Znalazłem w prezentacji' : 'Znalazłem w folderze');
+    $('#blk-dlugosc').hidden = pp || dk || dp;
+    $('#fs-sekcje').hidden = dk;
     $('#l-sekcje').hidden = pp;
     $('#sec-lead').hidden = pp;
-    $('#blk-cel-slajdy').hidden = true;
+    $('#blk-dok-slajdy').hidden = !dk;
+    $('#blk-dok-rozdzialy').hidden = !dk;
+    if (dp) { $('#slajdy-lead').hidden = true; return; }   /* jeden krok: Przegląd */
+    if (dk) { initDokSliders(r); $('#h-slajdy').textContent = 'Ile slajdów'; $('#slajdy-lead').hidden = true; return; }
     if (pp) { renderCel(r); return; }
     $('#h-slajdy').textContent = 'Ile slajdów';
     $('#slajdy-lead').hidden = true;   /* suwak i nagłówek grup tłumaczą się same */
   }
 
-  /* ---------- konwersja .pptx: cel (zachowaj układ / rozwiń, dokończ / skróć) - 07.10.2026 ----------
-     Program zawsze przekłada prezentację slajd w slajd. Cel zmienia to, co dzieje się obok: przy "rozwiń" można
-     dołożyć puste slajdy z szablonu, przy "skróć" podaje się, ile slajdów ma zostać. Rozdział wyłączony przełącznikiem
-     zostaje w pliku jako slajdy ukryte - w każdym celu (nic nie znika). Zdania niżej stoją nad listą rozdziałów. */
-  var CEL_LEAD = {
-    wiernie: 'Wyłączony rozdział zostaje w pliku jako slajdy ukryte, nic nie znika.',
-    rozwin: 'Włącz puste slajdy z szablonu, które chcesz dołożyć: staną przed zakończeniem.',
-    skroc: 'Wyłączone rozdziały zostają w pliku jako slajdy ukryte, pokaz jest krótszy.'
-  };
-
+  /* ---------- konwersja .pptx: cel (zachowaj układ / rozwiń, dokończ / skróć) - 07.10.2026, ekran 3B 20.10.2026 ----------
+     Program zawsze przekłada prezentację slajd w slajd. Cel i ustawienia są na jednym ekranie: trzy karty celu, a pod nimi
+     (przy „Rozwiń” i „Skróć”) panel „Więcej ustawień”:
+       Rozwiń  = wizualizacje + puste slajdy z szablonu do dołożenia (domyślnie żaden), wszystkie rozdziały zostają;
+       Skróć   = wizualizacje + ile slajdów ma zostać (domyślnie 60%, min. 3) + lista rozdziałów do wyłączenia.
+     Rozdział wyłączony zostaje w pliku jako slajdy ukryte, nic nie znika.
+     Powrót ze „Skróć” do „Zachowaj układ” (3B): panelu już nie widać, więc okno wysyła wartości domyślne - wszystkie rozdziały
+     i wizualizacje włączone (gdy jest biblioteka) - a nie ukryty wybór z panelu, którego użytkownik by nie zobaczył. Wybór
+     zostaje zapamiętany: po powrocie do „Skróć” / „Rozwiń” panel pokazuje go znowu. Puste slajdy z szablonu liczą się tylko przy „Rozwiń”. */
   function pptxCounts() {
-    var all = 0, vis = 0, add = 0;
+    var all = 0, vis = 0, add = 0, skroc = state.cel === 'skroc';
     (state.secs || []).forEach(function (o) {
-      if (o.rodzaj === 'auto') { all += (+o.slajdy || 0); if (o.checked && o.avail) vis += (+o.slajdy || 0); }
+      if (o.rodzaj === 'auto') { all += (+o.slajdy || 0); if (o.avail && (!skroc || o.checked)) vis += (+o.slajdy || 0); }
       else if (state.cel === 'rozwin' && o.checked && o.avail) add += 1;
     });
     return { all: all, vis: vis, add: add };
@@ -808,7 +1017,7 @@
   }
 
   function pptxBar() {
-    var c = pptxCounts(), hid = c.all - c.vis;
+    var c = pptxCounts();
     if (state.cel === 'skroc') {
       var t = celSlajdy(), hint = $('#cel-slajdy-hint');
       $('#in-cel-slajdy').placeholder = String(Math.max(3, Math.round(c.all * 0.6)));
@@ -818,26 +1027,20 @@
         : 'W pokazie zostaje ' + c.vis + ' z ' + c.all + '. Cel osiągnięty.';
       return 'Zostaje ' + c.vis + ' z ' + c.all + ', cel: ' + t;
     }
-    var base = hid ? c.vis + ' z ' + c.all + ' w pokazie' : num(c.all, 'slajd', 'slajdy', 'slajdów');
+    var base = num(c.vis, 'slajd', 'slajdy', 'slajdów');
     if (state.cel === 'rozwin' && c.add) base += ' + ' + c.add + ' ' + plural(c.add, 'nowy', 'nowe', 'nowych');
     return base;
   }
 
   function refreshCel() {
     if (!state.pptx) return;
-    var cel = state.cel;
-    $('#blk-cel-slajdy').hidden = cel !== 'skroc';
-    if (cel === 'skroc' && $('#in-cel-slajdy').value === '') $('#in-cel-slajdy').value = String(celSlajdy());
-    /* "Zachowaj" i "Skróć": lista rozdziałów jest treścią kroku, więc stoi otwarta. "Rozwiń": dwie grupy zwinięte
-       z licznikami (16 pustych slajdów to długa lista - otwiera ją użytkownik). */
-    (state.groups || []).forEach(function (g) {
-      if (g.id === 'dodatki') { g.el.hidden = cel !== 'rozwin'; g.el.open = false; }
-      else g.el.open = cel !== 'rozwin';
-    });
-    $('#secs').classList.toggle('solo', cel !== 'rozwin');   /* jedyna grupa = lista bez nagłówka */
-    $('#slajdy-lead').hidden = false;
-    $('#slajdy-lead').textContent = CEL_LEAD[cel] || CEL_LEAD.wiernie;
-    $('#h-slajdy').textContent = cel === 'rozwin' ? 'Rozdziały i nowe slajdy' : 'Rozdziały';
+    var skroc = state.cel === 'skroc', rozwin = state.cel === 'rozwin';
+    $('#more').hidden = !(skroc || rozwin);
+    $('#more-when').textContent = rozwin ? 'przy rozwijaniu' : 'przy skracaniu';
+    $('#more-rozwin').hidden = !rozwin;
+    $('#more-skroc').hidden = !skroc;
+    $('#wiz-note').hidden = skroc || rozwin || !state.wizOk;   /* panel z kontrolką wizualizacji zastępuje jednolinijkową informację */
+    if (skroc && $('#in-cel-slajdy').value === '') $('#in-cel-slajdy').value = String(celSlajdy());
     refreshCounts();
   }
 
@@ -851,16 +1054,18 @@
       inp.addEventListener('change', function () { if (inp.checked) { state.cel = c.id; refreshCel(); } });
       host.appendChild(h('label', { class: 'cel-card', 'data-cel': c.id },
         inp,
-        h('span', { class: 'cel-txt' },
-          h('span', { class: 'cel-name', text: c.nazwa }),
-          h('span', { class: 'cel-desc', id: 'cel-d-' + c.id, text: c.opis })),
-        h('span', { class: 'style-tick', 'aria-hidden': 'true' })));
+        h('span', { class: 'cel-name', text: c.nazwa }),
+        h('span', { class: 'cel-desc', id: 'cel-d-' + c.id, text: c.opis }),
+        h('span', { class: 'cel-on', 'aria-hidden': 'true' }, icon('check'), 'Wybrane')));
     });
     var wiz = r.wizualizacje || {};
-    $('#wiz-row').hidden = !wiz.dostepne;
-    $('#blk-wiz').hidden = !wiz.dostepne;
-    $('#in-wiz').checked = !!wiz.dostepne;
+    state.wizOk = !!wiz.dostepne;
+    $('#wiz-row').hidden = !state.wizOk;
+    $('#in-wiz').checked = state.wizOk;
     $('#in-cel-slajdy').value = '';
+    var dod = (r.grupy || []).filter(function (g) { return g.id === 'dodatki'; })[0];
+    $('#l-dod').textContent = (dod && dod.nazwa) || 'Dołóż puste slajdy';
+    $('#dod-opis').textContent = (dod && dod.opis) || 'z szablonu, z podpowiedziami w [nawiasach]';
   }
 
   function initCel() {
@@ -887,10 +1092,17 @@
     $$('.pane-ctx').forEach(function (e) { e.textContent = r.produkt || ''; });   /* nazwa produktu nad tytułem każdego kroku */
     var s = Math.round((+r.szacowany_czas_s || 30) / 5) * 5;
     $('#bar-eta').textContent = 'zwykle ok. ' + num(Math.max(s, 5), 'sekunda', 'sekundy', 'sekund');
+    if (state.dok) refreshDokBar();   /* dokument: czas zależy od suwaka liczby slajdów */
   }
 
   function collectOpts() {
     var styl = state.pptx ? 'nowy' : (($('input[name="styl"]:checked') || {}).value || 'nowy');   /* konwersja: zawsze nowy styl */
+    if (state.dopr) return { styl: 'nowy' };   /* dopracowanie: nic do ustawienia - silnik sam rozpoznaje plik */
+    if (state.dok) {   /* dokument: dwa suwaki; reszta (styl, sekcje, claimy) nie istnieje */
+      var vs = +$('#in-dok-slajdy').value, c = DOK.czas;
+      return { styl: 'nowy', slajdy: vs, rozdzialy: DOK.rz.max > 0 ? +$('#in-dok-rozdzialy').value : 0,
+        szacowany_czas_s: c ? Math.round(dokEst(c, vs)) : undefined };
+    }
     var o = {
       styl: styl,
       dlugosc: +$('#in-dlugosc').value,
@@ -901,9 +1113,14 @@
       packshoty: JSON.parse(JSON.stringify(state.packs || {}))
     };
     if (state.pptx) {  /* konwersja: cel, wizualizacje; puste slajdy z szablonu (t10...) tylko przy celu "rozwiń" */
+      var skroc = state.cel === 'skroc';
       o.cel = state.cel;
-      o.wizualizacje = !$('#wiz-row').hidden && $('#in-wiz').checked;
-      if (state.cel === 'skroc') o.cel_slajdy = celSlajdy();
+      /* wizualizacje: kontrolka stoi w panelu przy „Rozwiń” i „Skróć”; przy „Zachowaj układ” wartość domyślna (komentarz przy pptxCounts) */
+      o.wizualizacje = state.wizOk && (state.cel === 'wiernie' || $('#in-wiz').checked);
+      /* rozdziały: wybór z panelu liczy się tylko przy „Skróć”; w pozostałych celach wchodzą wszystkie dostępne */
+      o.sekcje = state.secs.filter(function (s) { return s.avail && (s.rodzaj === 'auto' ? (!skroc || s.checked) : s.checked); })
+        .map(function (s) { return s.id; });
+      if (skroc) o.cel_slajdy = celSlajdy();
       if (state.cel !== 'rozwin') o.sekcje = o.sekcje.filter(function (id) { return !/^t\d+$/.test(id); });
     }
     return o;
@@ -912,7 +1129,7 @@
   function showOptions(res) {
     state.analyzing = false;
     if (!res || res.ok === false) {
-      onError((res && res.blad) || 'Nie udało się odczytać folderu. Sprawdź, czy to folder z produktem.');
+      onError((res && res.blad) || 'Nie udało się odczytać tego pliku ani folderu. Upuść folder produktu, prezentację (.pptx) albo dokument.');
       return;
     }
     state.result = res;
@@ -943,8 +1160,13 @@
 
   function stepList() {
     var noPP = state.info && state.info.powerpoint === false;
-    return STEPS.filter(function (s) { return !(noPP && s[0] === 'qa'); }).map(function (s) {
-      return (state.pptx && s[0] === 'folder') ? ['folder', 'Czytam prezentację'] : s;
+    return STEPS.filter(function (s) {
+      if (state.dopr && /^(grafiki|slajdy|budowa)$/.test(s[0])) return false;   /* dopracowanie niczego nie buduje */
+      return !(noPP && s[0] === 'qa');
+    }).map(function (s) {
+      if (state.dopr && s[0] === 'qa') return ['qa', 'Oglądam slajdy w PowerPoint'];
+      if (state.dopr && s[0] === 'zapis') return ['zapis', 'Zapisuję raport'];
+      return ((state.pptx || state.dopr) && s[0] === 'folder') ? ['folder', 'Czytam prezentację'] : ((state.dok && s[0] === 'folder') ? ['folder', 'Czytam dokument'] : s);
     });
   }
   function stepIndexFor(krok, pct) {
@@ -1014,6 +1236,7 @@
     state.building = true;
     state.cancelled = false;
     resetProgress();
+    $('#h-praca').textContent = state.dopr ? 'Sprawdzam prezentację' : 'Tworzę prezentację';
     goto('praca');
     call('build', opts).then(function (r) {
       if (r && r.started === false) onError(r.blad || 'Nie mogę zacząć tworzenia prezentacji.');
@@ -1059,12 +1282,14 @@
   /* ---------- wynik ---------- */
   function renderResult(res) {
     state.done = res;
+    var dopr = res.tryb === 'dopracowanie';   /* plik już w stylu marki: sprawdzony, nie zmieniony */
+    $('#l-ai').textContent = dopr ? 'Dopracuj z AI' : 'Dokończ teksty z AI';
     $('#res-name').textContent = res.nazwa || baseName(res.pptx) || 'Prezentacja.pptx';
     var meta = [];
     if (res.slajdy != null) meta.push(num(res.slajdy | 0, 'slajd', 'slajdy', 'slajdów'));
     if (res.ukryte) meta.push('w tym ' + num(res.ukryte | 0, 'ukryty', 'ukryte', 'ukrytych'));
     if (res.nowe && res.nowe.length) meta.push(num(res.nowe.length, 'nowy do uzupełnienia', 'nowe do uzupełnienia', 'nowych do uzupełnienia'));
-    if (res.czas_s != null) meta.push('gotowe w ' + fmtDur(res.czas_s));
+    if (res.czas_s != null) meta.push((dopr ? 'sprawdzone w ' : 'gotowe w ') + fmtDur(res.czas_s));
     $('#res-meta').textContent = meta.join(' · ');
 
     var strip = $('#strip');
@@ -1092,11 +1317,25 @@
     var ukOk = !(res.wiernosc && res.wiernosc.usterki && res.wiernosc.usterki.length);
     var todo = uw.filter(function (x) { return !/^(Treść|Układ):/.test(x); });
     if (!checked) todo = todo.filter(function (x) { return !/^Nie sprawdzono w PowerPoint/.test(x); });   /* mówi to już wiersz kontroli */
-    var WAZNE = /^(Brakuje|Do sprawdzenia|Sprawdź najpierw|Nie sprawdzono|PowerPoint nie oddał)/;   /* to, co wymaga działania, idzie na górę listy */
+    var WAZNE = /^(Brakuje|Do sprawdzenia|Sprawdź najpierw|Nie sprawdzono|PowerPoint nie oddał|Slajdy? [0-9][^:]* (ma|mają) podpowiedzi w nawiasach)/;   /* to, co wymaga działania, idzie na górę listy */
     var bl = (res.bledy_okno || []).map(txt);   /* błędy tekstu oryginału (nagłówek, najwyżej 5 linii): na samym początku tej samej listy */
     todo = todo.filter(function (x) { return bl.indexOf(x) < 0; });
     todo = bl.concat(todo.filter(function (x) { return WAZNE.test(x); }), todo.filter(function (x) { return !WAZNE.test(x); }));
-    var alarm = !checked || n > 0 || !covOk || !ukOk || todo.some(function (x) { return /^(Brakuje|Do sprawdzenia)/.test(x); });
+    var podpow = todo.some(function (x) { return /podpowiedzi w \[?nawiasach/i.test(x); });   /* zostały pola do uzupełnienia */
+    var okoCiezkie = ((res.oko || {}).pozostale || []).filter(function (x) { return (x.waga | 0) >= 2; }).length;   /* usterka wyglądu wagi >= 2 */
+    var alarm = !checked || n > 0 || !covOk || !ukOk || podpow || okoCiezkie > 0 || todo.some(function (x) { return /^(Brakuje|Do sprawdzenia)/.test(x); });
+    if (dopr) alarm = !checked || n > 0 || todo.length > 0;   /* dopracowanie: każda uwaga programu to coś do zrobienia */
+    /* Wynik z usterkami nie może wyglądać jak sukces: inny nagłówek i jedno zdanie na samej górze uwag, co sprawdzić */
+    $('#h-wynik').textContent = dopr ? (alarm ? 'Sprawdzone, są uwagi' : 'Sprawdzone') : (alarm ? 'Gotowe, ale sprawdź' : 'Gotowe!');
+    var czemu = [];
+    if (!checked) czemu.push('kontrola tekstu w PowerPoint się nie wykonała');
+    if (checked && n > 0) czemu.push(num(n, 'problem z tekstem', 'problemy z tekstem', 'problemów z tekstem') + ' na slajdach');
+    if (!covOk) czemu.push('nie wszystkie akapity są w wyniku');
+    if (!ukOk) czemu.push('układ różni się od oryginału');
+    if (podpow) czemu.push('są podpowiedzi w [nawiasach] do uzupełnienia');
+    if (okoCiezkie) czemu.push(num(okoCiezkie, 'usterka wyglądu', 'usterki wyglądu', 'usterek wyglądu') + ' na zrzutach');
+    var top = Array.isArray(res.uwagi_top) ? res.uwagi_top : null;   /* silnik podał najważniejsze wiersze (najwyżej 5): reszta pod jednym rozwijanym */
+    if (czemu.length && !dopr && !top) todo.unshift('Sprawdź przed wysłaniem: ' + czemu.join(', ') + '. Wiersze ze znakiem ostrzeżenia są wyżej.');
 
     var checks = $('#res-checks');
     checks.replaceChildren();
@@ -1121,20 +1360,24 @@
     function nums(a) {
       return a.length > 5 ? a.slice(0, 5).join(', ') + ' i ' + (a.length - 5) + ' ' + plural(a.length - 5, 'inny', 'inne', 'innych') : a.join(', ');
     }
-    if (nowe.length) row('tip', 'info', '', 'Uzupełnij ' + num(nowe.length, 'nowy slajd', 'nowe slajdy', 'nowych slajdów') + ' (nr ' + nums(nowe) + '): teksty w [nawiasach].');
+    var oPodp = todo.some(function (x) { return /(ma|mają) podpowiedzi w nawiasach/.test(x); });   /* uwaga z silnika (liczona z pliku) już to mówi */
+    if (top) top.forEach(function (t) { var w = t.typ === 'warn'; row(w ? 'warn' : 'tip', w ? 'alert' : 'info', '', t.tekst); });
+    else {
+    if (nowe.length && !oPodp) row('tip', 'info', '', 'Uzupełnij ' + num(nowe.length, 'nowy slajd', 'nowe slajdy', 'nowych slajdów') + ' (nr ' + nums(nowe) + '): teksty w [nawiasach].');
     if (ukr) row('tip', 'info', '', num(ukr, 'slajd jest ukryty', 'slajdy są ukryte', 'slajdów jest ukrytych') + '. Przed wysłaniem pliku poza firmę usuń je albo zapisz PDF.');
     if (spr.length) row('tip', 'info', '', 'Zajrzyj najpierw na ' + (spr.length === 1 ? 'slajd' : 'slajdy') + ' oryginału nr ' + nums(spr) + ': nietypowy układ albo dużo tekstu.');
     if (wiz.length && $$('#res-checks .tip').length < 3) row('tip', 'info', '', 'Wstawiłem paczki z biblioteki produktów na ' + (wiz.length === 1 ? 'slajdzie' : 'slajdach') + ' nr ' + nums(wiz) + ': sprawdź dobór.');
+    }
 
     var tl = $('#res-todo-list');
     tl.replaceChildren();
     todo.forEach(function (u) { tl.appendChild(h('li', { text: u })); });
     var box = $('#res-todo');
-    box.hidden = !todo.length;
-    /* ścieżka folderu nie ma wskazówek z danych, więc jej uwagi (zwykle 2-4 krótkie) stoją otwarte; przy prezentacji
-       długa lista jest zwinięta, chyba że coś wymaga uwagi */
-    box.open = alarm || bl.length > 0 || !state.pptx || todo.length <= 3;
-    $('#res-todo-label').textContent = 'Uwagi do prezentacji (' + todo.length + ')';
+    box.hidden = !todo.length || (!!top && todo.length <= top.length);   /* wiersze widoczne już mówią wszystko */
+    /* z wierszami od silnika: pełna lista zwinięta pod „Pokaż wszystkie”; ścieżka folderu nie ma wskazówek z danych, więc jej uwagi
+       (zwykle 2-4 krótkie) stoją otwarte; przy prezentacji bez wierszy od silnika lista otwiera się, gdy coś wymaga uwagi */
+    box.open = top ? false : (alarm || bl.length > 0 || !state.pptx || todo.length <= 3);
+    $('#res-todo-label').textContent = (top ? 'Pokaż wszystkie (' : 'Uwagi do prezentacji (') + todo.length + ')';
   }
 
   function updateStripEdge() {
@@ -1170,7 +1413,7 @@
   function onError(message) {
     var text = String(message || 'Coś poszło nie tak. Spróbuj jeszcze raz.');
     console.info('[App.onError] ' + text);
-    toast(text, 'error');
+    toast(text, 'error', state.screen === 'analiza' ? 15000 : undefined);   /* błąd wejścia mówi, co zrobić: niech zostanie dłużej */
     state.analyzing = false;
     state.picking = false;
     if (state.screen === 'analiza') {
@@ -1205,6 +1448,7 @@
     $('#opcje-form').addEventListener('keydown', function (e) {
       var t = e.target;
       if (e.key !== 'Enter' || !t || t.tagName !== 'INPUT') return;
+      if (t.type === 'radio' && t.name === 'cel' && !t.checked) { t.checked = true; t.dispatchEvent(new Event('change', { bubbles: true })); }   /* Enter wybiera kartę celu, tak jak Spacja */
       if (e.repeat || /^(checkbox|radio|range)$/.test(t.type)) e.preventDefault();   /* przytrzymany Enter nie przeskakuje kilku kroków */
     });
     $('#btn-cancel').addEventListener('click', cancelBuild);
@@ -1212,11 +1456,11 @@
 
     $('#btn-open').addEventListener('click', function () {
       if (!state.done) return;
-      call('open_path', state.done.pptx).catch(function (e) { onError(errMsg(e)); });
+      call('open_path', state.done.pptx).then(openResult).catch(function (e) { onError(errMsg(e)); });
     });
     $('#btn-folder').addEventListener('click', function () {
       if (!state.done) return;
-      call('open_folder', dirName(state.done.pptx)).catch(function (e) { onError(errMsg(e)); });
+      call('open_folder', state.done.folder_pokaz || dirName(state.done.pptx)).then(openResult).catch(function (e) { onError(errMsg(e)); });
     });
     $('#btn-copy-ai').addEventListener('click', function () {
       var t = state.done && state.done.prompt_ai;
@@ -1256,7 +1500,7 @@
     });
     $('#guide-ok').addEventListener('click', hideGuide);
     $('#guide-folder').addEventListener('click', function () {
-      if (state.done) call('open_folder', state.done.pptx).catch(function (e) { onError(errMsg(e)); });
+      if (state.done) call('open_folder', state.done.pptx).then(openResult).catch(function (e) { onError(errMsg(e)); });
     });
     $('#guide').addEventListener('click', function (e) { if (e.target === this) hideGuide(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('#guide').hidden) hideGuide(); });
@@ -1322,6 +1566,7 @@
     initSliders();
     initFilm();
     initCel();
+    initDok();
     initStrip();
     initButtons();
     updateSteps();

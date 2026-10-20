@@ -97,18 +97,18 @@ button, input, textarea { font: inherit; color: inherit; }
 .top-in { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .logo { width: 112px; height: auto; border-radius: 0; }
 
-/* Liczbę kroków (--steps) ustawia app.js: 6 dla folderu produktu, 5 dla gotowej prezentacji. Na starcie pasek jest ukryty. */
-.steps { display: grid; grid-template-columns: repeat(var(--steps, 6), minmax(0, 1fr)); gap: 6px; width: min(calc(var(--steps, 6) * 128px), 100%); }
-.steps li { display: flex; border-bottom: 4px solid var(--dk-color-slider-track); color: var(--muted); font: 400 15px/1.2 var(--font-text); white-space: nowrap; }
-.steps .step-in, .steps .step-go { display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; padding: 0 2px 6px; border: 0; background: none; font: inherit; color: inherit; }
+/* Liczbę kroków (--steps) ustawia app.js. Wariant 2B (20.10.2026): cienka linia 1 px pod całym rzędem, numer + nazwa;
+   krok bieżący ma zieloną kreskę 2 px i zielony numer, krok zakończony ptaszek. Bez szarych belek. Na starcie pasek jest ukryty. */
+.steps { display: flex; gap: var(--dk-space-10); width: min(calc(var(--steps, 5) * 128px), 100%); border-bottom: 1px solid var(--line); }
+.steps li { display: flex; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--muted); font: 400 15px/1.2 var(--font-text); white-space: nowrap; }
+.steps .step-in, .steps .step-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 2px; border: 0; background: none; font: inherit; color: inherit; }
 .steps .step-go { cursor: pointer; border-radius: var(--dk-radius-sm) var(--dk-radius-sm) 0 0; }
 .steps .step-go:hover .lbl { color: var(--accent); text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1.5px; }
-.steps .n { display: inline-flex; align-items: center; font: inherit; color: inherit; }
-.steps .n::after { content: "."; margin-right: 6px; }
-.steps .n .ic { width: 16px; height: 16px; stroke-width: 2.4; color: var(--icon); margin-right: 6px; }
-.steps li.done .n::after { content: none; }
-.steps li.done { color: var(--ink); border-bottom-color: var(--progress); }
-.steps li[aria-current="step"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--progress); }
+.steps .n { display: inline-flex; align-items: center; font-weight: 700; color: inherit; }
+.steps .n .ic { width: 16px; height: 16px; stroke-width: 2.6; color: var(--heading-accent); }
+.steps li.done { color: var(--ink); }
+.steps li[aria-current="step"] { color: var(--ink); font-weight: 700; border-bottom-color: var(--dk-color-brand); }
+.steps li[aria-current="step"] .n { color: var(--heading-accent); }
 
 /* Ekrany */
 .screen { display: none; padding: var(--dk-space-5) 0 var(--dk-space-14); }
@@ -233,21 +233,26 @@ body[data-pane="dodatki"]   .pane[data-pane="dodatki"] { display: block; animati
 .h-pane { font-size: 48px; color: var(--heading-accent); overflow-wrap: anywhere; }
 .pane-lead { margin-top: var(--dk-space-3); max-width: 680px; font-size: 18px; line-height: 1.45; color: var(--muted); }
 .pane-ctx:empty { display: none; }
-/* Materiały: jeden panel na całą szerokość. Smaki w równej siatce (wiersz .f-wide), pliki w dwóch kolumnach, uwagi pod spodem. */
+/* Przegląd (wariant 2B, 20.10.2026): jeden szary panel L1 na całą szerokość, w nim białe karty L2 w siatce 2 x N (nazwa i opis po lewej,
+   duża cyfra Mindset po prawej). Karta szeroka (smaki folderu) zajmuje cały wiersz i niesie kafelki smaków. Pozycje bez liczby:
+   cicha linia pod kartami. Uwagi stoją nad panelem. */
 .found { background: var(--l1); border-radius: var(--r-card); padding: var(--dk-layout-card-pad); }
-.found-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-space-5) var(--dk-space-8); }
-.found-list > li.f-wide { grid-column: 1 / -1; }
-.found-list > li { display: grid; grid-template-columns: 24px 1fr; column-gap: 12px; align-items: start; font-size: 16px; line-height: 1.35; }
-.f-ic { width: 24px; height: 24px; border-radius: var(--dk-radius-btn); display: grid; place-items: center; background: var(--dk-color-check-bg); border: var(--dk-control-check-border-width) solid var(--dk-color-check-border-hover); color: var(--dk-color-check-mark); margin-top: -2px; }
-.f-ic .ic { width: 16px; height: 16px; stroke-width: 2.4; }
-.f-none { color: var(--muted); }
-.f-none .f-ic { border-color: var(--dk-color-check-border); color: var(--muted); }
-.f-txt strong { font-weight: 700; }
-.f-sub { display: block; font-size: 15px; color: var(--muted); overflow-wrap: anywhere; }
-/* Kafelki smaków: równa siatka (kolumny od 220 px), ostatni rząd nie rozciąga kafli.
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-space-4); }
+.stat { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-4); min-width: 0; padding: var(--dk-space-6); background: var(--l2); border-radius: var(--r-card); }
+.stat-fill, .stat-wide { grid-column: 1 / -1; }
+.stat-wide { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: var(--dk-space-4); }
+.stat-wide .stat-extra { grid-column: 1 / -1; }
+.stat-txt { min-width: 0; }
+.stat b { display: block; font-size: 17px; line-height: 1.3; }
+.stat .sub { display: block; margin-top: 2px; font-size: 15px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
+.stat .num { flex: none; font-family: var(--font-display); font-size: 48px; line-height: 1; color: var(--heading-accent); }
+.stat-nones { display: grid; gap: var(--dk-space-2); margin-top: var(--dk-space-5); }
+.stat-none { display: flex; align-items: center; gap: var(--dk-space-3); font-size: 15px; line-height: 1.35; color: var(--muted); }
+.stat-none .ic { width: 18px; height: 18px; }
+/* Kafelki smaków: równa siatka (kolumny od 220 px), ostatni rząd nie rozciąga kafli. Stoją w białej karcie, więc tło kafelka to L1.
    Nazwa łamie się tylko między słowami (overflow-wrap: break-word). */
-.flavs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--dk-space-3); margin-top: var(--dk-space-3); }
-.flav { display: flex; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-2) var(--dk-space-3) var(--dk-space-2) var(--dk-space-2); min-width: 0; background: var(--l2); border: 1px solid transparent; border-radius: var(--r-card); }
+.flavs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--dk-space-3); }
+.flav { display: flex; align-items: center; gap: var(--dk-space-3); padding: var(--dk-space-2) var(--dk-space-3) var(--dk-space-2) var(--dk-space-2); min-width: 0; background: var(--l1); border: 1px solid transparent; border-radius: var(--r-card); }
 .flav-media { position: relative; flex: none; height: 56px; min-width: 44px; max-width: 82px; padding: 0; border: 1px solid transparent; border-radius: var(--dk-radius-sm); background: var(--l3); overflow: hidden; display: flex; align-items: center; justify-content: center; color: inherit; font: inherit; }
 button.flav-media { cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease; }
 button.flav-media:hover { border-color: var(--accent); box-shadow: var(--dk-shadow-focus-field); }
@@ -260,7 +265,7 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .flav-txt { min-width: 0; line-height: 1.25; }
 .flav-name { display: block; font-weight: 700; font-size: 16px; overflow-wrap: break-word; }
 .flav-mass { display: block; font-size: 15px; color: var(--muted); }
-.f-hint { display: flex; align-items: flex-start; gap: var(--dk-space-2); margin-top: var(--dk-space-3); }
+.f-hint { display: flex; align-items: flex-start; gap: var(--dk-space-2); margin-top: var(--dk-space-3); font-size: 15px; color: var(--muted); }
 .f-hint .ic { width: 16px; height: 16px; margin-top: 2px; color: var(--icon); }
 
 .notes { margin-bottom: var(--dk-space-5); padding: var(--dk-space-5) var(--dk-space-6); border-radius: var(--r-card); background: var(--l0); border: 1px solid var(--line); }  /* biała karta wprost na białej stronie: linia 1 px; ostrzeżenie niesie ikona */
@@ -297,28 +302,59 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
    więc nie ma dwóch obrysów, a fokus różni się od samego zaznaczenia (krytyk, runda 3) */
 .style-card:has(input:focus-visible) { outline: var(--dk-control-focus-width) solid var(--focus); outline-offset: var(--dk-control-focus-offset); border-color: transparent; box-shadow: none; }
 
-/* Cel konwersji gotowej prezentacji (07.10.2026): trzy karty jedna pod drugą - nazwa, opis, radio z prawej.
-   Ten sam obrys, zaznaczenie i fokus co karty stylu (S15: jeden pierścień). */
-.cels { display: grid; gap: var(--dk-space-3); max-width: 720px; }
-.cel-card { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: var(--dk-space-4); align-items: start; cursor: pointer; border: 1px solid var(--line); border-radius: var(--r-card); background: var(--l0); padding: var(--dk-space-4); transition: border-color .15s ease, box-shadow .15s ease; }
+/* Cel konwersji gotowej prezentacji (wariant 3B, 20.10.2026): trzy karty w rzędzie na bieli (linia 1 px, wnętrze L2), wybrana ma zielony obrys 2 px
+   i „Wybrane” z ptaszkiem, bez kółek radio. Pod spodem jedna linia o wizualizacjach albo, po wybraniu „Skróć”, panel „Więcej ustawień” (L1). */
+.cels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--dk-space-5); }
+.cel-card { position: relative; display: flex; flex-direction: column; gap: var(--dk-space-2); min-height: 196px; padding: var(--dk-space-6); cursor: pointer;
+  background: var(--l2); border: 1px solid var(--line); border-radius: var(--r-card); transition: border-color .15s ease; }
 .cel-card:hover { border-color: var(--field-line); }
 .cel-card input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-.cel-name { display: block; font-weight: 700; font-size: 16px; line-height: 1.25; }
-.cel-desc { display: block; margin-top: var(--dk-space-1); font-size: 15px; line-height: 1.4; color: var(--muted); }
-.cel-card .style-tick { position: static; }
-.cel-card:hover .style-tick { border-color: var(--dk-color-check-border-hover); }
-.cel-card:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.cel-card:has(input:checked) .style-tick { border-color: var(--dk-color-check-border-hover); }
-.cel-card:has(input:checked) .style-tick::after { transform: none; }
-.cel-card:has(input:focus-visible) { outline: var(--dk-control-focus-width) solid var(--focus); outline-offset: var(--dk-control-focus-offset); border-color: transparent; box-shadow: none; }
-/* Cel Skróć: pole liczby i licznik w jednym wierszu, krótszy odstęp do listy rozdziałów */
-.cel-field { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--dk-space-6); align-items: center; max-width: none; margin-top: 0; }
-.cel-field label { grid-column: 1 / -1; }
-.cel-field .field-hint { margin-top: 0; max-width: 560px; }
-#blk-cel-slajdy:not([hidden]) { padding-bottom: var(--dk-space-6); }
-#blk-cel-slajdy:not([hidden]) ~ #fs-sekcje { padding-top: var(--dk-space-6); }
-.cel-field input[type="number"] { display: block; width: 136px; min-height: 48px; padding: var(--dk-space-3) var(--dk-space-4); border: 1px solid var(--field-line); border-radius: var(--dk-radius-sm); background: var(--l0); font: 400 16px/1.4 var(--font-text); transition: border-color .15s ease, box-shadow .15s ease; }
-.sec.cel-wiz { max-width: 720px; padding: 0; border-bottom: 0; }
+.cel-card:has(input:checked) { border: 2px solid var(--dk-color-brand); padding: calc(var(--dk-space-6) - 1px); }
+.cel-card:has(input:focus-visible) { outline: var(--dk-control-focus-width) solid var(--focus); outline-offset: var(--dk-control-focus-offset); }
+.cel-name { font: 400 26px/1.05 var(--font-display); text-transform: uppercase; letter-spacing: .01em; color: var(--dk-color-heading); overflow-wrap: break-word; }
+.cel-desc { flex: 1 1 auto; font-size: 15px; line-height: 1.4; color: var(--muted); }
+.cel-on { display: inline-flex; align-items: center; gap: 6px; min-height: 20px; font: 700 14px/1 var(--font-text); color: var(--dk-color-brand); visibility: hidden; }
+.cel-card:has(input:checked) .cel-on { visibility: visible; }
+.cel-on .ic { width: 16px; height: 16px; stroke-width: 2.6; }
+.simple-note { display: flex; align-items: center; gap: var(--dk-space-3); margin-top: var(--dk-space-10); font-size: 15px; color: var(--muted); }
+.simple-note .ic { color: var(--icon); }
+/* Więcej ustawień: przy „Rozwiń” i „Skróć”. Białe wiersze L2 w szarym panelu L1; checkbox DS (wnętrze białe, znak zielony).
+   Panel i jego sekcje to kolumna z odstępem 16 px, więc ukryty element nie zostawia pustego miejsca. */
+.more, .more-sec { display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.more { margin-top: var(--dk-space-10); background: var(--l1); border-radius: var(--r-card); padding: var(--dk-layout-card-pad); }
+.more-sec { margin-top: var(--dk-space-2); }
+.more-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--dk-space-4); }
+.more-head .eyebrow { margin: 0; }
+.more-head span { font-size: 15px; color: var(--muted); }
+.opt { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: var(--dk-space-4); align-items: start; min-height: 44px; padding: var(--dk-space-4) var(--dk-space-5); background: var(--l2); border-radius: var(--r-card); cursor: pointer; }
+.opt .dk-check { margin-top: 2px; }
+.opt b { display: block; font-size: 16px; line-height: 1.3; }
+.opt span span { display: block; font-size: 15px; color: var(--muted); }
+/* „Ile slajdów ma zostać”: nazwa nad polem, pole liczbowe i podpowiedź w jednym wierszu */
+.opt-num { grid-template-columns: auto minmax(0, 1fr); column-gap: var(--dk-space-6); row-gap: var(--dk-space-2); align-items: center; cursor: default; }
+.opt-num label { grid-column: 1 / -1; font: 700 16px/1.3 var(--font-text); }
+.opt-num .field-hint { margin: 0; max-width: 560px; }
+.opt-num input[type="number"] { display: block; width: 136px; min-height: 48px; padding: var(--dk-space-3) var(--dk-space-4); border: 1px solid var(--field-line); border-radius: var(--dk-radius-sm); background: var(--l0); font: 400 16px/1.4 var(--font-text); transition: border-color .15s ease, box-shadow .15s ease; }
+.opt-num input[type="number"]:hover { border-color: var(--ink); }
+.opt-num input[type="number"]:focus { outline: none; border-color: var(--accent); box-shadow: var(--dk-shadow-focus-field); }
+.opt-num input[type="number"]:focus-visible { outline: var(--dk-control-focus-width) solid var(--focus); outline-offset: var(--dk-control-focus-offset); }
+.rozdz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-space-2) var(--dk-space-6); }
+.rozdz-row { display: flex; align-items: center; gap: var(--dk-space-3); min-height: 44px; padding: var(--dk-space-2) var(--dk-space-5); background: var(--l2); border-radius: var(--r-card); cursor: pointer; }
+.rozdz-name { min-width: 0; font-weight: 700; overflow-wrap: anywhere; }
+.rozdz-sl { flex: none; margin-left: auto; font-size: 15px; font-weight: 400; color: var(--muted); }
+.rozdz-row:hover .rozdz-name { color: var(--accent-hover); }
+/* puste slajdy z szablonu: nazwa i opis (najwyżej dwa wiersze) w jednej kolumnie, znacznik przy pierwszej linii */
+.rozdz-tpl { align-items: flex-start; padding-top: var(--dk-space-3); padding-bottom: var(--dk-space-3); }
+.rozdz-tpl .dk-check { margin-top: 1px; }
+.rozdz-txt { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.rozdz-desc { font-size: 15px; font-weight: 400; line-height: 1.35; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* checkbox DS 25.7: wnętrze zawsze białe, znak zielony; fokus z klawiatury = pierścień 2 px z odstępem */
+.dk-check { appearance: none; -webkit-appearance: none; flex: none; margin: 0; display: inline-grid; place-content: center; width: var(--dk-control-check-size); height: var(--dk-control-check-size);
+  background: var(--dk-color-check-bg); border: var(--dk-control-check-border-width) solid var(--dk-color-check-border); border-radius: var(--dk-control-check-radius); color: var(--dk-color-check-mark); cursor: pointer; }
+.dk-check::after { content: ""; width: 12px; height: 12px; background: currentColor; transform: scale(0); clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%); }
+.dk-check:checked::after { transform: scale(1); }
+.dk-check:checked, .dk-check:hover { border-color: var(--dk-color-check-border-hover); }
+.dk-check:focus-visible { outline: var(--dk-control-focus-width) solid var(--focus); outline-offset: var(--dk-control-focus-offset); }
 
 /* Suwaki (jak "reasoning effort" w ChatGPT) */
 .slider { max-width: 720px; }
@@ -352,6 +388,12 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .stops button:nth-child(2) { text-align: center; }
 .stops button:nth-child(3) { text-align: right; }
 .stops button.on { color: var(--ink); font-weight: 700; }
+/* suwak z liczbą (tryb dokument): podpisy stoją pod swoją pozycją na torze, nie w trzech równych kolumnach */
+.stops.free { display: block; position: relative; height: 34px; }
+.stops.free button { position: absolute; top: 0; white-space: nowrap; transform: translateX(-50%); text-align: center; }
+.stops.free button:first-child { transform: none; text-align: left; }
+.stops.free button:last-child { transform: translateX(-100%); text-align: right; }
+.stops.free button[hidden] { display: none; }
 
 /* Skutek suwaka: jedno zdanie pod suwakiem, podświetla się po zmianie */
 .slider-effect { margin-top: var(--dk-space-2); padding: var(--dk-space-2) var(--dk-space-3); border-radius: var(--dk-radius-sm);
@@ -369,9 +411,6 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .grps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--dk-space-3); align-items: start; }
 .grps.one-col { grid-template-columns: minmax(0, 1fr); }
 .grp[open] { grid-column: 1 / -1; }
-/* Jedyna grupa na ekranie (rozdziały przy celach Zachowaj i Skróć): bez nagłówka, lista stoi otwarta */
-.grps.solo .grp > summary { display: none; }
-.grps.solo .secs-list { margin-top: var(--dk-space-3); }
 .grp { border-radius: var(--r-card); background: var(--l1); }
 .grp > summary { display: flex; align-items: center; gap: var(--dk-space-3); min-height: 56px; padding: var(--dk-space-3) var(--dk-space-4);
   cursor: pointer; list-style: none; border-radius: var(--r-card); }
@@ -395,11 +434,6 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 /* Sekcje */
 .secs { display: grid; }
 .sec { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: var(--dk-space-4); align-items: center; padding: var(--dk-space-4) 0; border-bottom: 1px solid var(--l2-line); cursor: pointer; position: relative; }
-.sec.sec-noimg { grid-template-columns: minmax(0, 1fr) auto; }
-/* Rozdział gotowej prezentacji: jeden wiersz (nazwa, zakres slajdów, przełącznik) */
-.sec.sec-line { min-height: 56px; padding: var(--dk-space-3) 0; }
-.sec-line .sec-txt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--dk-space-4); }
-.sec-line .sec-desc { margin-top: 0; }
 .secs-list li:last-child .sec { border-bottom: 0; }
 .secs-list .sec-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .sec-img { width: 96px; aspect-ratio: 16 / 9; border-radius: var(--dk-radius-sm); border: 1px solid var(--line); object-fit: cover; background: var(--l1); transition: opacity .18s ease, filter .18s ease; }
@@ -599,15 +633,27 @@ body[data-screen="opcje"] .toasts { bottom: calc(var(--bar-h) + 14px); }
 /* Węższe okno */
 @media (max-width: 860px) {
   .work { grid-template-columns: 1fr; gap: var(--dk-space-8); }
-  .found-list, .choices, .grps, .hint-list { grid-template-columns: minmax(0, 1fr); }
-  .steps { grid-template-columns: repeat(var(--steps, 6), auto); width: auto; }
-  .steps li { padding-left: 10px; padding-right: 10px; }
+  .stats, .rozdz, .choices, .grps, .hint-list { grid-template-columns: minmax(0, 1fr); }
+  .cels { grid-template-columns: minmax(0, 1fr); }
+  .cel-card { min-height: 0; }
+  .steps { gap: 0; width: auto; }
+  .steps .step-in, .steps .step-go { min-width: 44px; padding: 0 10px; }
   .steps .lbl { display: none; }
   .steps li[aria-current="step"] .lbl { display: inline; }
   .hero-num { font-size: 132px; }
   .h-done { font-size: 60px; }
   .bar-note { display: none; }
   .bar .btn-primary { margin-left: auto; width: auto; min-width: 220px; }
+}
+/* Telefon (390 px): kroki w drugim wierszu pod logo, „Wstecz” jako sama strzałka (nazwa zostaje dla czytnika), przycisk główny zajmuje resztę wiersza */
+@media (max-width: 520px) {
+  .top-in { flex-wrap: wrap; row-gap: var(--dk-space-2); }
+  .steps { width: 100%; justify-content: space-between; }
+  .bar-in { gap: var(--dk-space-3); }
+  .opt-num { grid-template-columns: minmax(0, 1fr); }
+  #back-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .bar #btn-back { padding: 0 var(--dk-space-4); }
+  .bar .btn-primary, .bar .btn-primary.btn-brand { flex: 1 1 auto; min-width: 0; padding: 0 var(--dk-space-3); font-size: 15px; letter-spacing: 0; }
 }
 
 /* G7: tryb zwarty dla niskich okien. Okno programu nie jest wyższe niż obszar roboczy ekranu (gui.py), a to dobiera odstępy tak,

@@ -182,3 +182,137 @@ i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bi
 
 - **S19** (DS 2.0.8): geometria jasnego i ciemnego identyczna; reguły zależne od motywu zmieniają tylko kolory.
 - Przyczyna zgłoszenia: w DAM odstępy 2.0 (24 px pod nagłówkiem) dostał tylko styl jasny.
+
+## 19.10.2026 — Panel Ankiet (makiety rund 1–3): reguły stylu na stałe
+
+> „Zapisz to sobie w skillu i na zawsze. WSZYSTKIE te poprawki, które daję do stylu, zapisuj od razu w skillu.
+> NIGDY nie dajesz kremowego na szarym tle. Jak masz coś takiego, to tło jest białe i koniec.”
+
+- **S20 krem nigdy na szarym:** ecru/krem (`surface-3`) wolno położyć tylko na białym (L2). Na szarym panelu L1 każda
+  karta, kafel, baner (także „link testowy”, „zaznaczono 3 osoby”) jest BIAŁY. Bez wyjątków.
+- **S21 liczba z jednostką:** wynik pokazuj dużą liczbą po prawej stronie karty, a „/ 11” (mianownik, jednostka)
+  mniejszy i wygaszony, „schowany” obok. Chwalone: „lepiej, jak liczba jest po prawej i ta 11 tak ładnie schowana”.
+- **S22 bez liczników doklejonych do tekstu:** żadne „6 z 8” na końcu punktu listy. Liczba osób nie jest potrzebna
+  w listach mocnych stron; jeśli coś ma stać po prawej, to tag (pigułka) wyrównany do prawej, w jednej kolumnie.
+- **S23 nagłówek sekcji ogólny, karta szczegółowa:** nie powtarzaj tego samego tytułu w nagłówku sekcji i w karcie
+  pod nim (np. „Terminowość i organizacja” dwa razy). Sekcja brzmi ogólnie, karta niżej szczegółowo.
+- **S24 oddech:** sekcje co najmniej 64 px od siebie, padding kart co najmniej 24 px, pigułki co najmniej 6×12 px,
+  tekst co najmniej 16 px od paska postępu (zwłaszcza pod paskiem). Za ciasne odstępy = „wszystko zlewa się w jedno”.
+- **S25 statusy spokojne:** w listach statusów (Wysłano, Skopiowano, Do wysłania) nie stawiaj obok siebie wielu
+  kolorowych pigułek z ikonami; status mały, stonowany, po prawej u góry wiersza. Kolor tylko tam, gdzie wymaga uwagi.
+- **S26 karta wyboru (checkbox-karta):** najpierw tytuł (pogrubiony), opis pod nim, tag kategorii w prawym górnym
+  rogu; zaznaczenie = tylko zielony obrys 2 px, tło się NIE zmienia.
+- **S27 suwak oceny:** zawsze suwak DS (szary tor, zielone wypełnienie, biały uchwyt z zielonym obrysem, wartość nad
+  uchwytem, liczby pod torem bez ramek). Gradient czerwony→zielony jest „kompletnie obcy”.
+- **S28 polska typografia w UI i PDF:** twarda spacja po słowach jednoliterowych (w, z, i, a, o, u) i po krótkich
+  przyimkach; bez sierot i wdów; bez półpauzy i pauzy. Mała litera w Mindset (np. „z” w „6 z 8”) bywa nieczytelna:
+  łączniki i małe słowa przy liczbach w Mindset pisz krojem Lato.
+- **S29 przyciski z napisem:** ikonę bez napisu zostaw tylko tam, gdzie znaczenie jest oczywiste (strzałka wstecz);
+  gdy jest miejsce, przycisk = ikona + krótki napis. Na telefonie przycisk nigdy nie zawija tekstu.
+- **S30 bez ramki w ramce (19.10.2026):** „W widoku na telefon niepotrzebnie robisz ramkę w ramce i znów ramkę. Za dużo
+  ramek.” Na telefonie najwyżej jeden poziom obramowania: kontener sekcji bez obrysu i tła (pełna szerokość), w nim
+  karty z jedną linią albo same odstępy i separatory. Na desktopie też unikaj trzech zagnieżdżonych obrysów.
+- **S31 raport jak dokument (19.10.2026):** „Zostaw już wersję bez bocznego paska, zupełnie jakby to było PDF.” Raport
+  na ekranie to jedna kolumna jak strona dokumentu, bez spisu/menu bocznego.
+- **S32 animacje fade (19.10.2026):** „Do całego programu dodaj animacje fade in, fade out.” Wejście widoków, kart,
+  rozwijanych sekcji i komunikatów: łagodne pojawianie się (opacity + delikatny ruch 4-8 px, 150-250 ms, ease-out);
+  znikanie odwrotnie. Zawsze `prefers-reduced-motion: reduce` = bez animacji.
+- **S33 zawsze jest wyjście (19.10.2026):** „Z perspektywy UX nigdy nie wolno zostawiać użytkownika bez wyjścia. Tu
+  nie ma żadnego przycisku powrót.” Każdy ekran komunikatu (szkic, błąd, brak dostępu, podgląd) ma przycisk powrotu
+  albo link do miejsca, z którego user przyszedł.
+- **S34 oddech między grupami (19.10.2026):** „Większe odstępy między Aktywne, Szkice i Zakończone, bo są za małe,
+  zlewa się w jedno. Może przydałoby się jakieś 100 px.” Odstęp między grupami sekcji na stronie ok. 96 px.
+- **S35 przestrzeń się wypełnia (19.10.2026):** „Teksty daj w 2 kolumnach, a wykresy daj z większym odstępem od góry
+  i w biały kafelek. Przenoś treści CSS GRID, żeby nie było takiej wolnej przestrzeni dookoła. Teksty trzeba układać
+  tak, by przestrzeń się uzupełniała. Daj dobry odstęp w poziomie pomiędzy kolumnami.” Długie listy w siatce 2 kolumn
+  (odstęp poziomy ok. 56 px), nie jedna wąska kolumna obok pustego pola; wykresy w osobnym białym kaflu. Liczniki
+  typu „2 z 8” tylko, gdy user ich potrzebuje (tu: nie rozumiał, usunięte).
+- **S36 kategoria jako tag (20.10.2026):** „Najwyżej oceniony obszar” ma być wyróżnione jako pigułka/tag (kategoria), a
+  pod nim nazwa (treść). Nigdy kategoria i treść tym samym krojem i wielkością. Liczniki typu „6 z 8” jako pigułka.
+- **S37 nigdy nie ucinaj tekstu (20.10.2026):** „Nie może tak być, że teksty są ucięte. Nigdy nie możesz żadnych
+  tekstów uciąć.” Zakaz `text-overflow: ellipsis` / `line-clamp` na treści; tekst się zawija.
+- **S38 telefon = więcej powietrza (20.10.2026):** na telefonie listy w białych kaflach na szarym tle, każdy element
+  wyraźnie oddzielony (kafel albo punktor), większe odstępy między elementami nagłówka i sekcjami.
+- **S39 przejrzystość kosztem przestrzeni (20.10.2026):** „Mamy cały ekran komputera do dyspozycji, dobrze, żeby było
+  przejrzyste bardziej, kosztem przestrzeni.” Na desktopie wolę mniej elementów naraz i więcej oddechu niż gęste trzy
+  kolumny; panele pomocnicze (podgląd) pokazywane na żądanie, nie zawsze.
+- **S40 elementy nie nachodzą (20.10.2026):** „Zwracaj uwagę, żeby elementy nie nachodziły na siebie — suwak na siebie
+  nachodzi.” Każdy zrzut sprawdzaj pod kątem nakładania (dymek wartości, etykiety, liczby pod torem).
+- **S41 ramki urządzeń lekkie (20.10.2026):** ramka telefonu w podglądzie cienka i jasna, nie ciężka.
+- **S42 hierarchia treść > metadane (20.10.2026):** treść główna (np. cytat zachowania) minimalnie większa; metadane
+  („Wskazało 6 z 8 osób. Obszar: …”) mniejsze i wygaszone, z wyraźnym odstępem od treści.
+- **S43 jeden zapis liczb (20.10.2026):** każdy wynik „x / max” wszędzie tak samo: liczba Mindset zielona, „/ max”
+  Lato mniejsze i wygaszone, ten sam odstęp wokół ukośnika („6 / 8” = „9,3 / 11”).
+- **S44 nagłówki sekcji większe i zielone (20.10.2026):** „Trzy wnioski”, „Cztery obszary” itp. większe, zielone
+  (heading-accent); nazwy obszarów w kartach ok. 3 px większe.
+- **S45 bliskość (gestalt) (20.10.2026):** etykieta należy wizualnie do swojej danej: werdykt „Bardzo dobrze” tuż nad
+  albo pod paskiem, nazwa pytania o połowę bliżej swojego paska; odstęp między grupami większy niż w grupie. Bez
+  wdów (jedno słowo w ostatnim wierszu nagłówka).
+- **S46 telefon: wynik jako blok danych (20.10.2026):** na telefonie liczba wyniku po lewej w wyraźnym prostokącie
+  (pigułka/kafel), ikona nad tytułem; spójny szablon z resztą strony (liczby po lewej).
+- **S47 liczniki z opisem (20.10.2026):** pigułka „6 z 8” zawsze z wyjaśnieniem (np. „6 z 8 ankietowanych”).
+- **S48 przyciski w jednym rzędzie (20.10.2026):** „Przyciski wszędzie nie są równo ułożone w jednym wierszu.” Grupa
+  akcji wiersza zawsze w jednym rzędzie, równe wysokości; na telefonie: główna akcja na pełną szerokość, pozostałe w
+  jednym rzędzie obok siebie (równe kolumny siatki) albo w menu „⋯” — nigdy schodkowe zawijanie 2+1.
+- **S49 biblioteka jako wysuwany panel (20.10.2026):** na telefonie biblioteka bloków = panel wysuwany z boku, kategorie,
+  małe podglądy bloków (jak Elementor, ale nie kopia); więcej odstępów w kreatorze na telefonie.
+- **S58 tryb prosty bez kolorowych przycisków (20.10.2026, program „Stwórz prezentację”):** „Widzę, że aplikacja do
+  konwersji wygląda brzydko. Na pewno niepotrzebne są te przyciski kolorowe w trybie prostym.” Reguła (interpretacja
+  agenta; 20.10 potwierdzone: chodziło o pastelowe kafle PNG / JPG / AVIF w trybie prostym Photo Resizera): w najprostszej ścieżce widoku nie stawiaj rzędu kolorowych
+  kontrolek (duże zielone przełączniki, żółte znaczki, kafle-przyciski); ustawienia rzadkie chowaj pod „Więcej
+  ustawień”, kontrolki DS w spokojnej wersji (checkbox / radio z białym wnętrzem).
+- **S50 akcja = widoczny skutek w miejscu (20.10.2026):** „+ z banku nie działa — albo działa, ale nie wiedziałem, że
+  wyświetla się po prawej.” Przycisk otwiera wybór tuż przy nim (popover / rozwinięcie w miejscu) albo wyraźnie wskazuje
+  i podświetla miejsce, gdzie coś się pojawiło. Nigdy cicho po drugiej stronie ekranu.
+- **S51 przeciąganie (20.10.2026):** w trakcie drag & drop przyciemnij (fade 0,15 s) wszystko, na co nie wolno upuścić;
+  miejsca docelowe wyraźnie zaznaczone.
+- **S52 części bloku razem i zwijane (20.10.2026):** „zachowania do zaznaczenia muszą być częścią pytania, tego
+  segmentu. Musi to się dać ZWINĄĆ i rozwinąć, bo zajmuje w chuj miejsca.” Elementy należące do jednego bloku (obszar:
+  pytania + zachowania + komentarz) leżą w jednej karcie; długie listy (zachowania, opisy) domyślnie zwinięte do
+  jednego wiersza podsumowania („Zachowania: 6 · 2 · 4 ▸”), rozwijane klikiem.
+- **S53 nigdy nie blokuj dodawania (20.10.2026):** „mimo wyboru głównej ankiety NIGDY nie blokuj żadnej możliwości
+  dodawania kolejnych bloków pytań. Nigdy.” Żadnych wyszarzonych bloków ani komunikatów „Ukryto: …” w bibliotece.
+- **S54 podpowiedź znaczenia (20.10.2026):** „jak najadę na obszary, to nie wiem, co one znaczą.” Każda karta pojęcia
+  z banku (obszar, zestaw) ma krótki opis, czego dotyczy, widoczny na karcie lub po najechaniu; pojęcie „obszar”
+  wyjaśnione jednym zdaniem („kategoria pytań na jeden temat, etap ankiety”).
+- **S55 szeroki ekran (20.10.2026):** narzędzia robocze (kreator) rozciągają się z oknem do 2540 px szerokości;
+  progi tablet/telefon bez zmian.
+- **S56 panel boczny chowany (20.10.2026):** panel boczny (biblioteka) ma przycisk schowaj/pokaż; gdy schowany, a akcja
+  zmienia jego treść, przycisk pokazu pulsuje/rozjaśnia się (fade, krótko), żeby było widać, że tam coś się zmieniło.
+- **S57 komplet opisów skali (20.10.2026):** suwak 1–11 zawsze ma opisane wszystkie 11 poziomów (pasma: 1–3 Znaczne
+  trudności, 4–6 Wymaga poprawy, 7–8 Zgodne z oczekiwaniami, 9 Bardzo dobrze, 10 Doskonale, 11 Ponad oczekiwania);
+  nigdy komunikat „ten poziom nie ma opisu”. Brakujące uzupełnia się samo.
+- **S59 obrysy przycisków lżejsze (20.10.2026, przy Photo Resizerze):** „Pamiętaj o tym, żeby obrysy przycisków
+  transparency 50%, nie takie mocne. Wszędzie. Ogólnie, to ogólny styl Dobrej Kalorii.” Przycisk drugorzędny (biały
+  z obrysem) ma obrys `btn2-border` = `grey-500` (#868E96, jak obrys checkboxa) zamiast `ink-900` (#222222) we wszystkich
+  stylach jasnych; tekst przycisku zostaje #222222. Tokeny 2.0.10.
+- **S60 odstęp między krokami ekranu ~70 px (20.10.2026, Photo Resizer):** „Pomiędzy sekcjami 2 i 3 zrób odstępy od
+  sekcji 70 px.” Kolejne kroki / sekcje ekranu jednej czynności oddzielaj ok. 70 px.
+- **S61 działający ekran zostaje (20.10.2026, DAM):** przy 4 ekranach DAM user odrzucił WSZYSTKIE warianty („Wszystkie
+  wersje są okropne. Aktualna jest najlepsza”; „Żadna nie jest dobra, obecna jest najlepsza”). Reguła: ekranu, który
+  działa i był już dopracowywany w rundach, nie przebudowuj - poprawiaj tylko konkretne wady (kolor, jeden przycisk).
+  W rundzie /design dla takiego ekranu warianty = A + jedna punktowa zmiana, nie nowy układ.
+- **S62 lista to lista, nie kafelki (20.10.2026, DAM eksplorator):** „W ogóle nie. Żadne kafelki. Nic z tego mi nie
+  pasuje.” Lista produktów / plików zostaje listą wierszy; nie zamieniaj jej w kafle ani karty.
+- **S63 akcje wiersza: jeden przycisk z listą (20.10.2026, DAM):** „Tam jest tak wielki tłok z tym F X D. To powinno być
+  tak, że to jest jeden przycisk, nazwany jakoś, np. Zmień wersję, i wtedy można z listy rozwijanej wybrać F - Ukończona,
+  X - Archiwalna, D - Demo.” Kilka jednoliterowych przycisków stanu w wierszu = jeden przycisk z nazwą czynności i lista
+  rozwijana z pełnymi nazwami (skrót + nazwa).
+- **S64 metki nie biją po oczach (20.10.2026, DAM pulpit):** „Zmieniłbym kolor marketing w Asanie na jakiś lżejszy, bo ten
+  bije po oczach. Może coś z szarością.” Metki / pigułki kategorii w listach: stonowane, przygaszone (odcień z szarością),
+  nigdy nasycony turkus / cyjan na całą szerokość wiersza.
+- **S65 bez czarnych obrysów i ciężkiego wyszukiwania (20.10.2026, DAM ustawienia):** „Widać, że wersja B jest okropna, bo
+  ma ten obrys czarnego na przycisku, a my tego nie chcemy. I tak samo pasek wyszukiwania jest bardzo toporny.” Potwierdza
+  S59; pole wyszukiwania lekkie (jasne tło lub cienka jasna linia, bez grubego zielonego obrysu i dużego przycisku „Szukaj”).
+- **S58 rozwiń/zwiń widoczne (20.10.2026):** „rozwiń i zwiń powinno być znacznie lepiej widoczne.” Przełącznik zwijania
+  to przycisk-pigułka z podpisem i chevronem (zielony obrys 1,5 px, tekst zielony pogrubiony, hover: pełna zieleń),
+  wyrównany do prawej w wierszu nagłówka; nigdy sam mały link ani sama ikona.
+- **S59 bez żargonu w metkach (20.10.2026):** „bank: Ogólna ocena… jest niepotrzebne”, „ocena 360 nie jest potrzebna”.
+  Metka pokazuje samą nazwę (np. typ obszaru „Komunikacja”) z ikoną „i”; znaczenie w podpowiedzi zwykłym językiem
+  (co z tego wynika dla respondenta). Nagłówek bloku: „Obszar 1”, bez dopisków technicznych.
+- **S60 listy wyboru z oddechem (20.10.2026):** „za bardzo skondensowany… napisy nachodzą na siebie, nie ma paddingu”.
+  Wiersz listy wyboru = biała karta z obrysem, padding min. 14×18 px, odstęp 10 px między wierszami, nazwa 16 px, opis
+  14 px / 1,5. Wiersze w przewijanej liście nigdy się nie ściskają (`flex: none`).
+- **S61 grupy główne daleko od siebie (20.10.2026):** „Oddal o 100 px od siebie obszary. Nowy obszar ma być wyraźnie
+  zaznaczony, większa czcionka.” Główne grupy (obszary) ~140 px odstępu, zielony pasek 4 px u góry karty, większy
+  nagłówek grupy i tytuł; elementy opcjonalne bloku (np. komentarz) mają przełącznik wł./wył. w miejscu.

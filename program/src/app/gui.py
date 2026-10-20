@@ -59,6 +59,12 @@ def set_clipboard(text):
         u32.CloseClipboard()
 
 
+def _korzen_dysku(d):
+    """Korzeń dysku (np. cały dysk D:) nie jest „folderem, w którym był plik” - nie otwieramy go."""
+    d = os.path.abspath(d)
+    return os.path.dirname(d) == d
+
+
 class Api:
     def __init__(self):
         self._window = None
@@ -80,23 +86,27 @@ class Api:
         r = self._window.create_file_dialog(webview.FileDialog.FOLDER, directory=self._start_dir())
         return r[0] if r else None
 
-    def pick_pptx(self):
-        """Gotowa prezentacja do przełożenia na styl DK (tryb konwersji): zwraca ścieżkę pliku albo None."""
+    def pick_file(self):
+        """Plik, z którego powstanie prezentacja: gotowa prezentacja do przełożenia na styl DK (.pptx, .ppsx) albo dokument
+        (.docx, .doc, .rtf, .odt, .pdf, .txt, .md - lista z silnika). Zwraca ścieżkę pliku albo None."""
+        wzorce = ["*.pptx", "*.ppsx"] + ["*" + e for e in engine.dok_ext()]
         r = self._window.create_file_dialog(webview.FileDialog.OPEN, directory=self._start_dir(), allow_multiple=False,
-                                            file_types=("Prezentacje (*.pptx;*.ppsx)",))
+                                            file_types=("Prezentacje i dokumenty (%s)" % ";".join(wzorce), "Wszystkie pliki (*.*)"))
         return r[0] if r else None
+
+    pick_pptx = pick_file   # stara nazwa (mock, testy)
 
     def analyze(self, path):
         try:
             t = time.time()
             res = engine.analyze(path)
-            engine._log_file("analiza folderu: %.1f s (%s)" % (time.time() - t, res["folder"]))
-            self.folder = res.get("plik") or res["folder"]  # konwersja: ścieżką jest plik .pptx
+            engine._log_file("analiza: %.1f s (%s)" % (time.time() - t, res.get("plik") or res["folder"]))
+            self.folder = res.get("plik") or res["folder"]  # konwersja i dokument: ścieżką jest plik
             self._last_est = res["szacowany_czas_s"]
             return res
         except Exception as e:
             engine._log_file(traceback.format_exc())
-            return {"ok": False, "blad": str(e)}
+            return {"ok": False, "blad": engine.komunikat_bledu(e, engine.BLAD_PLIKU)}   # nigdy surowy wyjątek w oknie
 
     def build(self, opts):
         if not self.folder:
@@ -111,7 +121,9 @@ class Api:
             if res.get("ok"):
                 self._js("App.onDone", res)
             else:
-                self._js("App.onError", res.get("blad", "Nieznany błąd"))
+                if res.get("traceback"):   # szczegóły techniczne tylko w „Pokaż szczegóły” i w logu, nie w komunikacie
+                    self._js("App.onLog", res["traceback"])
+                self._js("App.onError", res.get("blad") or engine.BLAD_TWORZENIA)
 
         threading.Thread(target=run, daemon=True).start()
         return {"started": True}
@@ -121,15 +133,44 @@ class Api:
         return True
 
     def open_path(self, p):
-        os.startfile(p)
-        return True
+        """Otwiera plik prezentacji. Zwraca {"ok": bool, "komunikat": zdanie dla człowieka lub ""}: przeniesiony albo
+        usunięty plik nie kończy się surowym wyjątkiem, tylko zdaniem i (gdy się da) otwarciem folderu, w którym był."""
+        p = str(p or "")
+        if os.path.exists(p):
+            try:
+                os.startfile(p)
+                return {"ok": True, "komunikat": ""}
+            except OSError:
+                engine._log_file(traceback.format_exc())
+                return {"ok": False, "komunikat": "Nie mogę otworzyć tego pliku. Otwórz go ręcznie z folderu z prezentacją."}
+        return self._brak_pliku(p, "pliku prezentacji")
 
     def open_folder(self, p):
-        if os.path.isfile(p):
-            subprocess.Popen(["explorer", "/select,", p])
-        else:
-            os.startfile(p)
-        return True
+        """Pokazuje folder (albo zaznacza plik w jego folderze). Zwraca {"ok", "komunikat"} jak open_path."""
+        p = str(p or "")
+        try:
+            if os.path.isfile(p):
+                subprocess.Popen(["explorer", "/select,", p])
+                return {"ok": True, "komunikat": ""}
+            if os.path.isdir(p):
+                os.startfile(p)
+                return {"ok": True, "komunikat": ""}
+        except OSError:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "komunikat": "Nie mogę otworzyć folderu. Otwórz go ręcznie w Eksploratorze."}
+        return self._brak_pliku(p, "pliku prezentacji" if p.lower().endswith((".pptx", ".ppsx", ".potx", ".pptm")) else "folderu z prezentacją")
+
+    def _brak_pliku(self, p, co):
+        """Brak pliku / folderu (przeniesiony albo usunięty): zdanie po ludzku i, gdy istnieje folder, w którym był (bezpośredni
+        nadrzędny, nie korzeń dysku), jego otwarcie. Nie szukamy wyżej: wyższy folder to nie „folder, w którym był”."""
+        d = os.path.dirname(p.rstrip(chr(92) + "/"))
+        if d and os.path.isdir(d) and not _korzen_dysku(d):
+            try:
+                os.startfile(d)
+                return {"ok": True, "komunikat": "Nie znajduję %s - został przeniesiony albo usunięty. Otwieram folder, w którym był." % co}
+            except OSError:
+                engine._log_file(traceback.format_exc())
+        return {"ok": False, "komunikat": "Nie znajduję %s - został przeniesiony albo usunięty. Zrób prezentację jeszcze raz." % co}
 
     def check_update(self):
         r = update.check()
@@ -150,9 +191,10 @@ class Api:
                 self._js("App.onUpdate", {"procent": 100, "restart": True})
                 time.sleep(1.2)
                 self._window.destroy()
-            except Exception as e:
+            except Exception:
                 engine._log_file(traceback.format_exc())
-                self._js("App.onUpdate", {"blad": "Nie udało się zaktualizować: %s" % e})
+                self._js("App.onUpdate", {"blad": "Nie udało się zaktualizować programu. Spróbuj jeszcze raz za chwilę albo poproś "
+                                                  "opiekuna programu o nową wersję."})
 
         threading.Thread(target=run, daemon=True).start()
         return {"started": True}
@@ -167,10 +209,15 @@ class Api:
         nazwa, url, app = engine.AI_CHATS[ktory]
         skopiowano = bool(set_clipboard(t or ""))
         appid = engine.find_app(app)
-        if appid:  # aplikacja na komputerze ma dostęp do plików, przeglądarka nie
-            subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + appid])
-        else:
-            os.startfile(url)
+        try:
+            if appid:  # aplikacja na komputerze ma dostęp do plików, przeglądarka nie
+                subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + appid])
+            else:
+                os.startfile(url)
+        except OSError:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "blad": "Nie udało się otworzyć czatu %s. Otwórz go ręcznie%s." % (
+                nazwa, " - polecenie jest już skopiowane, wystarczy wkleić" if skopiowano else "")}
         gdzie = "aplikacja" if appid else "przegladarka"
         engine._log_file("otwieram %s (%s, schowek: %s, %d znaków)" % (nazwa, gdzie, skopiowano, len(t or "")))
         return {"ok": True, "nazwa": nazwa, "klucz": ktory, "skopiowano": skopiowano, "gdzie": gdzie}

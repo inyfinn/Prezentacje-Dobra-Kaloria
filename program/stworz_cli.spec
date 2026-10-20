@@ -16,7 +16,7 @@ EXCLUDES = ["tkinter", "matplotlib", "cv2", "scipy", "pandas", "IPython", "jupyt
             "PySide2", "PySide6", "playwright", "pytest", "sphinx", "customtkinter", "test", "unittest"]
 HIDDEN = ["openpyxl", "tifffile", "clr", "webview.platforms.edgechromium", "webview.platforms.winforms",
           "webview.dom", "PIL.ImageFont", "PIL.ImageDraw", "PIL.ImageFilter", "pptx", "lxml.etree", "lxml._elementpath",
-          "numpy", "lzma", "hashlib"]  # 13.10: oko.py (numpy), lint_tekst.py (lzma, hashlib) - skrypty skilla ładowane z app\skill\scripts
+          "numpy", "lzma", "hashlib", "fitz", "pymupdf", "pypdf"]  # 13.10: oko.py (numpy), lint_tekst.py (lzma, hashlib) - skrypty skilla ładowane z app\skill\scripts
 
 a = Analysis([os.path.join(SRC, "app", "main_cli.py")], pathex=[os.path.join(SRC, "app"), os.path.join(SRC, "skill", "scripts")],
              binaries=[], datas=datas, hiddenimports=HIDDEN, hookspath=[], runtime_hooks=[], excludes=EXCLUDES,

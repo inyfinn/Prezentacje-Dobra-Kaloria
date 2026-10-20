@@ -1,4 +1,4 @@
-# Tokeny Dobra Kaloria 2.0.9
+# Tokeny Dobra Kaloria 2.0.10
 
 PLIK GENEROWANY z `tokens.json` (`scripts/build_tokens.py`). Zasady użycia: `../DESIGN_SYSTEM.md`, `../IDENTYFIKACJA-WIZUALNA.md`.
 
@@ -171,7 +171,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | switch-knob | `--dk-color-switch-knob` | `#FFFFFF` | white |
 | btn2-bg | `--dk-color-btn2-bg` | `#FFFFFF` | white |
 | btn2-text | `--dk-color-btn2-text` | `#222222` | ink-900 |
-| btn2-border | `--dk-color-btn2-border` | `#222222` | ink-900 |
+| btn2-border | `--dk-color-btn2-border` | `#868E96` | grey-500 |
 | btn2-hover-bg | `--dk-color-btn2-hover-bg` | `#F6F2EF` | stone-200 |
 | step-active-bg | `--dk-color-step-active-bg` | `#007936` | green-750 |
 | step-active-text | `--dk-color-step-active-text` | `#FFFFFF` | white |
@@ -321,7 +321,7 @@ Wzór: hue = `tag_hue` wariantu + przesunięcie `[0, 8, -8, 16, -16, 24, -24, 32
 | step-idle-text | surface-0 | 5.74:1 | 4.5:1 | tekst nieaktywnego kroku |
 | btn2-text | btn2-bg | 15.91:1 | 4.5:1 | tekst przycisku drugorzędnego |
 | btn2-text | btn2-hover-bg | 14.29:1 | 4.5:1 | tekst przycisku drugorzędnego (hover) |
-| btn2-border | btn2-bg | 15.91:1 | 3.0:1 | obrys przycisku drugorzędnego |
+| btn2-border | btn2-bg | 3.32:1 | 3.0:1 | obrys przycisku drugorzędnego |
 | slider-fill | slider-track | 4.57:1 | 3.0:1 | wypełnienie suwaka na torze |
 | slider-thumb-border | slider-thumb | 5.54:1 | 3.0:1 | obrys uchwytu suwaka |
 | switch-on | surface-0 | 5.54:1 | 3.0:1 | włączony przełącznik na tle |

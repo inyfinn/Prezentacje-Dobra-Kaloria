@@ -11,7 +11,7 @@ notatki źródła). Kolory: token motywu (`brand`, `card`, ...) albo stały hex.
 | type | pola |
 |---|---|
 | cover | `variant` 1-4 (**4 = wzór usera 29.09**: duże logo na zieleni, "NOWOŚĆ" zielonym Mindsetem, 3 paczki pod tytułem), `kicker`, `title`, `subtitle`, `image` (packshot albo lista 3 = trio), `props[]`, `flavors[]` `{name, dot}`; `kicker_style` display/button/label (okładki domyślnie display) |
-| cover_text | `variant` 1-3, `kicker`, `title`, `subtitle`, `meta` (autor/data), `props[]` (wariant 2) |
+| cover_text | `variant` 1-3, `kicker`, `title`, `subtitle`, `meta` (autor/data), `props[]` (wariant 2), opcjonalne `logo` (PNG obcej marki: do 3,5 cm wysokości, w całości, bez cienia i obrotu) |
 | agenda | `kicker`, `title`, `items[]` str albo `{title, text}` (do 8) |
 | section | `variant` dark/light, `number` (`""` = bez numeru; konwersja nie dopisuje numerów), `label` (zamiast numeru: nagłówek ze starej belki), `title`, `subtitle`, opc. `image`, `props` |
 | lead | `kicker`, `title`, `lead`, `columns[]` `{title, text}` |
@@ -48,7 +48,7 @@ notatki źródła). Kolory: token motywu (`brand`, `card`, ...) albo stały hex.
 | video | `variant` full/text, opc. `link` (YouTube -> prawdziwe wideo online), `title`, `caption`, `kicker`, `text`, `items[]`, opc. `video` (mp4 - osadzony) + `poster`; bez pliku ramka z instrukcją |
 | before_after | `kicker`, `title`, `items[2]` `{image, caption, badge}` |
 | donut | `kicker`, `title`, `center`, `center_label`, `items[]` `{label, value, text, note}` - wykres EDYTOWALNY |
-| columns | `kicker`, `title`, `categories[]`, `series[]` `{name, values[]}`, `insight`, `number_format` - wykres EDYTOWALNY |
+| columns | `kicker`, `title`, `categories[]`, `series[]` `{name, values[]}`, `insight`, `number_format`, opcjonalne `stacked` (kolumny skumulowane) i `percent` (skumulowane do 100%) - wykres EDYTOWALNY |
 | price | `kicker`, `title`, `image` (1 paczka lub lista 3), `props`, `price`, `price_label`, `price_note`, `facts[4]` `{label, value}` |
 | compare_table | `kicker`, `title`, `columns[]` (pierwsza = nasz produkt), `rows[]` [cecha, True/False/tekst, ...] |
 | occasions | `kicker`, `title`, `items[4]` `{icon, time, title, text}` |
