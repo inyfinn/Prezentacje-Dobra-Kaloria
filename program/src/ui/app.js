@@ -717,7 +717,7 @@
   /* ---------- tryb dokument: dwa suwaki (liczba slajdów, rozdziały), te same komponenty co suwaki folderu ----------
      Zakresy i wartości domyślne liczy silnik Z DOKUMENTU (r.suwaki). Suwak liczby slajdów ma trzy podpisy: Krótko (najmniej
      slajdów, gęsto), Standardowo (wartość domyślna), Szczegółowo (najwięcej, jedna myśl na slajd). Klik w podpis ustawia suwak. */
-  var DOK = { sl: { min: 1, max: 1, dom: 1 }, rz: { max: 0, dom: 0 }, slowa: 0, czas: null };
+  var DOK = { sl: { min: 1, max: 1, dom: 1 }, rz: { max: 0, dom: 0 }, slowa: 0, pct: null, czas: null };
 
   function dokPct(v, mn, mx) { return mx > mn ? Math.max(0, Math.min(1, (v - mn) / (mx - mn))) : 0; }
   /* Krótko / Standardowo / Szczegółowo: pozycja względem wartości domyślnej, liczona od zakresu z dokumentu (skrajna ćwierć odcinka = skraj) */
@@ -737,16 +737,18 @@
     var dots = $$('.dot', root);
     dots[1].style.left = (pd * 100) + '%';
     dots.forEach(function (d, i) { d.classList.toggle('on', p >= (i === 0 ? 0 : (i === 2 ? 1 : pd)) - 1e-9); });
-    var fixed = sl.max <= sl.min;   /* krótki dokument: jedna możliwa liczba slajdów */
+    var fixed = sl.max <= sl.min;   /* dokument na mniej niż 4 slajdy: jedna możliwa liczba */
     input.disabled = fixed;
-    var label = fixed ? 'Krótki tekst' : dokLabel(v);
-    var perSlide = DOK.slowa ? Math.max(1, Math.round(DOK.slowa / v)) : 0;
+    var label = (fixed && sl.max < 4) ? 'Krótki tekst' : dokLabel(v);
     $('.slider-value strong', root).textContent = label;
     $('.slider-value span', root).textContent = '';   /* liczbę slajdów podaje zdanie pod suwakiem */
-    var eff = perSlide ? 'ok. ' + v + ' slajdów, średnio ' + num(perSlide, 'słowo', 'słowa', 'słów') + ' na slajd. ' : '';
-    if (!fixed) eff += label === 'Krótko' ? 'Gęściej: kilka zdań na jednym slajdzie, w punktach.' : (label === 'Szczegółowo' ? 'Jedna myśl na slajd.' : 'Hasło i krótki opis na slajd.');
+    /* 21.10: na slajdach stają liczby, tabele i hasła; pełny tekst dokumentu idzie do notatek prelegenta (procent liczy silnik: r.na_slajdach) */
+    var pct = DOK.pct ? (v <= sl.min ? DOK.pct.min : (v >= sl.max ? DOK.pct.max : DOK.pct.domyslnie)) : 0;
+    var eff = num(v, 'slajd', 'slajdy', 'slajdów') + ' z treścią + okładka i zakończenie. ';
+    eff += label === 'Krótko' ? 'Jeden slajd na rozdział: liczby, tabele i hasła.' : (label === 'Szczegółowo' ? 'Także pełne tabele, akapity jako hasła i pytania.' : 'Każda liczba, tabela i lista ma slajd.');
+    eff += pct ? ' Na slajdach ok. ' + pct + '% słów dokumentu, cały tekst w notatkach prelegenta.' : ' Cały tekst dokumentu w notatkach prelegenta.';
     $('#dok-slajdy-effect').textContent = eff;
-    input.setAttribute('aria-valuetext', label + ', ok. ' + v + ' slajdów');
+    input.setAttribute('aria-valuetext', label + ', ' + v + ' slajdów');
     var st = $$('.stops button', root);
     st.forEach(function (b) {
       var k = b.getAttribute('data-k');
@@ -767,12 +769,12 @@
     var dots = $$('.dot', root);
     dots[0].classList.add('on');
     dots[1].classList.toggle('on', p >= 1 - 1e-9);
-    $('.slider-value strong', root).textContent = v === 0 ? 'Bez przekładek' : num(v, 'przekładka rozdziału', 'przekładki rozdziałów', 'przekładek rozdziałów');
+    $('.slider-value strong', root).textContent = v === 0 ? 'Bez podziału' : num(v, 'rozdział', 'rozdziały', 'rozdziałów');
     $('.slider-value span', root).textContent = '';
-    $('#dok-rozdzialy-effect').textContent = v === 0 ? 'Slajdy idą jeden za drugim, bez slajdów z tytułami rozdziałów.'
-      : (v >= 3 ? num(v, 'rozdział dostaje', 'rozdziały dostają', 'rozdziałów dostaje') + ' slajd z tytułem, a na początku powstaje spis treści.'
-        : (v === 1 ? 'Jeden rozdział dostaje slajd z tytułem.' : 'Rozdziały dostają slajdy z tytułami.'));
-    input.setAttribute('aria-valuetext', v === 0 ? 'bez przekładek' : num(v, 'przekładka', 'przekładki', 'przekładek'));
+    $('#dok-rozdzialy-effect').textContent = v === 0 ? 'Slajdy idą jeden za drugim.'
+      : (v >= 3 ? 'Każdy rozdział zaczyna zielony slajd z samym tytułem, a na początku jest spis treści.'
+        : 'Rozdział zaczyna zielony slajd z samym tytułem.');
+    input.setAttribute('aria-valuetext', v === 0 ? 'bez podziału na rozdziały' : num(v, 'rozdział', 'rozdziały', 'rozdziałów'));
     $$('.stops button', root).forEach(function (b) {
       var mn = b.getAttribute('data-k') === 'min';
       b.style.left = mn ? '0' : '100%';
@@ -797,6 +799,7 @@
     DOK.sl = { min: sl.min | 0, max: sl.max | 0, dom: sl.domyslnie | 0 };
     DOK.rz = { max: rz.max | 0, dom: rz.domyslnie | 0 };
     DOK.slowa = r.slowa | 0;
+    DOK.pct = r.na_slajdach || null;
     DOK.czas = r.czas || null;
     var a = $('#in-dok-slajdy'), b = $('#in-dok-rozdzialy');
     a.min = String(DOK.sl.min); a.max = String(Math.max(DOK.sl.max, DOK.sl.min)); a.value = String(DOK.sl.dom);

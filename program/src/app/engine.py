@@ -671,15 +671,15 @@ def analyze_dokument(plik):
     czas = _czas_dokumentu()
     nag = {str(k): int(v) for k, v in (st.get("naglowki") or {}).items()}
     uwagi = [{"typ": "ostrzezenie", "tekst": t} for t in (m.get("ostrzezenia") or [])]
-    uwagi.append({"typ": "info", "tekst": "Cały tekst dokumentu trafi na slajdy - niczego nie dopiszę i nie pominę. "
-                                          "Na końcu sprawdzę każdy akapit i pokażę wynik."})
+    uwagi.append({"typ": "info", "tekst": "Na slajdach stają liczby, tabele i hasła z dokumentu; pełny tekst trafia do notatek "
+                                          "prelegenta - niczego nie dopiszę i nie pominę. Na końcu sprawdzę każdy akapit i pokażę wynik."})
     v = sw["slajdy"]["domyslnie"]
     est = czas["stale"] + czas["na_slajd"] * v + czas["kw"] * v * v
     return {"ok": True, "tryb": "dokument", "folder": os.path.dirname(plik), "plik": plik, "nazwa_pliku": os.path.basename(plik),
             "produkt": m.get("tytul") or os.path.splitext(os.path.basename(plik))[0], "tytul": m.get("tytul") or "",
             "slowa": int(st.get("slowa") or 0), "akapity": int(st.get("akapity") or 0), "naglowki": nag,
             "tabele": int(st.get("tabele") or 0), "obrazy": int(st.get("obrazy") or 0),
-            "suwaki": sw, "czas": czas, "uwagi": uwagi,
+            "suwaki": sw, "czas": czas, "uwagi": uwagi, "na_slajdach": st.get("na_slajdach") or {},
             "sekcje": [], "grupy": [], "cele": [], "presety": {"0": [], "1": [], "2": []}, "smaki": [], "karty": 0,
             "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1}, "szacowany_czas_s": int(est),
             "powerpoint": powerpoint_available()}

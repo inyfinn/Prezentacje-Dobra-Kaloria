@@ -11,12 +11,12 @@ Punkty wspólne i P1-P6 pochodzą z `polecenia.py`
 import polecenia as P
 
 OPIS = ("Prezentacja z dokumentu: slajdy w stylu marki z tych samych słów, w kolejności dokumentu. "
-        "Liczbę slajdów i przekładek ustawia człowiek suwakiem.")
+        "Liczbę slajdów i podział na rozdziały ustawia człowiek suwakiem.")
 
-TRESC = ("TREŚĆ Z DOKUMENTU, NIC WIĘCEJ: slajdy powstały z dokumentu, w jego kolejności. Wszystkie słowa, liczby i znaki "
-         "dokumentu zostają; żadnych własnych tytułów, haseł, wniosków ani liczb (tytuł slajdu = nagłówek z dokumentu); "
+TRESC = ("TREŚĆ Z DOKUMENTU, NIC WIĘCEJ: slajdy powstały z dokumentu, w jego kolejności. Na slajdach są hasła, liczby i krótkie tabele, "
+         "pełny tekst dokumentu jest w notatkach prelegenta (nic nie ginie); żadnych własnych tytułów, haseł, wniosków ani liczb (tytuł slajdu = nagłówek z dokumentu); "
          "nie łącz i nie dziel sekcji w środku zdania; obrazy w całości; słowa wyróżnione przez autora zostają wyróżnione. "
-         "Liczbę slajdów i przekładek rozdziałów ustawił człowiek suwakiem - nie zmieniaj jej (wyjątek: slajd, na którym "
+         "Liczbę slajdów i podział na rozdziały ustawił człowiek suwakiem - nie zmieniaj jej (wyjątek: slajd, na którym "
          "treść nie mieści się pismem 13 pt - wtedy podziel go i zgłoś w DO DECYZJI).")
 
 P4 = ("PĘTLA: obejrzyj KAŻDĄ planszę z folderu „plansze” obok pliku wyniku (wynik_01-06.png…; to zrzuty gotowego pliku, "

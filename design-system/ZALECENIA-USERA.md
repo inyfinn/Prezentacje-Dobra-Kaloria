@@ -329,3 +329,127 @@ i krokomierz w brązie (G5, G6), kremowa karta jako poziom 1, „brak czystej bi
 - **S67 kolejność i oddech w nagłówku bloku (20.10.2026):** przyciski nagłówka (Zwiń, Dobierz z banku) w jednym rzędzie
   z tytułem, nigdy nie „wędrują” pod napisy; akcja dotycząca listy stoi NAD pytaniem do respondenta, a pytanie ma
   ~50 px odstępu od góry. Gdy mało miejsca: więcej oddechu, nie ciaśniej.
+- **S61 POPRAWKA (20.10.2026):** „Wypierdol tę głupią ramkę… Żadnego zielonego paska grubego w ramce. To jest styl
+  niedobrokaloriowy.” Grupy (obszary) oddziela ODSTĘP, nie gruby kolorowy pasek. Karta = zwykła ramka 1 px; zaznaczona =
+  sam obrys. Nigdy grubych akcentowych pasków na krawędzi karty (border-top/left 4 px).
+- **S68 zakładki jak karty przeglądarki (20.10.2026):** „To musi być widać, że to są karty do przełączenia. Przyciski. Większe,
+  jak KARTY w przeglądarce. Globalnie.” `.dk-tab` = kafel z tłem L1, ramką 1 px i zaokrągleniem 12 px u góry, min. 52 px
+  wysokości, Mindset 20 px; aktywna = białe tło (L0), zielony tekst, łączy się z treścią (dolna krawędź w kolorze tła).
+  Telefon: siatka 2×2 kafli, aktywny z zielonym obrysem, nic nie ucięte.
+- **S69 numeracja tylko raz (20.10.2026):** „nie trzeba dawać 1., 2., bo na górze mamy OBSZAR 1, OBSZAR 2.” Numer porządkowy
+  pokazuj w jednym miejscu (metka „Obszar 1”), nie powtarzaj go w tytule.
+- **S70 pytania w kafelkach (20.10.2026):** „Pytania powinny być w kafelkach. Wszystko szare tło, pytania w białych kafelkach.”
+  Grupa (obszar) = panel L1 (szary, bez ramki), każde pytanie / blok zachowań / komentarz = biała karta L2. Tytuł pytania
+  wyraźnie większy (np. 20–22 px pogrubiony), żeby było widać, że to pytanie.
+- **S68 uzupełnienie (20.10.2026):** „karta otwarta powinna być w wygładzony sposób pokazana; scroll tutaj jest niepotrzebny;
+  teksty w tabach niezaznaczonych mniejsze o 3 px.” Aktywna karta przechodzi w linię łagodnymi łukami (wklęsłe zaokrąglenia przy
+  dole, jak w Chrome); pasek kart bez przewijania (zawija się); nieaktywne 17 px, aktywna 20 px.
+- **S71 po ludzku (20.10.2026):** „nie rozumiem, co znaczy FRAGMENT ADRESU (/S/...), wyjaśniaj rzeczy po ludzku. Statusy mają mieć
+  ikony.” Etykiety pól bez żargonu technicznego, z przykładem/podglądem skutku; statusy zawsze z ikoną.
+- **S72 typografia bez wyjątków (20.10.2026):** „nigdy nie zostawiaj tak tekstów… Nie można zostawiać na końcu spójników ani bękartów,
+  wdów i sierot. Nigdy, nigdy.” Każdy widoczny tekst (także z danych i wpisany przez użytkownika) ma twarde spacje po krótkich
+  wyrazach; akapity `text-wrap: pretty`, nagłówki `balance`; sprawdzaj końce linii na każdym zrzucie.
+- **S73 układ zawsze kompletny (20.10.2026):** blok nie może znikać przy węższym oknie; gdy brak miejsca na drugą kolumnę, schodzi
+  pod treść, do której należy.
+- **S74 aktywne i nieaktywne (20.10.2026):** „najechanie kursorem na pytanie, jeśli nie jest aktywne, powinno tylko delikatnie
+  podświetlać nazwę i ramkę pytania, a nie cały kafelek; wygaś kafelki nieaktywne o 20% bardziej.” Nieaktywne kafle ok. 0,4
+  krycia; hover = tylko ramka i nazwa wyraźniejsze, kafel zostaje przygaszony.
+- **S75 dalej, nie „Gotowe” (20.10.2026):** „zamiast Gotowe daj »Przejdź do następnego pytania«, jakoś zgrabnie.” Panel edycji
+  prowadzi dalej (następny element), a nie zamyka się; na końcu „Zakończ edycję”.
+- **S76 panel boczny oszczędnie (20.10.2026):** „tych opisów w sidebarze jest za dużo, nawet ja się gubię.” Bez powtórzeń kontekstu,
+  bez dublowania kontrolek z płótna; jedna rzecz = jedno miejsce.
+- **S74 POPRAWKA (20.10.2026):** wygaszenie nieaktywnych kafli: „jeśli teraz jest 50%, to zejść do 30 albo 35%” → krycie 0,35.
+- **S77 panel boczny edytuje wszystko, zwięźle (20.10.2026):** „w sidebarze w sumie można edytować wszystko, nawet nie wiedząc, gdzie
+  to leży na stronie… nie chcę zbyt dużych pozycji, ale też nie chcę, żeby to było trudne.” Panel = nawigacja + akordeony z tymi samymi
+  edytorami co na płótnie (zwinięte do jednej linii podsumowania), dane wspólne, zmiana widoczna od razu w obu miejscach.
+- **S78 polecane na górze (20.10.2026):** przy wyborze z długiej listy to, co pasuje do kontekstu (np. zestawy opisów obszaru
+  „Terminowość”), stoi na górze w sekcji „Polecane” z gwiazdką; podgląd skutku wyboru pokazany wyraźną kontrolką („co zobaczy
+  ankietowany na poziomie ‹ 7 ›”), nie dopiskiem w nawiasie.
+
+## 20.10.2026 — Photo Resizer 2.6.7 po wdrożeniu wariantów (S79–S83)
+
+Słowa usera: „panel cały tego resizera jest… dalej uważam, że toporny. liczenie klatek, jak nie wiem o co tam chodzi. w GIFACH
+czasem nie da się kliknąć. trudno zrozumieć, czy chcemy limit klatek przy kompresji na max 5, czy klatek na sekundę, czy
+maksymalna liczba klatek. Interfejs miejscami ma za mało oddechu, a potrzebuje więcej. Pliki wrzucane w trybie prostym mają jedną
+wielką ramkę beżową, a wcześniej była ramka też biała tam, gdzie pliki mają być. program nie informuje, czy pliki zostaną
+zastąpione, czy nadpisane, a powinien. szczególnie jeśli nie wskazujemy ścieżki, albo wskazujemy tę samą, wtedy dajesz wybrać:
+nadpisz, czy zapisz z dopiskiem. usuń z opisów w aplikacji ten dopisek jakiś CNOV czy coś tam…”
+
+- **S79 strefa plików jest biała:** panel L1 trzyma nagłówek i przyciski, a miejsce na pliki to BIAŁE pole (L2) z cienką
+  przerywaną ramką. Nigdy cały kafel jako jedna duża szara (beżowa w odbiorze) strefa.
+- **S80 oddech:** między grupami ustawień i wokół pól więcej powietrza niż w gęstych formularzach; panel nie może wyglądać
+  „topornie” (ciasne rzędy, ściśnięte pola, wszystko naraz). Mniej elementów na raz zamiast mniejszych odstępów.
+- **S81 jedno pole = jedno znaczenie:** pokazuj tylko pola wybranego trybu (ukryj, nie wyszarzaj: wyszarzone pole „nie da się
+  kliknąć” i nie wiadomo dlaczego). Etykieta mówi, co zmienia w wyniku, z jednostką („Zostaw klatek: 55%”, „Klatki na sekundę”,
+  „Najwyżej klatek”). Nie używaj jednego pola o różnym znaczeniu w różnych trybach.
+- **S82 zapis jawnie:** przed zapisem program pokazuje, gdzie zapisze i czy coś nadpisze. Brak folderu, folder = folder źródła
+  albo zajęte nazwy → pytanie z dwiema drogami: „Nadpisz” / „Zapisz obok z dopiskiem”. Bezpieczna droga jest domyślna.
+- **S83 bez technicznych dopisków w opisach:** w etykietach i podpowiedziach nie pokazujemy wewnętrznych nazw (`_conv`); po ludzku:
+  „z dopiskiem w nazwie”. Uzupełnia S71.
+
+## 20.10.2026 — raport ankiety (Panel Ankiet), wyniki i listy zachowań
+
+> „te liczby powinny być trochę większe, ujednolicić wyniki… jak już dajesz po kropce zero, to dodawaj wszędzie. kropka, a nie
+> przecinek. niepotrzebnie tam mamy 1, 2, 3… nagłówki powiększ… mocne miały być zielone, białe z lekko zieloną ramką i ikoną +,
+> do poprawy pomarańczowy, lekko żółty… bubble na górze, najpierw kategoria, później ile ankietowanych”
+
+- **S84 liczby wyników jednym zapisem:** zawsze jedno miejsce po kropce („6.0”, „10.0”), kropka, nie przecinek; także liczby
+  osób w wnioskach. Bez numerów porządkowych (1, 2, 3) przy kartach, gdy kolejność nic nie znaczy.
+- **S85 grupa „mocne / do poprawy” jako zakładka:** nad listą pigułka-przycisk: białe tło, ramka 2 px, ikona +; mocne = jasna zieleń
+  (`--dk-green-250`), do poprawy = bursztyn (`--dk-amber-300`, tekst `--dk-amber-900`). Listy w białym kaflu L2.
+- **S86 tagi nad tekstem:** w wierszu z tekstem i tagami tagi stoją NAD tekstem (nigdy w kolumnie obok, która ściska tekst do
+  kilku słów w linii). Kolejność: kategoria (zielona) → licznik (szary).
+
+## 21.10.2026 — suwak oceny 1–11 (Panel Ankiet): progi jak w samouczku
+
+> „progi są ładnie pokazane w samouczku, a w rzeczywistej ankiecie brakuje właśnie tego, że suwak nie zmienia koloru na nic,
+> a żółty tylko jest szary. to trzeba dopracować.”
+
+- **S87 suwak oceny pokazuje progi:** pod liczbami pasma skali z podpisem (1–3 „Znaczne trudności” czerwone, 4–6 „Wymaga poprawy”
+  bursztynowe, 7–8 „Zgodne z oczekiwaniami” zielone, 9–11 „Bardzo dobrze i wyżej” jasnozielone), przerywana linia progu między
+  6 a 7, BEZ napisu „próg: od 7” (właściciel: „nie trzeba dawać tego próg od 7”). Pasmo z wybraną oceną jest wyraźne, reszta przygaszona. Wypełnienie toru, obwódka uchwytu i karta opisu
+  poziomu mają kolor pasma (nie szary). Progi = te same co w raporcie (`tone()`: 7+ zielony, 4–6 żółty, 1–3 czerwony).
+- **S88 najwyższa ocena jest złota:** 11 (korona, „totalny sztos”) = złoty, błyszczący gradient z powolnym połyskiem na torze,
+  pasmie i karcie opisu; obwódka uchwytu złota. Przy `prefers-reduced-motion` bez połysku. (Właściciel: „totalny sztos,
+  powinien być złoty! błyszczący gradient.”)
+
+## 21.10.2026 — przewodnik po ekranach (Panel Ankiet): karta kroku i pomoc w każdym miejscu
+
+> „Bloczkom brakuje większego paddingu wewnętrznego. o jakieś 10 px. Nieraz ikon i animacji jest tak dużo, że sam bloczek też
+> powinien być większy o dodatkowe 25%… samouczek na telefonie może być trudniejszy w odczytaniu niż na komputerze… w każdym
+> momencie ekranu powinno dać się nacisnąć »pomoc« i pomoc powinna rozwijać się: »przejdź do pomocy« oraz »pokaż mi jak«”
+> „nie da się zaznaczyć ankiet i usunąć w grupie… brakuje ikony kosza obok Zarządzaj.”
+
+- **S89 karta kroku przewodnika ma oddech:** padding wewnętrzny +10 px względem gęstej karty; karta z ilustracją lub animacją
+  jest szersza o ok. 25% niż karta samego tekstu. Na telefonie arkusz u dołu z tym samym oddechem.
+- **S90 pomoc zawsze pod ręką:** „Pomoc” w nagłówku na każdym ekranie rozwija dwa wyjścia: „Pokaż mi, jak (na tym ekranie)”
+  i „Przejdź do pomocy”. Przewodnik startuje od miejsca, w którym ktoś jest, nie od początku trasy.
+- **S91 przewodnik nie prowadzi w ścianę:** krok, który każe kliknąć coś zablokowanego (np. „Utwórz” bez nazwy), najpierw
+  prowadzi do warunku (wpisz nazwę) albo czeka, aż warunek będzie spełniony.
+- **S92 listy z akcją usuwania mają zaznaczanie grupowe:** pole wyboru w wierszu, „Zaznacz wszystkie”, „Usuń zaznaczone (N)”
+  z potwierdzeniem; w wierszu ikona kosza obok „Zarządzaj” (usunięcie do kosza, odwracalne).
+- **S93 ilustracja ma być czytelna w swoim rozmiarze:** „animacja jest szczegółowa, a jej nie widać”. Ilustracja w karcie
+  (przewodnik, samouczek) pokazuje 1 myśl, nie miniaturę całego ekranu: najmniejszy tekst w ilustracji ≥ 11 px po
+  przeskalowaniu, mniej elementów, większe kształty; szczegół, który musi być widoczny, przybliżony (kadr), nie pomniejszony.
+- **S94 tekst w ilustracji nigdy ucięty ani na obrysie:** „teksty w animacjach nieraz są poucinane, albo nachodzą na obrys
+  elementu, albo są za blisko siebie… chcesz pokazać tak dużo, że elementy są nieczytelne”. Każdy napis mieści się w swoim
+  kształcie z marginesem ≥ 6 px, odstęp między elementami ≥ 8 px; za dużo treści = mniej elementów, nie mniejsze.
+  Sprawdzane pomiarem (bbox napisu w bbox kształtu), nie na oko.
+- **S95 „Pokaż mi” zawsze pod ręką:** przycisk przewodnika przyklejony w prawym górnym rogu ekranu (sticky), zwijany
+  w prawo jak sidebar (zwinięty = wąska zakładka przy krawędzi; stan zapamiętany). Kolejność tras: najpierw „Jak stworzyć
+  ankietę”, potem „Linki i dostęp”, potem „Jak czytać wyniki”.
+
+## 21.10.2026 — DAM, Eksplorer i Pulpit: krem znika z paneli i kafli
+
+> „dalej mamy kremowe kafelki zamiast szarych i białe kafelki na szarych. a aktualnie jest pomieszanie. nawet widzimy kremowy
+> kafelek i SZARE bubbles wewnątrz, co jest kompletnie okropne. napraw to.”
+
+- **S96 dwa poziomy zamiast trzech kolorów: szary panel, w nim białe kafle.** Panel (Kategorie, karta powitalna
+  Eksploratora, kafel liczby na Pulpicie) = L1 szary; pozycje, przyciski-linki i kafle w nim = białe. Krem nie jest kolorem
+  panelu ani kafla w DAM; szary w kremowym (i odwrotnie) to błąd. Najechanie na biały kafel = cienka jasnozielona linia,
+  wybrana pozycja = jasna zieleń (`brand-soft`); najechanie na szary przycisk = odrobinę ciemniejszy szary, nie krem.
+  Uchyla w DAM: K1 z rundy 7 (krem zamiast szarego panelu Kategorii) i D3 z 14.10 (kremowe kafle liczb Pulpitu).
+- **S96 pusta ankieta startuje od pustego obszaru:** „brakuje PUSTY obszar na początku, jako zielone tło w obszarach… wtedy
+  naprawdę ktoś się nie zgubi, bo zaczyna od PUSTEJ ANKIETY i nie ma chaosu”. Na liście obszarów pierwsza karta „Pusty obszar”
+  wyróżniona zielonym tłem (jak zaznaczenie, nie krzykliwie); tematy z banku dalej obok. Przewodnik prowadzi od pustego obszaru:
+  dodaj pytanie, wpisz treść, wybierz typ.

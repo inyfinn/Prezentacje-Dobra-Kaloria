@@ -1567,3 +1567,17 @@ pod kartami, nie karta z zerem.
   między pigułkami a przyciskiem.
 - Obrys przycisku drugorzędnego `btn2-border` (grey-500, S59) - nigdy `#222222` na sztywno.
 - Responsywnie: sprawdź 1280 i 960 px (okno aplikacji) albo 1440 / 768 / 390 px (web) - bez nachodzenia i ucinania.
+
+### 26.9 Uwagi Qt z wdrożenia (Photo Resizer 2.6.7, 20.10.2026)
+
+- Pigułka: oprócz selektora QSS `QPushButton[pigulka="true"]` aplikacja musi wyłączyć dla niej automatyczne wersaliki
+  (w Resizerze robi to filtr zdarzeń `typography.wants_uppercase`, nie QSS) - inaczej „Jak oryginał” wychodzi wersalikami.
+- Pigułka „Inne” (rozwija rzadkie wartości w drugim rzędzie): obrys 1 px `btn2-border` zamiast zielonego wypełnienia;
+  wybrana rzadka wartość sama rozwija drugi rząd i nie da się go wtedy schować. Wzór: `widgets/pills.FormatPills`
+  (ten sam interfejs co lista wielokrotnego wyboru, więc sesja i presety działają bez zmian).
+- Siatka etykieta | pole (`widgets/form_grid.FormGrid`) przełącza układ sama w `resizeEvent` na szerokość kontenera
+  (w Qt nie ma `@media`); próg = minimum układu szerokiego, żeby dzieci nigdy nie były ściskane.
+- Przycisk i lista rozwijana z QSS potrafią dostać minimum szerokości mniejsze niż napis (ucięte „Najlepsza jakość”):
+  ustaw minimum z `fontMetrics` (wzór `pin_button_min_widths`).
+- Karta zwijana: `widgets/section_card.SectionCard` (`set_summary`, stan zapisany w ustawieniach użytkownika);
+  przełącznik w nagłówku: `widgets/switch.SwitchBox` (pod spodem nadal `QCheckBox`, więc zapis ustawień się nie zmienia).
