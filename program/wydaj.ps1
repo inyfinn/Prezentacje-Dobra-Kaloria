@@ -25,7 +25,7 @@ foreach ($dst in $Cele) {
         robocopy $ds (Join-Path $dst "skill-ds-dobra-kaloria") /E /R:2 /W:2 /NFL /NDL /NJH /NJS /NP | Out-Null
         "  skill-ds-dobra-kaloria -> $dst (robocopy rc=$LASTEXITCODE)"
     }
-    foreach ($f in "Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd", "CZYTAJ - jak zrobić prezentację.txt", "DK - szablon prezentacji.pptx") {
+    foreach ($f in "Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "PROMPT BEZ PROGRAMU.md", "DK - paczka prezentacji dla AI.zip", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd") {
         $p = Join-Path $R $f
         if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination $dst -Force }
     }

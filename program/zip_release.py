@@ -9,8 +9,7 @@ import os
 import sys
 import zipfile
 
-TOP = ["Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "zainstaluj-skill.ps1",
-       "zainstaluj-skill.cmd", "CZYTAJ - jak zrobić prezentację.txt", "DK - szablon prezentacji.pptx"]
+TOP = ["Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "PROMPT BEZ PROGRAMU.md", "DK - paczka prezentacji dla AI.zip", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd"]
 DIRS = ["pliki programu", "skill-prezentacje", "skill-ds-dobra-kaloria"]  # 06-07.10: kopie skilli dla agentów AI obok programu
 
 

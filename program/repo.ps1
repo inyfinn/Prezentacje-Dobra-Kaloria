@@ -29,9 +29,13 @@ foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1", "test_u_inny
 }
 $ds = Join-Path $HOME ".claude\skills\ds-dobra-kaloria"
 if (Test-Path -LiteralPath $ds) { Mirror $ds (Join-Path $Repo "design-system") @("__pycache__", ".playwright-cli") @("*.pyc") }
+# instrukcje dla AI: źródło (tresc.md, generuj.py, dk_szablon.py, instalatory, README paczki) - bez zipa paczki (jest w nim Mindset)
+Mirror (Join-Path $W "instrukcje") (Join-Path $Repo "program\instrukcje") @("__pycache__") @("*.pyc")
 New-Item -ItemType Directory -Force (Join-Path $Repo "dla-uzytkownika") | Out-Null
-foreach ($f in "AGENTS.md", "CLAUDE.md", "GEMINI.md", "CZYTAJ - jak zrobić prezentację.txt", "DK - szablon prezentacji.pptx") {
-    Copy-Item -LiteralPath (Join-Path $R $f) -Destination (Join-Path $Repo "dla-uzytkownika\$f") -Force
+foreach ($f in "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "PROMPT BEZ PROGRAMU.md", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd") {
+    $p = Join-Path $R $f
+    if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination (Join-Path $Repo "dla-uzytkownika\$f") -Force }
+    else { "brak w folderze programu (pomijam): $f" }
 }
 "zebrano pliki: " + (Get-ChildItem -LiteralPath $Repo -Recurse -File | Where-Object { $_.FullName -notlike "*\.git\*" } | Measure-Object).Count
 
