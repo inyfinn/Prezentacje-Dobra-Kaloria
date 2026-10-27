@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Test end-to-end SPAKOWANEGO programu: uruchamia "Stwórz prezentację.exe" z portem CDP, przez Playwright
+"""Test end-to-end SPAKOWANEGO programu: uruchamia "Prezentacje.exe" (wierzch folderu programu) z portem CDP, przez Playwright
 przeklikuje prawdziwe okno (WebView2): analiza folderu TEST -> ustawienia -> Stwórz -> Gotowe, zrzuty każdego ekranu.
     python e2e_gui.py [--exe <ścieżka exe>] [--folder <folder produktu>]
 """
@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 ap = argparse.ArgumentParser()
-ap.add_argument("--exe", default=os.path.join(ROOT, "Stwórz prezentację.exe"))
+ap.add_argument("--exe", default=os.path.join(ROOT, "Prezentacje.exe"))
 ap.add_argument("--folder", default=r"D:\Marketing\- POLSKA\02 - FIRMOWE MATERIAŁY\PREZENTACJE\24.09.2026 - KULKI z kreatyną TEST")
 ap.add_argument("--styl", default="nowy")
 ap.add_argument("--ai", action="store_true", help="kliknij też Claude / ChatGPT / Gemini (otwiera je na ekranie)")

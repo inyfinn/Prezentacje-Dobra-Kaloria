@@ -5,6 +5,12 @@ Przebieg: check() -> użytkownik klika "Zaktualizuj" -> download() pobiera zip d
 rozmiar i sumę SHA-256 (gdy GitHub ją podaje), rozpakowuje -> apply() uruchamia mały skrypt, który czeka na
 zamknięcie programu, kopiuje nowe pliki NA stare (bez kasowania czegokolwiek) i uruchamia program ponownie.
 
+Układ plików (od 1.3): wierzch = Prezentacje.exe (+ dmg i paczka dla AI), reszta w WORK ("WORK\\pliki programu" itd.). Wydanie ma ten
+sam układ. Aktualizacja podmienia "pliki programu" TAM, gdzie program faktycznie leży (paths.WORK_DIR): w nowym układzie
+WORK\\pliki programu, w starej instalacji (pliki programu od razu obok starego "Stwórz prezentację.exe") - ten stary folder, w miejscu.
+Stary plik startowy zostaje i dalej działa (znajduje swoje "pliki programu"), a obok dochodzi nowy Prezentacje.exe. Nic nie jest
+kasowane ani przenoszone. Wydanie w starym układzie (pliki programu w korzeniu zipa) też jest przyjmowane.
+
 Program stojący na dysku sieciowym (wspólny folder, wielu użytkowników naraz) nie aktualizuje się sam -
 tam nową wersję wgrywa opiekun (WORK\\wydaj.ps1).
 """
@@ -25,10 +31,24 @@ HOSTS = ("https://github.com/", "https://api.github.com/", "https://objects.gith
          "https://release-assets.githubusercontent.com/")
 STRONA_MAC = "https://github.com/%s" % REPO     # macOS: nowa wersja z tej strony (program nie podmienia swoich plików)
 UPD_DIR = os.path.join(paths.USER_DIR, "aktualizacja")
-LAUNCHER = "Stwórz prezentację.exe"
+LAUNCHER = "Prezentacje.exe"
+LAUNCHER_STARY = "Stwórz prezentację.exe"      # nazwa sprzed 1.3 (stara instalacja i wydania do 1.2.x)
 CREATE_NO_WINDOW = 0x08000000
 # bez DETACHED_PROCESS: PowerShell bez konsoli kończył się od razu (test 29.09, brak wpisu w logu)
 DETACHED = 0x00000200 | CREATE_NO_WINDOW
+
+
+# pliki, po których poznajemy kompletne wydanie: nowy układ (od 1.3) albo stary (pliki programu w korzeniu zipa)
+WYDANIE_NOWE = (LAUNCHER, os.path.join("WORK", "pliki programu", "program.exe"), os.path.join("WORK", "pliki programu", "wersja.txt"))
+WYDANIE_STARE = (LAUNCHER_STARY, os.path.join("pliki programu", "program.exe"), os.path.join("pliki programu", "wersja.txt"))
+
+
+def sprawdz_wydanie(dst):
+    """"nowy" albo "stary" - układ rozpakowanego wydania; IOError, gdy żaden nie jest kompletny."""
+    brak = [[n for n in uklad if not os.path.isfile(os.path.join(dst, n))] for uklad in (WYDANIE_NOWE, WYDANIE_STARE)]
+    if brak[0] and brak[1]:
+        raise IOError("w wydaniu brakuje pliku: " + brak[0][0])
+    return "nowy" if not brak[0] else "stary"
 
 
 def vtuple(v):
@@ -51,7 +71,7 @@ def can_self_update():
         return False, "wersja deweloperska"
     if not platforma.dysk_lokalny(paths.ROOT):  # Windows: GetDriveTypeW == 3 (dysk stały)
         return False, "program stoi na dysku wspólnym"
-    probe = os.path.join(paths.ROOT, "pliki programu", "~zapis.tmp")
+    probe = os.path.join(paths.CONTENTS, "~zapis.tmp")      # CONTENTS = folder "pliki programu" (nowy: WORK\pliki programu, stary: obok pliku startowego)
     try:
         open(probe, "w").close()
         os.remove(probe)
@@ -132,9 +152,7 @@ def download(info, progress=None):
                     if not chunk:
                         break
                     out.write(chunk)
-    for need in (LAUNCHER, os.path.join("pliki programu", "program.exe"), os.path.join("pliki programu", "wersja.txt")):
-        if not os.path.isfile(os.path.join(dst, need)):
-            raise IOError("w wydaniu brakuje pliku: " + need)
+    sprawdz_wydanie(dst)
     if progress:
         progress(100)
     return dst
@@ -160,38 +178,54 @@ PS_SZABLON = r"""function Wgraj-Szablon($Src, $Root, $Stare) {
 }
 """
 
-PS1 = r"""param([string]$Src, [string]$Root, [int]$ProcId, [string]$Log)
+PS1 = r"""param([string]$Src, [string]$Root, [string]$Work, [int]$ProcId, [string]$Log, [switch]$BezStartu)
 # Aktualizacja programu "Stwórz prezentację": kopiuje nowe pliki na stare. Nie kasuje; nadpisuje tylko znane, niezmienione stare wersje.
+# $Root = wierzch (Prezentacje.exe), $Work = folder, w którym leży "pliki programu" (nowy układ: $Root\WORK; stara instalacja: ten sam co $Root).
+# $Src = rozpakowane wydanie: nowy układ ma $Src\WORK\pliki programu, stary ma $Src\pliki programu. -BezStartu: bez uruchamiania programu (testy).
 function L($t) { ("{0} {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $t) | Out-File -LiteralPath $Log -Append -Encoding utf8 }
-""" + PS_SZABLON + r"""L "start: $Src -> $Root (czekam na proces $ProcId)"
-foreach ($p in @($Src, $Root)) { if (-not $p -or -not (Test-Path -LiteralPath $p -PathType Container)) { L "BLAD brak folderu: $p"; exit 2 } }
-if (-not (Test-Path -LiteralPath (Join-Path $Root "pliki programu\program.exe"))) { L "BLAD to nie jest folder programu: $Root"; exit 2 }
+""" + PS_SZABLON + r"""if (-not $Work) { $Work = $Root }
+$SrcWork = if (Test-Path -LiteralPath (Join-Path $Src "WORK\pliki programu\program.exe")) { Join-Path $Src "WORK" } else { $Src }
+L "start: $Src -> $Root (pliki programu w: $Work; czekam na proces $ProcId)"
+foreach ($p in @($Src, $Root, $Work, $SrcWork)) { if (-not $p -or -not (Test-Path -LiteralPath $p -PathType Container)) { L "BLAD brak folderu: $p"; exit 2 } }
+if (-not (Test-Path -LiteralPath (Join-Path $Work "pliki programu\program.exe"))) { L "BLAD to nie jest folder programu: $Work"; exit 2 }
+if (-not (Test-Path -LiteralPath (Join-Path $SrcWork "pliki programu\program.exe"))) { L "BLAD wydanie nie ma pliku programu: $SrcWork"; exit 2 }
 for ($i = 0; $i -lt 120; $i++) {
-    $run = @(Get-Process -Name "program", "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Root\*" })
+    $run = @(Get-Process -Name "program", "stworz-cli", "Prezentacje", "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Root\*" })
     if ($run.Count -eq 0) { break }
     Start-Sleep -Milliseconds 500
 }
 if ($run.Count -gt 0) { L "BLAD program nadal działa - przerywam"; exit 3 }
-robocopy (Join-Path $Src "pliki programu") (Join-Path $Root "pliki programu") /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+robocopy (Join-Path $SrcWork "pliki programu") (Join-Path $Work "pliki programu") /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
 $rc = $LASTEXITCODE
 L "robocopy kod $rc"
 if ($rc -ge 8) { L "BLAD kopiowania"; exit 4 }
 # kopie skilli dla AI obok programu: bez nich polecenie dla AI wskazywałoby starą metodę (kopia bez kasowania)
 foreach ($d in "skill-prezentacje", "skill-ds-dobra-kaloria") {
-    $sd = Join-Path $Src $d
+    $sd = Join-Path $SrcWork $d
     if (Test-Path -LiteralPath $sd -PathType Container) {
-        robocopy $sd (Join-Path $Root $d) /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
+        robocopy $sd (Join-Path $Work $d) /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
         L ("skill " + $d + " - robocopy kod " + $LASTEXITCODE)
     }
 }
-foreach ($f in "Stwórz prezentację.exe", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd", "CZYTAJ - jak zrobić prezentację.txt") {
+# instrukcje dla AI i instalator skilla leżą obok "pliki programu" (WORK; w starej instalacji - w korzeniu)
+foreach ($f in "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "PROMPT BEZ PROGRAMU.md", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd", "CZYTAJ - jak zrobić prezentację.txt") {
+    $s = Join-Path $SrcWork $f
+    if (Test-Path -LiteralPath $s) { Copy-Item -LiteralPath $s -Destination (Join-Path $Work $f) -Force }
+}
+# wierzch: nowy plik startowy i paczka dla AI. Stary "Stwórz prezentację.exe" kopiujemy tylko do starej instalacji (tam już jest i szuka
+# "pliki programu" obok siebie); w nowym układzie nie wraca na wierzch.
+foreach ($f in "Prezentacje.exe", "DK - paczka prezentacji dla AI.zip") {
     $s = Join-Path $Src $f
     if (Test-Path -LiteralPath $s) { Copy-Item -LiteralPath $s -Destination (Join-Path $Root $f) -Force }
 }
+$stary = Join-Path $Src "Stwórz prezentację.exe"
+if (($Work -eq $Root) -and (Test-Path -LiteralPath $stary)) { Copy-Item -LiteralPath $stary -Destination (Join-Path $Root "Stwórz prezentację.exe") -Force }
 # szablon PPTX mógł być poprawiany ręcznie: wgrywamy go, gdy go nie ma ALBO gdy to niezmieniona stara wersja (skrót z listy)
 Wgraj-Szablon $Src $Root @(@@STARE@@)
-L ("gotowe, wersja " + (Get-Content -LiteralPath (Join-Path $Root "pliki programu\wersja.txt") -Raw).Trim())
-Start-Process -FilePath (Join-Path $Root "Stwórz prezentację.exe")
+L ("gotowe, wersja " + (Get-Content -LiteralPath (Join-Path $Work "pliki programu\wersja.txt") -Raw).Trim())
+$start = Join-Path $Root "Prezentacje.exe"
+if (-not (Test-Path -LiteralPath $start)) { $start = Join-Path $Root "Stwórz prezentację.exe" }
+if (-not $BezStartu) { Start-Process -FilePath $start }
 """
 
 
@@ -210,7 +244,7 @@ def apply(src):
     with open(ps, "w", encoding="utf-8-sig", newline="\r\n") as f:  # BOM: PowerShell 5.1 inaczej psuje polskie litery
         f.write(skrypt_ps1())
     subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", ps,
-                      "-Src", src, "-Root", paths.ROOT, "-ProcId", str(os.getpid()),
+                      "-Src", src, "-Root", paths.ROOT, "-Work", paths.WORK_DIR, "-ProcId", str(os.getpid()),
                       "-Log", os.path.join(paths.LOG_DIR, "aktualizacja.log")],
                      creationflags=DETACHED, close_fds=True, cwd=UPD_DIR,
                      stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

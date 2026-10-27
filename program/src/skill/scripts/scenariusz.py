@@ -749,12 +749,17 @@ def polecenie_poprawki(md, uwagi, plansze, slajdy, folder=""):
 
 
 def _cli_agenta():
-    """(polecenie, gdzie leży, jak nazwać program, kiedy go nie da się uruchomić). Windows: stworz-cli.exe w folderze programu.
-    Mac (pakiet .app): ten sam plik wykonywalny co okno, z argumentami."""
+    """(polecenie, gdzie leży, jak nazwać program, kiedy go nie da się uruchomić). Windows: stworz-cli.exe w WORK\\pliki programu
+    (z okna programu - pełna ścieżka z `&`, bo agent uruchamia to w PowerShellu). Mac (pakiet .app): ten sam plik wykonywalny co okno."""
     if sys.platform == "darwin" and getattr(sys, "frozen", False):
         return ('"%s"' % sys.executable, "to plik wykonywalny programu „Stwórz prezentację”, ten sam co okno; z argumentami działa jak wiersz poleceń",
                 "programu", "Claude Cowork, brak programu")
-    return "stworz-cli.exe", "stworz-cli.exe leży w folderze programu „Stwórz prezentację”", "stworz-cli.exe", "Claude Cowork, Mac, brak programu"
+    gdzie = "stworz-cli.exe leży w folderze „WORK\\pliki programu” programu „Stwórz prezentację”"
+    if sys.platform == "win32" and getattr(sys, "frozen", False):     # program uruchomiony z okna: znamy prawdziwą ścieżkę
+        cli = os.path.join(os.path.dirname(sys.executable), "stworz-cli.exe")
+        if os.path.isfile(cli):
+            return '& "%s"' % cli, gdzie, "stworz-cli.exe", "Claude Cowork, Mac, brak programu"
+    return "stworz-cli.exe", gdzie, "stworz-cli.exe", "Claude Cowork, Mac, brak programu"
 
 
 def polecenie_agenta(folder):

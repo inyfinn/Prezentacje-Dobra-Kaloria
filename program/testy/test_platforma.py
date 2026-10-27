@@ -192,6 +192,7 @@ def test_znajdz_claude_na_macu_szuka_poza_path(mac, dom, monkeypatch):
     os.makedirs(os.path.join(dom, ".local", "bin"))
     k = os.path.join(dom, ".local", "bin", "claude")
     open(k, "w").write("#!/bin/sh\n")
+    os.chmod(k, 0o755)                              # `claude` musi być wykonywalny (os.access X_OK); na Windows chmod nic nie zmienia
     assert platforma.znajdz_claude() == k          # aplikacja z Findera nie ma PATH z terminala
     monkeypatch.setattr(platforma.shutil, "which", lambda n: "/opt/homebrew/bin/claude")
     assert platforma.znajdz_claude() == "/opt/homebrew/bin/claude"
@@ -397,6 +398,7 @@ def test_wideo_online_i_qa_dokumentu_na_macu_nie_wola_powershella(mac, tmp, monk
 
 # --- aktualizacja ---------------------------------------------------------------------------------------------------------------------
 def test_aktualizacja_na_macu_tylko_komunikat_ze_strona(mac, monkeypatch):
+    monkeypatch.setattr(paths, "version", lambda: "1.3.0")      # w układzie repozytorium wersja wychodziła "dev" - test nie zależy od układu folderów
     ok, powod = update.can_self_update()
     assert ok is False and update.STRONA_MAC in powod and "Macu" in powod
     with pytest.raises(RuntimeError):

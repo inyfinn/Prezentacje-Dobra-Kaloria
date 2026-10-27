@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Plansza startowa pliku "Stwórz prezentację.exe" (launcher.cs): zieleń marki, logo, nazwa, "Uruchamiam…"
+"""Plansza startowa pliku "Prezentacje.exe" (launcher.cs; do 1.2.x "Stwórz prezentację.exe"): zieleń marki, logo, nazwa, "Uruchamiam…"
 -> WORK\\src\\ui\\img\\powitanie.png (560x330; launcher czyta ją z "pliki programu\\app\\ui\\img")."""
 import os
 

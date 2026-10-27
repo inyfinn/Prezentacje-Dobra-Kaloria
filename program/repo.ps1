@@ -1,8 +1,9 @@
 ﻿# Repozytorium GitHub "Prezentacje - Dobra Kaloria": zebranie plików do osobnego folderu i paczka wydania.
 #   repo.ps1            kopiuje źródła do $Repo (tylko dokłada i nadpisuje, niczego nie kasuje)
-#   repo.ps1 -Zip       dodatkowo pakuje gotowy program do WORK\dist\wydanie\<nazwa>.zip
+#   repo.ps1 -Zip       dodatkowo pakuje gotowy program do WORK\dist\wydanie\<nazwa>.zip (układ 1.3: Prezentacje.exe + WORK)
+#   repo.ps1 -Zip -Stary  zip PRZEJŚCIOWY w starym układzie - tylko taki zaktualizuje programy do 1.2.x (patrz zip_release.py)
 # Repo leży poza folderem programu, żeby katalog .git nie trafiał na dyski wspólne.
-param([string]$Repo = (Join-Path $HOME "repos\Prezentacje-Dobra-Kaloria"), [switch]$Zip)
+param([string]$Repo = (Join-Path $HOME "repos\Prezentacje-Dobra-Kaloria"), [switch]$Zip, [switch]$Stary)
 $ErrorActionPreference = "Stop"
 $W = $PSScriptRoot
 $R = Split-Path -Parent $W
@@ -40,7 +41,7 @@ if (Test-Path -LiteralPath $ds) { Mirror $ds (Join-Path $Repo "design-system") @
 Mirror (Join-Path $W "instrukcje") (Join-Path $Repo "program\instrukcje") @("__pycache__") @("*.pyc")
 New-Item -ItemType Directory -Force (Join-Path $Repo "dla-uzytkownika") | Out-Null
 foreach ($f in "AGENTS.md", "CLAUDE.md", "GEMINI.md", "GROK.md", "PROMPT BEZ PROGRAMU.md", "zainstaluj-skill.ps1", "zainstaluj-skill.cmd") {
-    $p = Join-Path $R $f
+    $p = Join-Path $W $f     # od 1.3 instrukcje i instalator leżą w WORK (nie na wierzchu)
     if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination (Join-Path $Repo "dla-uzytkownika\$f") -Force }
     else { "brak w folderze programu (pomijam): $f" }
 }
@@ -52,7 +53,9 @@ if ($Zip) {
     $zipPath = Join-Path $out "Stworz-prezentacje-$ver-Windows.zip"
     if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Confirm:$false }   # pojedynczy plik z tej budowy
     # Python zipfile: flaga UTF-8 w nazwach (Eksplorator inaczej psuje polskie litery)
-    python (Join-Path $W "zip_release.py") $R $zipPath
+    $zipArgi = @((Join-Path $W "zip_release.py"), $R, $zipPath)
+    if ($Stary) { $zipArgi += "--stary" }
+    python @zipArgi
     if ($LASTEXITCODE -ne 0) { throw "zip_release.py kod $LASTEXITCODE" }
 }
 exit 0

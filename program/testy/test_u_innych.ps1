@@ -21,8 +21,8 @@ function Start-Clean($exe) {
 }
 
 function Test-Start($root, $nazwa, [switch]$Moduly) {
-    $exe = Join-Path $root "Stwórz prezentację.exe"
-    $dir = Join-Path $root "pliki programu"
+    $exe = Join-Path $root "Prezentacje.exe"
+    $dir = Join-Path $root "WORK\pliki programu"
     $n0 = if (Test-Path -LiteralPath $log) { @(Get-Content -LiteralPath $log -Encoding UTF8).Count } else { 0 }
     $sw = [Diagnostics.Stopwatch]::StartNew()
     Start-Clean $exe
@@ -41,7 +41,7 @@ function Test-Start($root, $nazwa, [switch]$Moduly) {
         $obce = @($prog.Modules | Where-Object { $_.FileName -notlike "$dir\*" -and $_.FileName -notlike "$env:WINDIR\*" } | ForEach-Object { $_.FileName })
     }
     if ($prog) { $prog.Refresh(); if (-not $prog.HasExited) { $prog.CloseMainWindow() | Out-Null; if (-not $prog.WaitForExit(5000)) { Stop-Process -Id $prog.Id -Force -Confirm:$false } } }
-    Get-Process -Name program, "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$root\*" } | Stop-Process -Force -Confirm:$false
+    Get-Process -Name program, "Prezentacje", "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$root\*" } | Stop-Process -Force -Confirm:$false
     $ok = [bool]$ready -and -not $blad
     $script:wynik += [pscustomobject]@{ Test = $nazwa; Wynik = $(if ($ok) { "OK" } else { "BLAD" }); Gotowe_s = $(if ($ready) { [math]::Round($ready, 1) } else { "-" }); Uwagi = $(if ($blad) { $blad } elseif (-not $ready) { "brak gotowosci w $Limit s" } else { "" }) }
     if ($Moduly) {
@@ -59,9 +59,9 @@ $dst = Join-Path $work "rozpakowany"
 New-Item -ItemType Directory -Force $dst | Out-Null
 $sh = New-Object -ComObject Shell.Application
 $sh.NameSpace($dst).CopyHere($sh.NameSpace($z).Items(), 0x14)
-for ($i = 0; $i -lt 300 -and -not (Test-Path -LiteralPath (Join-Path $dst "Stwórz prezentację.exe")); $i++) { Start-Sleep -Milliseconds 500 }
+for ($i = 0; $i -lt 300 -and -not (Test-Path -LiteralPath (Join-Path $dst "Prezentacje.exe")); $i++) { Start-Sleep -Milliseconds 500 }
 Start-Sleep -Seconds 3
-$dll = Join-Path $dst "pliki programu\pythonnet\runtime\Python.Runtime.dll"
+$dll = Join-Path $dst "WORK\pliki programu\pythonnet\runtime\Python.Runtime.dll"
 $motw = [bool](Get-Item -LiteralPath $dll -Stream Zone.Identifier -ErrorAction SilentlyContinue)
 "Rozpakowano do $dst (pliki oznaczone jako pobrane z internetu: $motw)"
 Test-Start $dst "zip z internetu, czyste srodowisko" -Moduly

@@ -1,7 +1,7 @@
 ﻿# Test startu tak, jak robi to użytkownik: uruchamia plik startowy (bez portu debugowania) i czeka na GOTOWOŚĆ programu
 # (wpis "most JS<->Python gotowy" w logu + okno odpowiada), a nie tylko na pojawienie się okna. Lekcja 29.09: okno
 # widoczne != program gotowy (user dostał "brak odpowiedzi").
-#   start_test.ps1 -Exe "<...>\Stwórz prezentację.exe" [-Razy 5] [-Limit 90]
+#   start_test.ps1 -Exe "<...>\Prezentacje.exe" [-Razy 5] [-Limit 90]   (od 1.3 plik startowy na wierzchu, program w WORK\pliki programu; wzorzec "$dir\*" obejmuje oba)
 param([Parameter(Mandatory)][string]$Exe, [int]$Razy = 5, [int]$Limit = 90)
 $dir = Split-Path -Parent $Exe
 $log = Join-Path $env:LOCALAPPDATA "Dobra Kaloria\Stworz prezentacje\logi\ostatni.log"
@@ -30,7 +30,7 @@ for ($k = 1; $k -le $Razy; $k++) {
         $prog.CloseMainWindow() | Out-Null
         if (-not $prog.WaitForExit(5000)) { Stop-Process -Id $prog.Id -Force -Confirm:$false }
     }
-    Get-Process -Name "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$dir\*" } | Stop-Process -Force -Confirm:$false
+    Get-Process -Name "Prezentacje", "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$dir\*" } | Stop-Process -Force -Confirm:$false
     Start-Sleep -Seconds 2
 }
 "WYNIK: $ok / $Razy startow gotowych"

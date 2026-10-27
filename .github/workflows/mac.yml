@@ -29,13 +29,15 @@ jobs:
           pip install -r "$PROG/mac/requirements-mac.txt"
 
       - name: Test logiki macOS (bez prawdziwych skrótów systemu)
-        continue-on-error: true      # informacyjnie: nie blokuje budowy
         run: |
           pip install pytest
           python -m pytest -q -p no:cacheprovider "$PROG/testy/test_platforma.py"
 
       - name: Budowa .app i obrazu DMG
         run: bash "$PROG/mac/buduj-mac.sh"
+
+      - name: Smoke - prezentacja ze scenariusza zbudowana gotową binarką (bez PowerPointa)
+        run: bash "$PROG/mac/smoke-mac.sh" "$PROG/mac/_wynik/dist/Stwórz prezentację.app"
 
       - name: Wersja
         id: wersja

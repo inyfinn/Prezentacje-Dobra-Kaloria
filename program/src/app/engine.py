@@ -244,7 +244,7 @@ def dok_ext():
 
 
 def _w_folderze_programu(path):
-    """Folder programu (paths.ROOT) i wszystko w nim: tam leżą szablony i pliki programu, nie materiały użytkownika."""
+    """Folder programu (paths.ROOT, czyli wierzch razem z WORK) i wszystko w nim: tam leżą szablony i pliki programu, nie materiały użytkownika."""
     r = os.path.normcase(os.path.abspath(paths.ROOT))
     p = os.path.normcase(os.path.abspath(path))
     return p == r or p.startswith(r + os.sep)
@@ -1519,12 +1519,12 @@ def _thumbs(png_dir, width=480):
 
 def krok0():
     r"""KROK 0 w poleceniach dla AI: najpierw sprawdź, czy agent ma skill /prezentacje, a jeśli nie - zainstaluj go
-    z korzenia programu (zainstaluj-skill.cmd albo kopia folderu skill-prezentacje), potem wczytaj ze skilla SKILL.md
+    z folderu WORK programu (zainstaluj-skill.cmd albo kopia folderu skill-prezentacje), potem wczytaj ze skilla SKILL.md
     (sekcja 1b), references\dopracowanie.md (metoda dopracowania wyniku), references\katalog-szablonu.md (tabela
     „kształt treści -> slajd szablonu”) i references\lekcje.md (konwersja: też konwersja-pptx.md pkt 2a i 2b), potem
     identyfikację wizualną Dobra Kaloria (skill ds-dobra-kaloria; zapasowo folder skill-ds-dobra-kaloria obok
     programu). User 07.10: polecenie ma być zakorzenione w skillu i design systemie, nie w pamięci modelu."""
-    root = paths.ROOT
+    root = paths.WORK_DIR      # zainstaluj-skill.cmd i kopie skilli leżą w WORK (stary układ: obok programu)
     return ("KROK 0: Sprawdź, czy masz skill /prezentacje: plik %USERPROFILE%\\.claude\\skills\\prezentacje\\SKILL.md "
             "(Claude Code; Codex: %USERPROFILE%\\.codex\\skills\\prezentacje, Gemini: %USERPROFILE%\\.gemini\\skills\\prezentacje, "
             "Cursor: %USERPROFILE%\\.cursor\\skills\\prezentacje). Jeśli go nie ma albo jest starszy niż program (brakuje "

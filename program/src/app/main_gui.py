@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Wejście "Stwórz prezentację.exe": bez argumentów = okno; z folderem/argumentami = wiersz poleceń (dla AI)."""
+"""Wejście programu (program.exe, uruchamiany przez Prezentacje.exe; na macOS plik w .app): bez argumentów = okno;
+z folderem/argumentami = wiersz poleceń (dla AI)."""
 import os
 import sys
 

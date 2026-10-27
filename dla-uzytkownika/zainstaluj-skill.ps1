@@ -11,7 +11,7 @@
 # Skill juz zainstalowany i taki sam -> pomija. Lekka wersja z paczki (PACZKA-LEKKA.txt) nie nadpisuje pelnej.
 # Inny (starszy) -> stary PRZENOSI (nie kasuje) do <katalog skilli>\_poprzednie\<nazwa>-<data_godzina>, potem kopiuje nowy.
 # Wyjscie: kod 0 = gotowe (albo DryRun), kod 1 = blad (komunikat po "BLAD:").
-# Zrodlo tego pliku: WORK\instrukcje\ (generuj.py wklada go do paczki).
+# Zrodlo tego pliku: WORK\instrukcje\ (generuj.py wklada go do paczki i kopiuje do WORK, obok skill-prezentacje\ i pliki programu\).
 param([string]$Cel = "", [switch]$DryRun)
 $ErrorActionPreference = "Stop"
 $R = $PSScriptRoot

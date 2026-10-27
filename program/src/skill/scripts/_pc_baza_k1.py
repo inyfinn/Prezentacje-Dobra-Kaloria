@@ -1620,10 +1620,10 @@ CELE = {
             # i dokumenty (konwersja-pptx.md pkt 0 i 2a) dostają ją po build.ps1.
             "ZANIM COKOLWIEK POPRAWISZ, wczytaj dwa źródła (bez nich nie zmieniaj wyglądu): (1) skill /prezentacje: "
             "%USERPROFILE%\\.claude\\skills\\prezentacje\\SKILL.md (sekcja 1b) oraz references\\konwersja-pptx.md "
-            "(pkt 1 i 2a) i references\\lekcje.md (A27-A44, sekcja D); gdy skilla nie ma, zainstaluj go z folderu programu "
+            "(pkt 1 i 2a) i references\\lekcje.md (A27-A44, sekcja D); gdy skilla nie ma, zainstaluj go z folderu WORK programu "
             "(zainstaluj-skill.cmd albo kopia folderu skill-prezentacje). (2) identyfikacja wizualna Dobra Kaloria: "
             "%USERPROFILE%\\.claude\\skills\\ds-dobra-kaloria\\IDENTYFIKACJA-WIZUALNA.md (i DESIGN-SYSTEM-DOBRA-KALORIA.md "
-            "pkt 5.4 „Prezentacje PPTX”); gdy nie ma, szukaj folderu skill-ds-dobra-kaloria obok programu. Skrót: wzorzec "
+            "pkt 5.4 „Prezentacje PPTX”); gdy nie ma, szukaj folderu skill-ds-dobra-kaloria w folderze WORK programu. Skrót: wzorzec "
             "= sklep dobrakaloria.pl: tło slajdu białe, kremowe są tylko karty, Mindset tylko w tytule i hasłach do ok. "
             "12 słów, cała reszta Lato, zieleń marki ze slotu motywu (DS: #007936), czerwień tylko jako akcent słów "
             "z oryginału, dużo światła, mało obrysów.",

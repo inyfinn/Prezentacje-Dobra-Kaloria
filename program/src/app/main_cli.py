@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Wejście "stworz-cli.exe" (wersja konsolowa w "pliki programu" - dla AI i skryptów)."""
+"""Wejście "stworz-cli.exe" (wersja konsolowa w "WORK\\pliki programu" - dla AI i skryptów)."""
 import sys
 
 import cli

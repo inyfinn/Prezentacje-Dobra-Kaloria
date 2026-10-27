@@ -1,4 +1,4 @@
-﻿# Test pliku startowego: kiedy pojawia się plansza, kiedy okno programu, kiedy plansza znika. Zrzut SAMEJ planszy
+﻿# Test pliku startowego (od 1.3: Prezentacje.exe na wierzchu, program w WORK\pliki programu - wzorzec "$dir\*" obejmuje oba): kiedy pojawia się plansza, kiedy okno programu, kiedy plansza znika. Zrzut SAMEJ planszy
 # (PrintWindow po uchwycie okna - bez przechwytywania pulpitu). Na końcu zamyka uruchomiony program.
 param([Parameter(Mandatory)][string]$Exe, [string]$Shot = "", [int]$Razy = 1)
 Add-Type -AssemblyName System.Drawing

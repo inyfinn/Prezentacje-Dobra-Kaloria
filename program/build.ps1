@@ -3,10 +3,11 @@
 #   -Bump      podbij wersję (patch) w WORK\wersja.txt
 #   -BezSkilla nie odświeżaj kopii skilla z ~\.claude\skills\prezentacje
 #   -Wydaj     po budowie skopiuj program na M: i G: (wydaj.ps1 - kopiowanie bez kasowania)
-# Wynik w folderze nadrzędnym (— SZABLON AI - skrypt):
-#   Stwórz prezentację.exe   maleńki plik startowy (launcher.cs): plansza "Uruchamiam…" + start programu
-#   pliki programu\          program.exe (okno), stworz-cli.exe (dla AI), biblioteki, app\ (ui, skill)
-# Stara wersja "pliki programu" jest PRZENOSZONA do WORK\poprzednie\<data_godzina> (nigdy kasowana).
+# Wynik (od 1.3 czysty wierzch w folderze nadrzędnym "— SZABLON AI - skrypt"; wszystko inne w WORK):
+#   Prezentacje.exe              (wierzch) maleńki plik startowy (launcher.cs): plansza "Uruchamiam…" + start programu
+#   WORK\pliki programu\         program.exe (okno), stworz-cli.exe (dla AI), biblioteki, app\ (ui, skill)
+#   WORK\skill-prezentacje\, WORK\skill-ds-dobra-kaloria\   kopie skilli dla AI
+# Stara wersja "pliki programu" i stary "Stwórz prezentację.exe" są PRZENOSZONE do WORK\poprzednie\<data_godzina> (nigdy kasowane).
 param([switch]$Wydaj, [switch]$Bump, [switch]$BezSkilla)
 $ErrorActionPreference = "Stop"
 $W = $PSScriptRoot
@@ -35,10 +36,10 @@ if (-not $BezSkilla) {
     $SK = Join-Path $HOME ".claude\skills\prezentacje"
     robocopy $SK (Join-Path $SRC "skill") /E /XD .cache .pytest_cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
     Log "skill odswiezony z $SK"
-    # 1a. kopia skilla w korzeniu folderu programu (skill-prezentacje\) - z niej zainstaluj-skill.ps1 instaluje skill agentom AI.
+    # 1a. kopia skilla w WORK (skill-prezentacje\) - z niej zainstaluj-skill.ps1 instaluje skill agentom AI.
     #     Bez /MIR i /PURGE (zakaz kasowania): plik usuniety ze skilla zostaje w kopii az do reczneho przeniesienia.
-    robocopy $SK (Join-Path $R "skill-prezentacje") /E /XD .cache .pytest_cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
-    Log "skill-prezentacje odswiezony w $R"
+    robocopy $SK (Join-Path $W "skill-prezentacje") /E /XD .cache .pytest_cache examples __pycache__ /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
+    Log "skill-prezentacje odswiezony w $W"
 }
 # 1b. tokeny design systemu (kolory, odstępy, promienie) - jedno źródło: skill ds-dobra-kaloria
 $DS = Join-Path $HOME ".claude\skills\ds-dobra-kaloria\tokens\tokens.css"
@@ -47,10 +48,10 @@ if (Test-Path -LiteralPath $DS) {
     Log "tokens.css odswiezony z $DS"
 } else { Log "design system niedostepny - zostaje tokens.css z src\ui" }
 # 1c. identyfikacja wizualna dla agentów AI (KROK 0b polecenia): kopia dokumentów i tokenów skilla ds-dobra-kaloria
-#     obok programu (skill-ds-dobra-kaloria\), bez assets/preview/scripts (ok. 0,5 MB). Bez /MIR i /PURGE.
+#     w WORK (skill-ds-dobra-kaloria\), bez assets/preview/scripts (ok. 0,5 MB). Bez /MIR i /PURGE.
 $DSK = Join-Path $HOME ".claude\skills\ds-dobra-kaloria"
 if (Test-Path -LiteralPath $DSK) {
-    robocopy $DSK (Join-Path $R "skill-ds-dobra-kaloria") /E /XD assets preview scripts themes __pycache__ .cache /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
+    robocopy $DSK (Join-Path $W "skill-ds-dobra-kaloria") /E /XD assets preview scripts themes __pycache__ .cache /XF *.pyc /NFL /NDL /NJH /NJS /NP | Out-Null
     Log "skill-ds-dobra-kaloria odswiezony z $DSK"
 }
 # 2. ikona i plansza startowa
@@ -86,22 +87,33 @@ Set-Content -Path (Join-Path $new "wersja.txt") -Value $ver -Encoding ASCII
 foreach ($e in "program.exe", "stworz-cli.exe") {
     Copy-Item -LiteralPath (Join-Path $SRC "app\program.exe.config") -Destination (Join-Path $new "$e.config") -Force
 }
-$target = Join-Path $R "pliki programu"
-$running = @(Get-Process -Name program, stworz-cli -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$target\*" })
-if ($running.Count -gt 0) { throw "Program jest uruchomiony z '$target' (procesy: $($running.Id -join ', ')). Zamknij okno i uruchom budowe ponownie." }
+$target = Join-Path $W "pliki programu"                         # od 1.3: WORK\pliki programu (nie na wierzchu)
+$launcherDst = Join-Path $R "Prezentacje.exe"                   # jedyny plik programu na wierzchu
+$launcherStary = Join-Path $R "Stwórz prezentację.exe"          # nazwa sprzed 1.3
+$stamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
+$running = @(Get-Process -Name program, stworz-cli -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$target\*" -or $_.Path -like "$R\pliki programu\*" })
+$running += @(Get-Process -Name Prezentacje, "Stwórz prezentację" -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$R\*" })
+if ($running.Count -gt 0) { throw "Program jest uruchomiony z '$R' (procesy: $($running.Id -join ', ')). Zamknij okno i uruchom budowe ponownie." }
 if (Test-Path -LiteralPath $target) {
-    $old = Join-Path (Join-Path $W "poprzednie") (Get-Date -Format "yyyy-MM-dd_HHmmss")
+    $old = Join-Path (Join-Path $W "poprzednie") $stamp
     New-Item -ItemType Directory -Force $old | Out-Null
     Move-Item -LiteralPath $target -Destination (Join-Path $old "pliki programu")
     if (Test-Path -LiteralPath $target) { throw "Stary folder 'pliki programu' nadal istnieje - przerywam" }
     Log "stara wersja przeniesiona do $old"
 }
+if (Test-Path -LiteralPath (Join-Path $R "pliki programu")) { Log "UWAGA: na wierzchu nadal leży stary folder 'pliki programu' ($R) - przenieś go do WORK\poprzednie (build.ps1 go nie rusza)" }
 Move-Item -LiteralPath $new -Destination $target
-Copy-Item -LiteralPath $lexe -Destination (Join-Path $R "Stwórz prezentację.exe") -Force
+Copy-Item -LiteralPath $lexe -Destination $launcherDst -Force
+if (Test-Path -LiteralPath $launcherStary) {     # stary plik startowy: nie zostaje na wierzchu, ale też nie jest kasowany
+    $oldL = Join-Path (Join-Path $W "poprzednie") ($stamp + "-plik-startowy")
+    New-Item -ItemType Directory -Force $oldL | Out-Null
+    Move-Item -LiteralPath $launcherStary -Destination $oldL
+    Log "stary 'Stwórz prezentację.exe' przeniesiony do $oldL"
+}
 # 5a. pełny szablon (65 slajdów) dla programu i AI - w "pliki programu"; obok programu leży krótki (7 slajdów) dla ludzi (13.10)
 $pelny = Join-Path $W "DK - szablon prezentacji - pełen.pptx"
 if (Test-Path -LiteralPath $pelny) { Copy-Item -LiteralPath $pelny -Destination (Join-Path $target "DK - szablon prezentacji - pełen.pptx") -Force; Log "pelny szablon skopiowany do pliki programu" } else { Log "UWAGA brak $pelny" }
-Log ("gotowe: {0}  ({1:N0} MB, {2} plikow; plik startowy {3:N0} KB)" -f $R, ((Get-ChildItem -LiteralPath $target -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), (Get-ChildItem -LiteralPath $target -Recurse -File).Count, ((Get-Item -LiteralPath (Join-Path $R "Stwórz prezentację.exe")).Length / 1KB))
+Log ("gotowe: {0}  ({1:N0} MB, {2} plikow; plik startowy {3:N0} KB)" -f $R, ((Get-ChildItem -LiteralPath $target -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), (Get-ChildItem -LiteralPath $target -Recurse -File).Count, ((Get-Item -LiteralPath $launcherDst).Length / 1KB))
 # 6. test dymny wersji konsolowej (bez Select-Object -First: ucięty potok daje fałszywy kod wyjścia)
 $smoke = @(& (Join-Path $target "stworz-cli.exe") --help)
 Log "smoke: $($smoke[0]) (kod $LASTEXITCODE)"

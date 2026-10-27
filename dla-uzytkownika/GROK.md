@@ -30,7 +30,7 @@ Masz dwie drogi do tego samego wyniku:
 - **Droga B — sam z szablonu** (Mac, Linux, czat w przeglądarce, brak programu): składasz prezentację w Pythonie
   ze slajdów szablonu (sekcja 4).
 
-Wybór: istnieje `<folder programu>\pliki programu\stworz-cli.exe` i jesteś na Windows → Droga A. Inaczej → Droga B.
+Wybór: istnieje `<folder programu>\WORK\pliki programu\stworz-cli.exe` i jesteś na Windows → Droga A. Inaczej → Droga B.
 Styl, treść, dobór slajdów i kontrola (sekcje 5–10) są wspólne dla obu dróg.
 
 ---
@@ -38,7 +38,7 @@ Styl, treść, dobór slajdów i kontrola (sekcje 5–10) są wspólne dla obu d
 ## 0. Skille — zainstaluj, jeśli jeszcze ich nie masz (zawsze pierwszy krok)
 
 Pracujesz z dwoma skillami. Leżą w paczce `DK - paczka prezentacji dla AI.zip` w folderze `skille\` (w folderze
-programu: `skill-prezentacje\`):
+programu: `WORK\skill-prezentacje\`):
 
 | Skill | Co z niego bierzesz |
 |---|---|
@@ -77,7 +77,7 @@ Cel wybierasz po słowach użytkownika; nic nie powiedział o celu — `wiernie`
 
 ## 2. Skąd co brać
 
-**Folder programu** `— SZABLON AI - skrypt` (ten plik zwykle w nim leży; dalej `<folder programu>`). Kopie — użyj
+**Folder programu** `— SZABLON AI - skrypt` (ten plik leży w jego podfolderze `WORK`; dalej `<folder programu>`). Kopie — użyj
 pierwszej, która istnieje:
 
 1. `G:\Sprzedaż Marketing\PREZENTACJE\— SZABLON\— SZABLON AI - skrypt`
@@ -91,11 +91,11 @@ czego potrzebujesz, jest w tym pliku.
 
 | Co | Gdzie | Do czego |
 |---|---|---|
-| **pełny szablon, 65 slajdów** | `<folder programu>\pliki programu\DK - szablon prezentacji - pełen.pptx` | źródło wszystkich układów; slajdy 1–2 to instrukcje (nie bierz) |
-| katalog slajdów | sekcja 7 tego pliku (pełna wersja: `skill-prezentacje\references\katalog-szablonu.md`) | który slajd do jakiej treści |
-| skill `/prezentacje` | `<folder programu>\skill-prezentacje\` | Droga A: metoda dopracowania (`references\dopracowanie.md`), lekcje (`references\lekcje.md`), skrypty |
-| design system marki | `<folder programu>\skill-ds-dobra-kaloria\DESIGN-SYSTEM-DOBRA-KALORIA.md` (§2, §5.4) | gdy potrzebujesz więcej niż sekcja 5 |
-| **czcionki (obowiązkowe)** | `<folder programu>\skill-prezentacje\assets\fonts\` (`Mindset.otf`, `MindsetSlim.otf`, `Lato-Regular.ttf`, `Lato-Bold.ttf`); poza firmą — folder `fonty` od użytkownika | bez nich nie sprawdzisz, czy tekst się mieści (sekcja 4a). Mindset osadzona w szablonie działa tylko w PowerPoincie, nie w Pythonie ani LibreOffice |
+| **pełny szablon, 65 slajdów** | `<folder programu>\WORK\pliki programu\DK - szablon prezentacji - pełen.pptx` | źródło wszystkich układów; slajdy 1–2 to instrukcje (nie bierz) |
+| katalog slajdów | sekcja 7 tego pliku (pełna wersja: `WORK\skill-prezentacje\references\katalog-szablonu.md`) | który slajd do jakiej treści |
+| skill `/prezentacje` | `<folder programu>\WORK\skill-prezentacje\` | Droga A: metoda dopracowania (`references\dopracowanie.md`), lekcje (`references\lekcje.md`), skrypty |
+| design system marki | `<folder programu>\WORK\skill-ds-dobra-kaloria\DESIGN-SYSTEM-DOBRA-KALORIA.md` (§2, §5.4) | gdy potrzebujesz więcej niż sekcja 5 |
+| **czcionki (obowiązkowe)** | `<folder programu>\WORK\skill-prezentacje\assets\fonts\` (`Mindset.otf`, `MindsetSlim.otf`, `Lato-Regular.ttf`, `Lato-Bold.ttf`); poza firmą — folder `fonty` od użytkownika | bez nich nie sprawdzisz, czy tekst się mieści (sekcja 4a). Mindset osadzona w szablonie działa tylko w PowerPoincie, nie w Pythonie ani LibreOffice |
 
 **Folder produktu** — materiały jednego produktu, np. `…\24.09.2026 - KULKI z kreatyną`:
 
@@ -113,29 +113,29 @@ czego potrzebujesz, jest w tym pliku.
 
 Sprawdź, czy masz skill: `%USERPROFILE%\.cursor\skills\prezentacje\SKILL.md` (Cursor; PowerShell: `Test-Path "$env:USERPROFILE\.cursor\skills\prezentacje\SKILL.md"`).
 
-- **Nie ma albo brakuje w nim `references\dopracowanie.md`:** uruchom `& "<folder programu>\zainstaluj-skill.cmd" -Cel "$env:USERPROFILE\.cursor\skills\prezentacje"` (albo skopiuj folder `<folder programu>\skill-prezentacje\` w to miejsce). Skrypt niczego nie kasuje — istniejącą wersję przenosi do `…\skills\_poprzednie\`. Sprawdź jeszcze raz.
+- **Nie ma albo brakuje w nim `references\dopracowanie.md`:** uruchom `& "<folder programu>\WORK\zainstaluj-skill.cmd" -Cel "$env:USERPROFILE\.cursor\skills\prezentacje"` (albo skopiuj folder `<folder programu>\WORK\skill-prezentacje\` w to miejsce). Skrypt niczego nie kasuje — istniejącą wersję przenosi do `…\skills\_poprzednie\`. Sprawdź jeszcze raz.
 - **Potem** wczytaj skill `/prezentacje` (`SKILL.md` sekcje 0 i 1b, `references\dopracowanie.md`, `references\lekcje.md`). Skill zainstalowany w trakcie rozmowy może nie być widoczny — czytaj wtedy te pliki prosto z katalogu (bez restartu).
-- **Brak mechanizmu skilli albo dostępu do profilu** (czat, piaskownica): nic nie instaluj — czytaj `<folder programu>\skill-prezentacje\SKILL.md` i `references\` prosto z folderu programu.
+- **Brak mechanizmu skilli albo dostępu do profilu** (czat, piaskownica): nic nie instaluj — czytaj `<folder programu>\WORK\skill-prezentacje\SKILL.md` i `references\` prosto z folderu programu.
 
 ### Zrób szkic jednym poleceniem
 
 PowerShell (cmd: to samo bez `&`):
 
 ```powershell
-& "<folder programu>\pliki programu\stworz-cli.exe" "<folder produktu>"
-& "<folder programu>\pliki programu\stworz-cli.exe" "<plik.pptx>" --cel wiernie
-& "<folder programu>\pliki programu\stworz-cli.exe" "<plik.docx>" [--slajdy N] [--rozdzialy N]
-& "<folder programu>\pliki programu\stworz-cli.exe" --scenariusz "<folder prezentacji>\scenariusz.md"
+& "<folder programu>\WORK\pliki programu\stworz-cli.exe" "<folder produktu>"
+& "<folder programu>\WORK\pliki programu\stworz-cli.exe" "<plik.pptx>" --cel wiernie
+& "<folder programu>\WORK\pliki programu\stworz-cli.exe" "<plik.docx>" [--slajdy N] [--rozdzialy N]
+& "<folder programu>\WORK\pliki programu\stworz-cli.exe" --scenariusz "<folder prezentacji>\scenariusz.md"
 ```
 
 **Scenariusz (od 1.3).** Najlepszy wynik z dokumentów, zdjęć i zrzutów ekranu: najpierw piszesz `scenariusz.md` według
-wzoru `skill-prezentacje\assets\scenariusz-wzor.md` (`# SCENARIUSZ DK`, `tytuł:`, potem każdy `## Hasło` = dokładnie
+wzoru `WORK\skill-prezentacje\assets\scenariusz-wzor.md` (`# SCENARIUSZ DK`, `tytuł:`, potem każdy `## Hasło` = dokładnie
 jeden slajd: jedna linia dopisku, do 4 punktów, `**42%** opis` = liczba-bohater, tabela, `![podpis](Źródła/plik.jpg)`,
 `> cytat — autor`, `## Rozdział: Nazwa` = przekładka). Treść tylko ze `Źródła\`, nic nie wymyślasz. Program sprawdza
 scenariusz (linie `BŁĄD` blokują budowę, `uwaga` – nie), buduje 1:1 do folderu prezentacji (`<tytuł>.pptx`, kolejne
 budowy: `v2`, `v3`…) i robi `plansze\`. Poprawki robisz w scenariuszu (nowa wersja `scenariusz-2.md`), nie w pliku pptx.
 
-Program pracuje 30–60 s, drukuje postęp i raport. Nie używaj `Stwórz prezentację.exe` — to okno dla ludzi.
+Program pracuje 30–60 s, drukuje postęp i raport. Nie używaj `Prezentacje.exe` — to okno dla ludzi.
 Folder bez kart wprowadzenia program odrzuca — powiedz użytkownikowi, czego brakuje (albo przejdź na Drogę B).
 
 | Opcja | Wartości | Domyślnie |
@@ -167,7 +167,7 @@ wyróżnione. Slajd dzieli tylko, gdy tekst nie mieści się pismem 13 pt. Liter
 („Możliwe błędy w tekście oryginału”). Wersaliki z oryginału zamienia na zwykłą wielkość liter (lista w
 `wielkosc-liter.txt`). Pomija logo i belki powtarzane na większości slajdów, drobne ozdobniki, animacje i tła. Na
 slajdach portfolio dokłada packshoty z biblioteki `01 - PRODUKTY\- DK` i wypisuje, które — pokaż tę listę
-użytkownikowi (słownik nazw linii `skill-prezentacje\assets\linie-aliasy.json` to założenie).
+użytkownikowi (słownik nazw linii `WORK\skill-prezentacje\assets\linie-aliasy.json` to założenie).
 
 **Dwie kontrole programu — obie muszą być czyste:** `Treść: 100% akapitów (N/N) przeniesionych` oraz
 `Układ: osobne napisy X z X, kolejność góra-dół bez zmian, liczby X z X, slajdów tyle samo (N)`.
@@ -176,17 +176,17 @@ użytkownikowi (słownik nazw linii `skill-prezentacje\assets\linie-aliasy.json`
 
 Program robi **szkic**: ten sam slajd w stylu marki, 100% treści, hasła i liczby wstępnie wyciągnięte, układ z klocków
 szablonu. Gotową prezentację robisz z niego Ty — według sekcji 5 (styl), 6 (treść), 7 (dobór slajdu) i 9 (kontrola).
-W razie sprzeczności wygrywa `skill-prezentacje\references\dopracowanie.md` (pełna metoda; przeczytaj ją pierwszą
+W razie sprzeczności wygrywa `WORK\skill-prezentacje\references\dopracowanie.md` (pełna metoda; przeczytaj ją pierwszą
 i w całości). Zapisy „zdania w Lato”, „bez wyjmowania liczb do kafli”, „akapit = karta-artykuł” są nieaktualne od 13.10.2026.
 
 - **Folder produktu:** obejrzyj `_robocze\podglad_grafik.png` — czy paczka pasuje do smaku (kolor, napis); nie →
   ponów z `--packshoty`. Uzupełnij `[nawiasy]` danymi z folderu (python-pptx albo PowerPoint COM; funkcje z sekcji 4
   działają też tu). Nie zmieniaj układu, kolorów ani czcionek.
 - **Konwersja .pptx i dokument:** poprawki wpisujesz w specu `_robocze\<nazwa>\spec_program.json` (nie w PowerPoincie)
-  i budujesz: `python "<folder programu>\pliki programu\app\skill\scripts\build_dk.py" <spec>`. Format klocków
-  (`lead`, `p`, `hero`, `band`, `kv`, `li`, `bars`, `quote`, `pics`, `icon`): `skill-prezentacje\references\spec-dk.md`.
+  i budujesz: `python "<folder programu>\WORK\pliki programu\app\skill\scripts\build_dk.py" <spec>`. Format klocków
+  (`lead`, `p`, `hero`, `band`, `kv`, `li`, `bars`, `quote`, `pics`, `icon`): `WORK\skill-prezentacje\references\spec-dk.md`.
   Poprawki błędów tekstu deklarujesz w specu (sekcja 6.4). Pełną kontrolę po poprawkach daje jedno polecenie:
-  `python "<folder programu>\pliki programu\app\skill\scripts\pptx_convert.py" "<plik.pptx>" --ze-specu "<spec>" --robocze "<katalog roboczy>"`.
+  `python "<folder programu>\WORK\pliki programu\app\skill\scripts\pptx_convert.py" "<plik.pptx>" --ze-specu "<spec>" --robocze "<katalog roboczy>"`.
 - Nie edytujesz skryptów skilla ani programu — błąd skryptu zgłaszasz w DO DECYZJI.
 
 ## 4. Droga B — sam z szablonu (Python + python-pptx)
@@ -794,10 +794,10 @@ slajdach. Ten sam slajd szablonu najwyżej 2 razy z rzędu; dla rytmu zmieniaj u
 
 **Render do PNG** (zawsze pojedynczo, jeden plik naraz):
 
-- Droga A: `powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\pliki programu\app\skill\scripts\render.ps1" -Src "<plik.pptx>" -Out "<katalog png>"`
+- Droga A: `powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\WORK\pliki programu\app\skill\scripts\render.ps1" -Src "<plik.pptx>" -Out "<katalog png>"`
   (otwiera tylko do odczytu; po OSTATNIEJ zmianie dodaj `-EmbedFonts`). Nie używaj `app\app\render_app.ps1` — zapisuje
   plik od nowa bez sumy kontrolnej i kolejna budowa zrobi „… (nowa wersja)”. Przy przełożeniu: plansze par stary | nowy
-  `python "<folder programu>\pliki programu\app\skill\scripts\pary_slajdow.py" <png oryginału> <png wyniku> <katalog>`.
+  `python "<folder programu>\WORK\pliki programu\app\skill\scripts\pary_slajdow.py" <png oryginału> <png wyniku> <katalog>`.
 - Droga B: Najpierw `sprawdz()` = pusta lista (sekcja 4a). Potem render. **Wzorcem jest PowerPoint** — w nim
   prezentację zobaczy człowiek. Zanim wybierzesz render, ustal, gdzie pracujesz:
   1. **Na komputerze użytkownika z Windows** (Claude Code, Codex, Gemini CLI, Cursor — polecenia idą wprost do
@@ -832,7 +832,7 @@ i dla każdego odpowiedz:
 Popraw i obejrzyj ponownie — najwyżej 3 podejścia na slajd; czego nie rozwiążesz, idzie do DO DECYZJI z numerem slajdu.
 
 **Bramki oddania.** Droga A: `verify.ps1` —
-`powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\pliki programu\app\skill\scripts\verify.ps1" -Src "<plik.pptx>"`
+`powershell -NoProfile -ExecutionPolicy Bypass -File "<folder programu>\WORK\pliki programu\app\skill\scripts\verify.ps1" -Src "<plik.pptx>"`
 daje **`Tekst - problemy: 0`** bez błędu COM; przy konwersji dodatkowo `Treść: 100% akapitów` i czysta kontrola układu.
 Droga B: **`sprawdz(prs, FONTY)` pusta** (pomiar prawdziwymi czcionkami) i `nawiasy(prs)` pusta albo każdy wpis
 w DO DECYZJI. Obie drogi: Wszystkie slajdy obejrzane po ostatniej zmianie.
@@ -854,7 +854,7 @@ Nic nie kasujesz rekurencyjnie; pliki robocze trzymasz w `_robocze\`.
 ## 11. Gdy nie możesz uruchamiać kodu
 
 - Masz dostęp do Windows z programem, ale nie możesz nic uruchomić: powiedz użytkownikowi „Otwórz folder
-  `— SZABLON AI - skrypt` na dysku G:, uruchom **Stwórz prezentację.exe** i upuść do okna folder produktu albo plik .pptx.”
+  `— SZABLON AI - skrypt` na dysku G:, uruchom **Prezentacje.exe** i upuść do okna folder produktu albo plik .pptx.”
 - Czat bez plików i bez kodu: rozpisz prezentację slajd po slajdzie — numer slajdu szablonu, a pod nim tekst dla
   każdego pola (tytuł, hasła, dopiski, liczby, wniosek, źródło) w limitach z kolumny „Mieści”. Człowiek zduplikuje te
   slajdy w PowerPoincie (lewy panel: prawy klik > Duplikuj slajd), wklei tekst i usunie resztę.

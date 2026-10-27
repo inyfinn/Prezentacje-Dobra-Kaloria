@@ -1,6 +1,6 @@
-﻿// "Stwórz prezentację.exe" - maleńki plik startowy (C#, .NET Framework 4 - jest w każdym Windows 10/11).
+﻿// "Prezentacje.exe" (dawniej "Stwórz prezentację.exe") - maleńki plik startowy (C#, .NET Framework 4 - jest w każdym Windows 10/11).
 // Po co: właściwy program (Python + WebView2) startuje z dysku sieciowego 8-30 s i przez ten czas nic nie widać.
-// Ten plik od razu pokazuje planszę "Uruchamiam…" z kółkiem, paskiem i czasem (od 1.1.2), uruchamia "pliki programu\program.exe" i zamyka się sam, gdy okno
+// Ten plik od razu pokazuje planszę "Uruchamiam…" z kółkiem, paskiem i czasem (od 1.1.2), uruchamia "WORK\pliki programu\program.exe" (a w kopiach sprzed 1.3: "pliki programu\program.exe" obok siebie) i zamyka się sam, gdy okno
 // programu się pojawi (albo po 120 s). To OSOBNY proces - ekran powitalny PyInstallera blokował okno (29.09.2026).
 // Kompilacja: WORK\build.ps1 (csc.exe). Składnia C# 5 - bez nowszych konstrukcji.
 using System;
@@ -19,12 +19,14 @@ static class Launcher
     static int Main(string[] args)
     {
         string dir = Path.GetDirectoryName(Application.ExecutablePath);
-        string contents = Path.Combine(dir, "pliki programu");
+        // od 1.3: WORK\pliki programu; kopie na M:/G: sprzed 1.3 mają "pliki programu" od razu obok pliku startowego
+        string contents = Path.Combine(Path.Combine(dir, "WORK"), "pliki programu");
+        if (!File.Exists(Path.Combine(contents, "program.exe"))) contents = Path.Combine(dir, "pliki programu");
         string exe = Path.Combine(contents, "program.exe");
         string cli = Path.Combine(contents, "stworz-cli.exe");
         if (!File.Exists(exe))
         {
-            MessageBox.Show("Obok tego pliku musi leżeć folder „pliki programu”.\n\nSkopiuj cały folder programu (plik + folder), " +
+            MessageBox.Show("Obok tego pliku musi leżeć folder „WORK”.\n\nSkopiuj cały folder programu (plik + folder WORK), " +
                             "a nie sam plik.", Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return 2;
         }

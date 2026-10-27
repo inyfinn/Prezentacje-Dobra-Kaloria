@@ -178,10 +178,10 @@ pomaga, slajd idzie do DO DECYZJI (za dużo treści na jeden slajd - decyzja aut
 ## 7. Pętla pracy
 
 Skrypty: `$S` = `%USERPROFILE%\.claude\skills\prezentacje\scripts` (w programie ta sama kopia leży w
-`<folder programu>\pliki programu\app\skill\scripts`). Render i kontrola wymagają PowerPointa na komputerze.
+`<folder programu>\WORK\pliki programu\app\skill\scripts`). Render i kontrola wymagają PowerPointa na komputerze.
 
 1. Wczytaj: `SKILL.md` (sekcja 1b), ten plik, `katalog-szablonu.md`, identyfikację wizualną (skill
-   `ds-dobra-kaloria` albo folder `skill-ds-dobra-kaloria` obok programu).
+   `ds-dobra-kaloria` albo folder `WORK\skill-ds-dobra-kaloria` programu).
 2. Weź wynik programu (`spec_konwersja.json` albo `spec_program.json`, `decyzje-szablon.json`, uwagi) albo uruchom
    `python $S\pptx_convert.py "<plik.pptx>" --wyjscie <katalog> --robocze <katalog roboczy>`.
 3. Wyrenderuj oryginał i wynik do PNG (`$S\render.ps1 -Src <plik> -Out <katalog>`), zrób plansze par

@@ -33,10 +33,10 @@ datas = (pliki(os.path.join(SRC, "ui"), "app/ui")
          + pliki(os.path.join(SRC, "skill", "assets"), "app/skill/assets")
          + pliki(os.path.join(SRC, "skill", "references"), "app/skill/references")
          + [(os.path.join(PROG, "wersja.txt"), ".")])
-# SKILL.md obok skryptów (agent AI instaluje skill z tego folderu) i instrukcja AGENTS.md, gdy leży w repo / obok programu
+# SKILL.md obok skryptów (agent AI instaluje skill z tego folderu) i instrukcja AGENTS.md, gdy leży w repo (dla-uzytkownika) / w WORK
 for p, cel in ((os.path.join(SRC, "skill", "SKILL.md"), "app/skill"),
                (os.path.join(os.path.dirname(PROG), "dla-uzytkownika", "AGENTS.md"), "."),
-               (os.path.join(os.path.dirname(PROG), "AGENTS.md"), ".")):
+               (os.path.join(PROG, "AGENTS.md"), ".")):       # w folderze źródłowym AGENTS.md leży w WORK (od 1.3)
     if os.path.isfile(p):
         datas.append((p, cel))
 
