@@ -1,10 +1,12 @@
 /* Stwórz prezentację — Dobra Kaloria
    Logika interfejsu. Bez frameworków, bez CDN. Działa offline w pywebview / WebView2.
 
-   Python -> JS:  App.analyze(path), App.showOptions(result), App.onProgress(p),
+   Python -> JS:  App.analyze(path) = App.analyzeMany([path]), App.analyzeMany(lista), App.showOptions(result), App.onProgress(p),
                   App.onLog(line), App.onDone(result), App.onError(message), App.goto(screen)
-   JS -> Python:  window.pywebview.api.{get_info, pick_folder, pick_pptx, analyze, build,
+   JS -> Python:  window.pywebview.api.{get_info, pick_folder, pick_pptx / pick_file / pick_files, pick_parent, analyze / analyze_many,
+                  create_folder, ai_targets, prepare_ai, improve_ai, peek_clipboard, save_scenario, build,
                   open_path, open_folder, copy_text, open_ai, check_update, apply_update, cancel}
+   Pakiet plików (1.3, plan PLAN-1.3-scenariusz-i-folder.md): tryb 'pakiet' = kroki Materiały -> Folder -> Treść -> Tworzenie -> Gotowe.
 
    W przeglądarce (bez pywebview) sam doładowuje mock.js z udawanym backendem.
 
@@ -99,7 +101,7 @@
   /* ---------- stan ---------- */
   var state = {
     screen: 'start',
-    mode: 'folder',      /* 'folder' | 'pptx' | 'dokument' | 'dopracowanie': wyznacza kroki ustawień i pasek kroków */
+    mode: 'folder',      /* 'folder' | 'pptx' | 'dokument' | 'dopracowanie' | 'pakiet': wyznacza kroki ustawień i pasek kroków */
     dok: false,          /* tryb dokument: dwa suwaki (liczba slajdów, rozdziały) zamiast długości i ilości tekstu */
     dopr: false,         /* tryb dopracowanie: plik już w stylu marki - sam przegląd (bez celu, rozdziałów i suwaków) */
     pane: 'materialy',   /* bieżący krok ustawień (body[data-pane]) */
@@ -111,6 +113,9 @@
     wizOk: false,        /* gotowa prezentacja: czy jest biblioteka produktów dla wizualizacji */
     packFiles: [],
     packs: {},
+    paths: [],           /* ścieżki ostatnio wczytanych plików (analyzeMany) */
+    pk: null,            /* pakiet plików: { created, busy, noai, ... } - patrz renderPakiet */
+    ai: { list: [], ktory: '', loaded: false },   /* czaty z api.ai_targets i wybrany */
     analyzing: false,
     picking: false,
     building: false,
@@ -154,28 +159,32 @@
      włącza slajd z filmem. Gotowa prezentacja (20.10.2026, wariant 3B): Cel i rozdziały na jednym ekranie. Pasek kroków u góry =
      kroki ustawień + Tworzenie + Gotowe. */
   var PANES = { folder: ['materialy', 'styl', 'dodatki', 'slajdy'], pptx: ['materialy', 'cel'], dokument: ['materialy', 'slajdy'],
-    dopracowanie: ['materialy'] };
+    dopracowanie: ['materialy'], pakiet: ['folder', 'tresc'] };
   var PANE_LBL = {
     folder: { materialy: 'Materiały', styl: 'Styl', dodatki: 'Dodatki', slajdy: 'Slajdy' },
     pptx: { materialy: 'Przegląd', cel: 'Cel' },
     dokument: { materialy: 'Przegląd', slajdy: 'Slajdy' },
-    dopracowanie: { materialy: 'Przegląd' }
+    dopracowanie: { materialy: 'Przegląd' },
+    pakiet: { folder: 'Folder', tresc: 'Treść' }
   };
   function panes() { return PANES[state.mode] || PANES.folder; }
   function paneIdx() { return Math.max(0, panes().indexOf(state.pane)); }
+  /* Pakiet: krok „Materiały” (czytanie plików) stoi w pasku przed krokami ustawień i nie ma własnego ekranu - lista plików jest na kroku Folder */
+  function pre() { return state.mode === 'pakiet' ? 1 : 0; }
 
   /* numer bieżącego kroku w pasku (od 1); czytanie folderu należy do kroku 1 */
   function stepNow() {
-    var n = panes().length;
-    if (state.screen === 'opcje') return paneIdx() + 1;
+    var n = panes().length + pre();
+    if (state.screen === 'opcje') return paneIdx() + 1 + pre();
     if (state.screen === 'praca') return n + 1;
     if (state.screen === 'wynik') return n + 2;
     return 1;
   }
 
   function updateSteps() {
-    var ol = $('#steps'), list = panes(), lbl = PANE_LBL[state.mode] || PANE_LBL.folder;
-    var names = list.map(function (p) { return lbl[p]; }).concat(state.mode === 'dopracowanie' ? ['Sprawdzanie', 'Sprawdzone'] : ['Tworzenie', 'Gotowe']);
+    var ol = $('#steps'), list = panes(), lbl = PANE_LBL[state.mode] || PANE_LBL.folder, P = pre();
+    var names = (P ? ['Materiały'] : []).concat(list.map(function (p) { return lbl[p]; }),
+      state.mode === 'dopracowanie' ? ['Sprawdzanie', 'Sprawdzone'] : ['Tworzenie', 'Gotowe']);
     var cur = stepNow(), last = names.length;
     ol.hidden = state.screen === 'start';
     ol.setAttribute('aria-label', 'Postęp: krok ' + cur + ' z ' + last);
@@ -184,11 +193,13 @@
     names.forEach(function (name, i) {
       var n = i + 1, done = n < cur || (n === last && cur === last);
       /* do odwiedzonego kroku ustawień można wrócić kliknięciem, ale tylko z ekranu ustawień (nie w trakcie tworzenia) */
-      var go = state.screen === 'opcje' && i < list.length && n !== cur && i <= state.paneMax;
+      var pi = i - P;   /* indeks kroku ustawień; do już utworzonego folderu nie wracamy (powstałby drugi) */
+      var go = state.screen === 'opcje' && pi >= 0 && pi < list.length && n !== cur && pi <= state.paneMax
+        && !(state.mode === 'pakiet' && list[pi] === 'folder' && state.pk && state.pk.created);
       var inner = [h('span', { class: 'n', 'aria-hidden': 'true' }, done ? icon('check') : String(n)), h('span', { class: 'lbl', text: name })];
       ol.appendChild(h('li', { class: done ? 'done' : null, 'data-step': n, 'aria-current': n === cur ? 'step' : null },
         go ? h('button', { type: 'button', class: 'step-go', 'aria-label': 'Wróć do kroku ' + n + ': ' + name,
-          on: { click: function () { gotoPane(list[i]); } } }, inner)
+          on: { click: function () { gotoPane(list[pi]); } } }, inner)
           : h('span', { class: 'step-in' }, h('span', { class: 'sr-only', text: 'Krok ' + n + ': ' }), inner)));
     });
   }
@@ -205,6 +216,7 @@
     updateSteps();
     window.scrollTo(0, 0);
     if (!noFocus) focusHead(name === 'opcje' ? '.pane[data-pane="' + state.pane + '"]' : '#screen-' + name);
+    watchSync();
   }
 
   /* Przejście na krok ustawień. Ostatni krok ma przycisk "Stwórz prezentację" zamiast "Dalej";
@@ -218,19 +230,26 @@
     var lastPane = i === list.length - 1;
     $('#btn-next').hidden = lastPane;
     $('#btn-build').hidden = !lastPane;
-    $('#back-lbl').textContent = i === 0 ? ({ pptx: 'Inna prezentacja', dokument: 'Inny dokument', dopracowanie: 'Inna prezentacja' }[state.mode] || 'Inny folder') : 'Wstecz';
-    $('#btn-build').lastChild.textContent = state.mode === 'dopracowanie' ? 'Sprawdź prezentację' : 'Stwórz prezentację';
+    var pk = state.mode === 'pakiet';
+    $('#back-lbl').textContent = i === 0 ? ({ pptx: 'Inna prezentacja', dokument: 'Inny dokument', dopracowanie: 'Inna prezentacja', pakiet: 'Inne materiały' }[state.mode] || 'Inny folder')
+      : (pk ? 'Zacznij od nowa' : 'Wstecz');   /* pakiet: folder już istnieje, więc z kroku Treść wracamy na start, nie do tworzenia folderu */
+    $('#next-lbl').textContent = pk && id === 'folder' ? 'Utwórz folder i dalej' : 'Dalej';
+    $('#btn-build').lastChild.textContent = state.mode === 'dopracowanie' ? 'Sprawdź prezentację' : (pk ? 'Zbuduj prezentację' : 'Stwórz prezentację');
+    if (pk) paneBar(id);
+    else { $('#btn-next').disabled = false; $('#btn-build').disabled = false; }   /* przyciski pakietu bywają zablokowane (brak odpowiedzi czatu, tworzenie folderu) */
     updateSteps();
     window.scrollTo(0, 0);
     if (!noFocus && state.screen === 'opcje') focusHead('.pane[data-pane="' + id + '"]');
+    watchSync();
   }
   function nextPane() {
     var list = panes(), i = paneIdx();
+    if (state.mode === 'pakiet') { if (state.pane === 'folder') createFolder(); else buildScenario(boxes.sc); return; }
     if (i < list.length - 1) gotoPane(list[i + 1]); else startBuild();
   }
   function prevPane() {
     var i = paneIdx();
-    if (i > 0) gotoPane(panes()[i - 1]); else { resetAll(); goto('start'); }
+    if (i > 0 && state.mode !== 'pakiet') gotoPane(panes()[i - 1]); else { resetAll(); goto('start'); }
   }
 
   /* ---------- toasty ---------- */
@@ -317,21 +336,21 @@
     state.picking = true;
     call('pick_folder').then(function (p) {
       state.picking = false;
-      if (p) analyze(p);
+      if (p) analyzeMany([p]);
     }).catch(function (e) {
       state.picking = false;
       onError(errMsg(e));
     });
   }
 
-  /* Plik: gotowa prezentacja (.pptx) do przełożenia na styl DK albo dokument (Word, PDF, .txt...) do zamiany na slajdy.
-     Ten sam przepływ co folder, analyze() rozpoznaje, co to za plik. */
-  function pickPptx() {
+  /* Pliki (jeden albo wiele): gotowa prezentacja (.pptx) do przełożenia na styl DK, dokument (Word, PDF, .txt...), zdjęcia i zrzuty ekranu.
+     Ten sam przepływ co folder, silnik rozpoznaje, co to za wejście (analyze_many). Starszy program bez pick_files: wybór jednego pliku. */
+  function pickFiles() {
     if (state.picking || state.analyzing) return;
     state.picking = true;
-    call(apiFn('pick_file') ? 'pick_file' : 'pick_pptx').then(function (p) {
+    call(apiFn('pick_files') ? 'pick_files' : (apiFn('pick_file') ? 'pick_file' : 'pick_pptx')).then(function (p) {
       state.picking = false;
-      if (p) analyze(p);
+      if (p && p.length) analyzeMany(p);
     }).catch(function (e) {
       state.picking = false;
       onError(errMsg(e));
@@ -356,11 +375,11 @@
       depth = 0;
       dz.classList.remove('is-over');
       /* W programie upuszczenie obsługuje Python (zdarzenie DOM pywebview na #dropzone)
-         i sam woła App.analyze(pełnaŚcieżka). Tu wyłącznie mock (window.pywebview.mock === true)
-         symuluje to nazwą pliku. */
+         i sam woła App.analyzeMany([pełneŚcieżki]). Tu wyłącznie mock (window.pywebview.mock === true)
+         symuluje to nazwami plików. */
       if (window.pywebview && window.pywebview.mock === true) {
-        var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-        if (f) analyze(f.name);
+        var fs = e.dataTransfer && e.dataTransfer.files;
+        if (fs && fs.length) analyzeMany([].slice.call(fs).map(function (f) { return f.name; }));
       }
     });
     /* Upuszczenie obok strefy nie może otworzyć pliku w oknie. */
@@ -368,33 +387,43 @@
     window.addEventListener('drop', function (e) { e.preventDefault(); });
     /* Klik w kafel robi to samo co jego przycisk (klik przycisku też tu dociera) */
     $('#choice-folder').addEventListener('click', pickFolder);
-    $('#choice-pptx').addEventListener('click', pickPptx);
+    $('#choice-pptx').addEventListener('click', pickFiles);
   }
 
   /* ---------- analiza ---------- */
   var analyzeWatchdog = null;
-  function analyze(path) {
-    if (state.analyzing) return;
+  function analyze(path) { analyzeMany([path]); }
+  /* Wejście: lista ścieżek (folder produktu, jeden .pptx, dokument, zdjęcia, wiele plików). Napisy na ekranie czytania są tymczasowe;
+     właściwy tryb ustawia odpowiedź silnika (res.tryb). */
+  function analyzeMany(paths) {
+    paths = [].concat(paths || []).filter(Boolean);
+    if (!paths.length || state.analyzing) return;
     state.analyzing = true;
+    state.paths = paths;
+    state.pk = null;
     $$('#toasts .toast.error').forEach(function (e) { e.parentNode.removeChild(e); });   /* komunikat o poprzednim pliku nie zasłania nowego */
     var lbl = $('#analiza-folder');
-    var name = baseName(path);
+    var multi = paths.length > 1;
+    var name = multi ? num(paths.length, 'plik', 'pliki', 'plików') : baseName(paths[0]);
     lbl.textContent = name || '';
-    var isPptx = /\.(pptx|ppsx|potx|pptm)$/i.test(name);
-    var isDok = /\.(docx?|rtf|odt|pdf|txt|md)$/i.test(name);   /* tylko napis na ekranie; właściwy tryb ustawia odpowiedź silnika (res.tryb) */
-    state.mode = isPptx ? 'pptx' : (isDok ? 'dokument' : 'folder');
+    var isPptx = !multi && /\.(pptx|ppsx|potx|pptm)$/i.test(name);
+    var isDok = !multi && /\.(docx?|rtf|odt|pdf|txt|md)$/i.test(name);
+    var isPak = multi || /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i.test(name);
+    state.mode = isPak ? 'pakiet' : (isPptx ? 'pptx' : (isDok ? 'dokument' : 'folder'));
     state.dok = false;
     state.dopr = false;
-    state.pane = 'materialy';
+    state.pane = state.mode === 'pakiet' ? 'folder' : 'materialy';
     state.paneMax = 0;
-    $('#h-analiza').textContent = isPptx ? 'Czytam prezentację…' : (isDok ? 'Czytam dokument…' : 'Czytam folder…');
+    $('#h-analiza').textContent = isPak ? 'Czytam pliki…' : (isPptx ? 'Czytam prezentację…' : (isDok ? 'Czytam dokument…' : 'Czytam folder…'));
     lbl.hidden = !name;
     goto('analiza');
     clearTimeout(analyzeWatchdog);
     analyzeWatchdog = setTimeout(function () {
-      if (state.analyzing && state.screen === 'analiza') onError(isDok ? 'Czytanie dokumentu trwa za długo. Spróbuj jeszcze raz albo wybierz inny plik.' : 'Czytanie folderu trwa za długo. Spróbuj jeszcze raz albo wybierz inny folder.');
+      if (state.analyzing && state.screen === 'analiza') onError(isPak ? 'Czytanie plików trwa za długo. Spróbuj jeszcze raz albo wybierz mniej plików.' : (isDok ? 'Czytanie dokumentu trwa za długo. Spróbuj jeszcze raz albo wybierz inny plik.' : 'Czytanie folderu trwa za długo. Spróbuj jeszcze raz albo wybierz inny folder.'));
     }, 180000);
-    call('analyze', path).then(function (res) {
+    /* starszy program bez analyze_many: jedna ścieżka idzie dawną drogą */
+    var old = paths.length === 1 && hasApi() && !apiFn('analyze_many');
+    call(old ? 'analyze' : 'analyze_many', old ? paths[0] : paths).then(function (res) {
       clearTimeout(analyzeWatchdog);
       if (res) showOptions(res);      /* gdy Python zwróci null, czekamy na jego App.showOptions */
     }).catch(function (e) {
@@ -499,9 +528,8 @@
     if (b && b.focus && b.tagName === 'BUTTON') b.focus({ preventScroll: true });
   }
 
-  function renderNotes(r) {
-    var uw = r.uwagi || [];
-    var box = $('#notes'), nl = $('#notes-list');
+  /* Lista uwag: tekst bez typu albo typ ≠ 'info' = ostrzeżenie (żółty znak), typ 'info' = sama informacja */
+  function fillNotes(box, nl, uw) {
     nl.replaceChildren();
     uw.forEach(function (u) {
       var warn = (u && u.typ) !== 'info';
@@ -509,6 +537,7 @@
     });
     box.hidden = !uw.length;
   }
+  function renderNotes(r) { fillNotes($('#notes'), $('#notes-list'), r.uwagi || []); }
 
   /* Przegląd gotowej prezentacji: ile slajdów, akapitów, grafik, tabel i wykresów, rozdziałów. */
   function renderFoundPptx(r) {
@@ -1099,6 +1128,7 @@
   }
 
   function collectOpts() {
+    if (state.mode === 'pakiet') return pakietOpts();
     var styl = state.pptx ? 'nowy' : (($('input[name="styl"]:checked') || {}).value || 'nowy');   /* konwersja: zawsze nowy styl */
     if (state.dopr) return { styl: 'nowy' };   /* dopracowanie: nic do ustawienia - silnik sam rozpoznaje plik */
     if (state.dok) {   /* dokument: dwa suwaki; reszta (styl, sekcje, claimy) nie istnieje */
@@ -1137,6 +1167,7 @@
     }
     state.result = res;
     state.paneMax = 0;
+    if (res.tryb === 'pakiet' || res.tryb === 'scenariusz') { showPakiet(res); return; }   /* scenariusz = istniejący folder prezentacji ze scenariuszem */
     renderOptions(res);            /* ustawia state.mode */
     gotoPane(panes()[0], true);
     goto('opcje');
@@ -1169,6 +1200,7 @@
     }).map(function (s) {
       if (state.dopr && s[0] === 'qa') return ['qa', 'Oglądam slajdy w PowerPoint'];
       if (state.dopr && s[0] === 'zapis') return ['zapis', 'Zapisuję raport'];
+      if (state.mode === 'pakiet' && s[0] === 'folder') return ['folder', state.pk && state.pk.lastNoai ? 'Czytam dokumenty' : 'Czytam scenariusz i źródła'];
       return ((state.pptx || state.dopr) && s[0] === 'folder') ? ['folder', 'Czytam prezentację'] : ((state.dok && s[0] === 'folder') ? ['folder', 'Czytam dokument'] : s);
     });
   }
@@ -1287,6 +1319,7 @@
     state.done = res;
     var dopr = res.tryb === 'dopracowanie';   /* plik już w stylu marki: sprawdzony, nie zmieniony */
     $('#l-ai').textContent = dopr ? 'Dopracuj z AI' : 'Dokończ teksty z AI';
+    setAiCard(res);
     $('#res-name').textContent = res.nazwa || baseName(res.pptx) || 'Prezentacja.pptx';
     var meta = [];
     if (res.slajdy != null) meta.push(num(res.slajdy | 0, 'slajd', 'slajdy', 'slajdów'));
@@ -1436,6 +1469,9 @@
     state.building = false;
     state.cancelled = false;
     state.analyzing = false;
+    state.pk = null;
+    improveOpen = false;
+    watchSync();
   }
 
   /* ---------- przyciski ---------- */
@@ -1524,9 +1560,358 @@
     });
   }
 
+  /* ---------- pakiet plików (1.3): Folder prezentacji, Treść z AI, Popraw z AI ----------
+     Przepływ: analyze_many -> krok Folder (create_folder) -> krok Treść (prepare_ai, odpowiedź czatu, save_scenario) -> build({tryb:'scenariusz'})
+     -> Gotowe z kartą „Popraw z AI” (improve_ai, ta sama odpowiedź czatu, save_scenario, build). Odpowiedź czatu wchodzi do pola
+     ręcznie albo ze schowka (peek_clipboard co 1,5 s, tylko gdy jedno z dwóch pól jest na ekranie). Budowa startuje dopiero po kliknięciu. */
+  var SC = { min: 5, max: 30, dom: 12 };   /* zakres suwaka „Ile slajdów (najwyżej)”: z analyze_many (suwaki.slajdy), a bez niego te wartości */
+  var boxes = null;               /* pola odpowiedzi czatu: sc = krok Treść, imp = karta „Popraw z AI” na ekranie Gotowe */
+  var improveOpen = false;        /* karta „Popraw z AI”: pole wklejania otwarte (nasłuch schowka tylko wtedy) */
+  var MAX_ROWS = 6;               /* wierszy listy plików na kroku Folder; reszta jako „i jeszcze N”, żeby krok mieścił się w oknie */
+  var TYP_IC = { dokument: 'doc', obraz: 'image', pptx: 'present' };
+  var TYP_NAME = { dokument: 'Dokument', obraz: 'Obraz', pptx: 'Prezentacja' };
+  var FALLBACK_AI = [{ id: 'claude', nazwa: 'Claude' }, { id: 'chatgpt', nazwa: 'ChatGPT' }, { id: 'gemini', nazwa: 'Gemini' }];
+
+  function fmtSize(n) {
+    if (typeof n === 'string') return n;
+    n = Number(n);
+    if (!(n > 0)) return '';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return Math.round(n / 1024) + ' KB';
+    return (n / 1048576).toFixed(1).replace('.', ',') + ' MB';
+  }
+  /* nazwa folderu bez znaków zabronionych w Windows; puste = nie tworzymy */
+  function pkName() {
+    return ($('#in-pk-nazwa').value || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '');
+  }
+  function scSlajdy() { return Math.max(SC.min, Math.min(SC.max, +$('#in-sc-slajdy').value || SC.dom)); }
+  /* zakres i wartość domyślna suwaka z odpowiedzi silnika (suwaki.slajdy {min, max, domyslnie}); max <= min = jedna możliwa liczba */
+  function applySuwaki(sw) {
+    var a = (sw && sw.slajdy) || {}, inp = $('#in-sc-slajdy');
+    SC.min = (a.min | 0) || 5;
+    SC.max = Math.max((a.max | 0) || 30, SC.min);
+    SC.dom = Math.max(SC.min, Math.min(SC.max, (a.domyslnie | 0) || 12));
+    inp.min = String(SC.min); inp.max = String(SC.max); inp.value = String(SC.dom);
+    inp.disabled = SC.max <= SC.min;
+  }
+
+  function renderPakiet(r) {
+    var files = r.pliki || [];
+    state.pk = {
+      baza: r.baza || '', created: null, busy: false, noai: false, lastNoai: false, n: files.length, czas: r.czas || null,
+      rozdz: ((r.suwaki && r.suwaki.rozdzialy && r.suwaki.rozdzialy.domyslnie) | 0),
+      /* istniejący folder prezentacji: scenariusz, który już w nim leży (silnik: scenariusz_ok / _wersja / _bledy), i wyniki z poprzednich budów */
+      scen: r.istnieje && r.scenariusz ? { ok: r.scenariusz_ok !== false, wersja: r.scenariusz_wersja | 0, bledy: r.scenariusz_bledy || [] } : null,
+      wyniki: (r.wyniki || []).length,
+      hasDoc: files.some(function (f) { return f.typ === 'dokument' || f.typ === 'pptx'; }),
+      /* create_folder dostaje pełne ścieżki: z odpowiedzi silnika (pole sciezka), a gdy ich nie ma - te, które okno samo przekazało do analyze_many */
+      paths: files.length && files.every(function (f) { return f.sciezka; }) ? files.map(function (f) { return f.sciezka; }) : state.paths.slice()
+    };
+    applySuwaki(r.suwaki);
+    $('#l-pk-files').textContent = 'Wczytałem ' + num(files.length, 'plik', 'pliki', 'plików');
+    var ul = $('#pk-files');
+    ul.replaceChildren();
+    files.slice(0, MAX_ROWS).forEach(function (f) {
+      var size = f.rozmiar_tekst || fmtSize(f.rozmiar);
+      ul.appendChild(h('li', { class: 'file-row', title: f.nazwa },
+        h('span', { class: 'file-ic', 'aria-hidden': 'true' }, icon(TYP_IC[f.typ] || 'file')),
+        h('span', { class: 'file-txt' }, h('b', { text: f.nazwa }), h('span', { class: 'sub', text: (TYP_NAME[f.typ] || 'Inny plik') + (size ? ' · ' + size : '') }))));
+    });
+    var more = files.length - MAX_ROWS;
+    $('#pk-more').hidden = more <= 0;
+    if (more > 0) $('#pk-more').textContent = 'i jeszcze ' + num(more, 'plik', 'pliki', 'plików') + ' - wszystkie trafią do folderu';
+    $('#in-pk-nazwa').value = r.nazwa_folderu || r.tytul || '';
+    $('#pk-baza').textContent = state.pk.baza;
+    fillNotes($('#pk-notes'), $('#pk-notes-list'), r.uwagi || []);
+    $$('.pane-ctx').forEach(function (e) { e.textContent = r.tytul || ''; });
+    ['sc', 'imp'].forEach(function (k) { boxReset(boxes[k]); });
+    $('#sc-open-msg').hidden = true;
+  }
+
+  function showPakiet(res) {
+    state.pptx = false; state.dok = false; state.dopr = false;
+    state.mode = 'pakiet';
+    renderPakiet(res);
+    if (res.istnieje) {   /* folder prezentacji już jest (ma Źródła albo scenariusz): bez pytań o folder, od razu Treść */
+      state.pk.created = { ok: true, folder: res.folder };
+      prepareTresc();
+      gotoPane('tresc', true);
+    } else gotoPane('folder', true);
+    goto('opcje');
+  }
+
+  /* licznik w pasku kroku i stan przycisku głównego; wołane przy wejściu na krok */
+  function paneBar(id) {
+    var pk = state.pk || {};
+    $('#btn-next').disabled = !!pk.busy;
+    if (id === 'folder') {
+      $('#bar-count').textContent = num(pk.n | 0, 'plik', 'pliki', 'plików');
+      $('#bar-eta').textContent = 'zwykle kilka sekund';
+    } else {
+      var v = scSlajdy(), c = pk.czas;   /* czas z silnika (stałe jak w trybie dokument), a bez nich ok. 30 s */
+      $('#bar-count').textContent = 'do ' + num(v, 'slajdu', 'slajdów', 'slajdów');
+      $('#bar-eta').textContent = 'zwykle ok. ' + (c ? Math.max(5, Math.round((c.stale + c.na_slajd * v + (c.kw || 0) * v * v) / 5) * 5) : 30) + ' s';
+      boxSync(boxes.sc);
+    }
+  }
+
+  function pickBase() {
+    call('pick_parent').then(function (p) {
+      if (p && state.pk) { state.pk.baza = String(p); $('#pk-baza').textContent = state.pk.baza; }
+    }).catch(function (e) { onError(errMsg(e)); });
+  }
+
+  function createFolder() {
+    var pk = state.pk;
+    if (!pk || pk.busy) return;
+    var name = pkName();
+    if (!name) { toast('Wpisz nazwę folderu.', 'error'); $('#in-pk-nazwa').focus(); return; }
+    pk.busy = true;
+    $('#btn-next').disabled = true;
+    $('#next-lbl').textContent = 'Tworzę folder…';
+    function end() { pk.busy = false; $('#btn-next').disabled = false; $('#next-lbl').textContent = 'Utwórz folder i dalej'; }
+    call('create_folder', { baza: pk.baza, nazwa: name, pliki: pk.paths }).then(function (r) {
+      end();
+      if (!r || !r.ok) { onError(errMsg((r && r.blad) || 'Nie udało się utworzyć folderu. Wybierz inne miejsce przyciskiem „Zmień…”.')); return; }
+      pk.created = r;
+      prepareTresc();
+      gotoPane('tresc');
+    }).catch(function (e) { end(); onError(errMsg(e)); });
+  }
+
+  /* ---- krok Treść ---- */
+  function prepareTresc() {
+    var pk = state.pk;
+    $('#sc-noai').hidden = !pk.hasDoc;   /* same zdjęcia: „bez AI” nie ma z czego zrobić slajdów */
+    syncScSlider();
+    loadTargets();
+    boxReset(boxes.sc);
+    if (pk.scen) {   /* otwarty istniejący folder prezentacji: scenariusz z folderu można zbudować od razu, bez wklejania */
+      if (pk.scen.ok) {
+        setHint(boxes.sc, 'W folderze jest już scenariusz' + (pk.scen.wersja ? ' (wersja ' + pk.scen.wersja + ')' : '') + '. Kliknij „Zbuduj prezentację”, żeby zbudować z niego'
+          + (pk.wyniki ? ' (poprzednie prezentacje zostają obok)' : '') + ', albo wklej nową odpowiedź czatu.', true);
+        boxSync(boxes.sc);
+      } else {
+        showScNotes(boxes.sc, { blad: 'Scenariusz z tego folderu ma błędy, więc go nie zbuduję.', uwagi: pk.scen.bledy }, 'Scenariusz z folderu wymaga poprawy');
+      }
+    }
+  }
+
+  function syncScSlider() {
+    var root = $('#sl-sc'), v = scSlajdy(), p = SC.max > SC.min ? (v - SC.min) / (SC.max - SC.min) : 0;
+    root.style.setProperty('--pct', (p * 100) + '%');
+    var dots = $$('.dot', root);
+    dots[0].classList.add('on');
+    dots[1].classList.toggle('on', p >= 1 - 1e-9);
+    $('.slider-value strong', root).textContent = num(v, 'slajd', 'slajdy', 'slajdów');
+    $('.slider-value span', root).textContent = '';
+    $('#in-sc-slajdy').setAttribute('aria-valuetext', 'najwyżej ' + num(v, 'slajd', 'slajdy', 'slajdów'));
+    $$('.stops button', root).forEach(function (b) {
+      var mn = b.getAttribute('data-k') === 'min';
+      b.style.left = mn ? '0' : '100%';
+      b.hidden = SC.max <= SC.min;
+      b.classList.toggle('on', mn ? v <= SC.min : v >= SC.max);
+    });
+    if (state.mode === 'pakiet' && state.pane === 'tresc') paneBar('tresc');
+  }
+
+  /* ---- wybór czatu (api.ai_targets): przycisk „Otwórz [ostatni]” + mała lista pod „Użyj innego czatu” ---- */
+  function chatName() {
+    var t = state.ai.list.filter(function (x) { return x.id === state.ai.ktory; })[0];
+    return t ? (t.nazwa || t.id) : 'czat';
+  }
+  function useTargets(list, last) {
+    state.ai.list = (list && list.length ? list : FALLBACK_AI).filter(function (x) { return x && x.id && x.dostepny !== false; });   /* Claude Code tylko, gdy dostępny */
+    state.ai.ktory = state.ai.list.some(function (x) { return x.id === last; }) ? last : ((state.ai.list[0] || {}).id || '');
+    state.ai.loaded = true;
+    renderTargets();
+  }
+  /* kształt odpowiedzi ai_targets nie jest w planie rozstrzygnięty: obsługuję listę [{id, nazwa, dostepny, ostatni?}] oraz obiekt {lista|targets|czaty, ostatni} */
+  function loadTargets() {
+    if (state.ai.loaded) { renderTargets(); return; }
+    var req = (hasApi() && !apiFn('ai_targets')) ? Promise.resolve(null) : call('ai_targets');
+    req.then(function (r) {
+      var list = Array.isArray(r) ? r : ((r && (r.lista || r.targets || r.czaty)) || []);
+      var last = (!Array.isArray(r) && r && r.ostatni) || (list.filter(function (x) { return x && x.ostatni === true; })[0] || {}).id || '';
+      useTargets(list, last && last.id ? last.id : last);
+    }).catch(function () { useTargets(null, ''); });
+  }
+  function renderTargets() {
+    var cur = chatName();
+    $('#open-name').textContent = cur;
+    $('#improve-name').textContent = cur;
+    ['sc', 'imp'].forEach(function (k) {
+      var host = $('#pills-' + k);
+      host.replaceChildren();
+      state.ai.list.forEach(function (t) {
+        var inp = h('input', { type: 'radio', name: 'ai-' + k, value: t.id });
+        inp.checked = t.id === state.ai.ktory;
+        inp.addEventListener('change', function () {
+          if (!inp.checked) return;
+          state.ai.ktory = t.id;
+          var n = chatName();
+          $('#open-name').textContent = n;
+          $('#improve-name').textContent = n;
+          $$('.pills input').forEach(function (i) { i.checked = i.value === t.id; });   /* oba zestawy (krok Treść i karta Gotowe) pokazują ten sam wybór */
+        });
+        host.appendChild(h('label', { class: 'pill' }, inp, h('span', { text: t.nazwa || t.id })));
+      });
+    });
+  }
+
+  /* „Otwórz czat” (krok Treść) i „Popraw w czacie” (Gotowe): program kopiuje polecenie do schowka i otwiera czat; reszta dzieje się w czacie */
+  function openChat(improve) {
+    var btn = $(improve ? '#btn-improve' : '#btn-sc-open');
+    if (btn.disabled || !state.ai.ktory) return;
+    btn.disabled = true;
+    var req = improve ? call('improve_ai', state.ai.ktory) : call('prepare_ai', state.ai.ktory, { slajdy: scSlajdy() });
+    req.then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) { toast(errMsg((r && r.blad) || 'Nie udało się otworzyć czatu.'), 'error', 12000); return; }
+      var nm = r.nazwa || chatName();
+      if (!r.skopiowano) { toast('Otwieram ' + nm + ', ale nie udało się skopiować polecenia (schowek zajęty). Kliknij jeszcze raz za chwilę.', 'error', 12000); return; }
+      var t = 'Otworzyłem ' + nm + (improve ? '' : ' i folder ze źródłami') + '. Polecenie jest w schowku: kliknij w pole wiadomości, wciśnij Ctrl+V, potem Enter.';
+      if (improve) { $('#imp-paste').hidden = false; improveOpen = true; setHint(boxes.imp, t); boxSync(boxes.imp); watchSync(); }
+      else { var m = $('#sc-open-msg'); m.textContent = t; m.hidden = false; }
+    }).catch(function (e) { btn.disabled = false; onError(errMsg(e)); });
+  }
+
+  /* ---- pole odpowiedzi czatu (wspólne dla kroku Treść i karty Gotowe) ---- */
+  function boxReset(b) {
+    b.ta.value = ''; b.clip = ''; b.fromClip = false; b.busy = false;
+    b.notes.hidden = true;
+    setHint(b, b.idle);
+    boxSync(b);
+  }
+  /* przycisk jest aktywny, gdy w polu jest odpowiedź; w otwartym folderze prezentacji także wtedy, gdy leży w nim poprawny scenariusz */
+  function hasFolderScen(b) { return b === boxes.sc && !!(state.pk && state.pk.scen && state.pk.scen.ok); }
+  function boxSync(b) { b.btn.disabled = (!b.ta.value.trim() && !hasFolderScen(b)) || b.busy; }
+  function setHint(b, text, ok) {
+    b.hint.classList.toggle('ok', !!ok);
+    b.hint.replaceChildren();
+    if (ok) b.hint.appendChild(icon('check'));
+    b.hint.appendChild(document.createTextNode(text));
+  }
+  /* odpowiedź ze schowka: wstawiam do pola, ale niczego nie buduję - to robi dopiero kliknięcie (komunikat to mówi) */
+  function clipFill(b, text) {
+    b.ta.value = text; b.clip = text; b.fromClip = true;
+    b.notes.hidden = true;
+    setHint(b, b === boxes.sc
+      ? 'Mam odpowiedź czatu ze schowka. Niczego jeszcze nie budowałem: sprawdź ją i kliknij „Zbuduj prezentację”.'
+      : 'Mam odpowiedź czatu ze schowka. Niczego jeszcze nie zmieniłem: kliknij „Zbuduj ponownie”, nowy plik powstanie obok poprzedniego.', true);
+    boxSync(b);
+  }
+  /* błąd albo uwagi z save_scenario: czytelnie pod polem, z podpowiedzią, co powiedzieć czatowi */
+  function showScNotes(b, r, title) {
+    $('.eyebrow', b.notes).textContent = title || 'Tej odpowiedzi jeszcze nie zbuduję';
+    var items = [{ typ: 'warn', tekst: errMsg((r && r.blad) || 'Nie udało się zapisać odpowiedzi czatu. Spróbuj jeszcze raz.') }];
+    ((r && r.uwagi) || []).forEach(function (u) { items.push(u); });
+    items.push({ typ: 'info', tekst: 'Wróć do czatu i napisz: „Popraw według wzoru scenariusza i wyślij całość jeszcze raz”. Potem kliknij pod odpowiedzią „Kopiuj”.' });
+    fillNotes(b.notes, b.list, items);
+    setHint(b, '');
+    b.notes.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  /* zapis scenariusza, a gdy jest ok - budowa. Uwagi bez błędu: toast + wiersze w szczegółach tworzenia */
+  function buildScenario(b) {
+    if (b.busy || state.building) return;
+    var text = b.ta.value.trim();
+    if (!text && hasFolderScen(b)) { startBuild(); return; }   /* scenariusz już leży w folderze: build({scenariusz: true}) bierze najnowszy */
+    if (!text) { setHint(b, 'Najpierw wklej odpowiedź czatu.'); b.ta.focus(); return; }
+    b.busy = true; boxSync(b);
+    b.notes.hidden = true;
+    call('save_scenario', text).then(function (r) {
+      b.busy = false; boxSync(b);
+      if (!r || r.ok === false) { showScNotes(b, r); return; }
+      var uw = (r.uwagi || []).map(txt).filter(Boolean);
+      if (uw.length) toast('Przyjąłem scenariusz' + (r.slajdy ? ' (' + num(r.slajdy | 0, 'slajd', 'slajdy', 'slajdów') + ')' : '') + '. Uwagi: ' + uw[0] + (uw.length > 1 ? ' (i ' + (uw.length - 1) + ' kolejnych w szczegółach)' : ''), 'info', 14000);
+      startBuild();
+      uw.forEach(function (u) { onLog('Uwaga do scenariusza: ' + u); });
+    }).catch(function (e) { b.busy = false; boxSync(b); onError(errMsg(e)); });
+  }
+  /* opts dla build (kontrakt silnika): {scenariusz: true} = najnowszy scenariusz z folderu; {bez_ai: true, slajdy, rozdzialy} = dotychczasowa ścieżka
+     dokumentu z limitem z suwaka (wynik ma tryb 'dokument', wejscie 'pakiet') */
+  function pakietOpts() {
+    var pk = state.pk || {}, noai = !!pk.noai;
+    pk.noai = false;
+    pk.lastNoai = noai;
+    return noai ? { bez_ai: true, styl: 'nowy', slajdy: scSlajdy(), rozdzialy: pk.rozdz | 0 } : { scenariusz: true, styl: 'nowy' };
+  }
+
+  /* ---- nasłuch schowka: tylko gdy na ekranie jest pole odpowiedzi czatu (krok Treść albo otwarta karta „Popraw z AI”) ---- */
+  var watch = { timer: null, busy: false };
+  function watchWanted() {
+    return state.mode === 'pakiet' && ((state.screen === 'opcje' && state.pane === 'tresc') || (state.screen === 'wynik' && improveOpen));
+  }
+  function watchSync() {
+    var want = watchWanted();
+    if (want && !watch.timer) { watch.timer = setInterval(watchTick, 1500); watchTick(); }
+    else if (!want && watch.timer) { clearInterval(watch.timer); watch.timer = null; }
+  }
+  function watchTick() {
+    if (watch.busy || !watchWanted() || !apiFn('peek_clipboard')) return;
+    var b = state.screen === 'wynik' ? boxes.imp : boxes.sc;
+    watch.busy = true;
+    call('peek_clipboard').then(function (t) {
+      watch.busy = false;
+      if (typeof t !== 'string' || !t.trim() || t === b.clip) return;   /* ta sama odpowiedź już była wstawiona (albo user ją skasował) */
+      if (b.ta.value.trim() && !b.fromClip) return;                     /* user wkleił własny tekst: nie nadpisuję */
+      clipFill(b, t);
+    }).catch(function () { watch.busy = false; });
+  }
+
+  /* ---- Gotowe: karta „Popraw z AI” dla pakietu, stara karta dla pozostałych trybów ---- */
+  function setAiCard(res) {
+    /* budowa bez AI zwraca wynik jak dokument (tryb 'dokument', wejscie 'pakiet'): bez scenariusza nie ma czego poprawiać przez „Popraw z AI”, karta jak dla dokumentu */
+    var pk = state.mode === 'pakiet' && res.tryb !== 'dokument';
+    $('#ai-old').hidden = pk;
+    $('#ai-pakiet').hidden = !pk;
+    $('#btn-copy-agent').hidden = pk && !res.prompt_agent;
+    improveOpen = false;
+    if (pk) {
+      $('#l-ai').textContent = 'Popraw z AI';
+      $('#imp-plansze').hidden = !res.plansze_folder;
+      $('#imp-paste').hidden = true;
+      boxReset(boxes.imp);
+      loadTargets();
+    }
+    watchSync();
+  }
+
+  function initPakiet() {
+    function box(key, o) { o.key = key; o.ta = $(o.ta); o.hint = $(o.hint); o.notes = $(o.notes); o.list = $(o.list); o.btn = $(o.btn); return o; }
+    boxes = {
+      sc: box('sc', { ta: '#in-sc', hint: '#sc-hint', notes: '#sc-notes', list: '#sc-notes-list', btn: '#btn-build',
+        idle: 'Wstawię odpowiedź sam, gdy kliknisz pod nią „Kopiuj” w czacie. Możesz też wkleić ją ręcznie (Ctrl+V).' }),
+      imp: box('imp', { ta: '#in-imp', hint: '#imp-hint', notes: '#imp-notes', list: '#imp-notes-list', btn: '#btn-imp-build',
+        idle: 'Gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj”.' })
+    };
+    Object.keys(boxes).forEach(function (k) {
+      var b = boxes[k];
+      b.ta.addEventListener('input', function () {
+        b.fromClip = false;
+        b.notes.hidden = true;
+        setHint(b, b.ta.value.trim() ? (k === 'sc' ? 'Gotowe? Kliknij „Zbuduj prezentację”.' : 'Gotowe? Kliknij „Zbuduj ponownie”.') : b.idle);
+        boxSync(b);
+      });
+      boxReset(b);
+    });
+    $('#btn-imp-build').addEventListener('click', function () { buildScenario(boxes.imp); });
+    $('#btn-pk-baza').addEventListener('click', pickBase);
+    $('#btn-sc-open').addEventListener('click', function () { openChat(false); });
+    $('#btn-improve').addEventListener('click', function () { openChat(true); });
+    $('#btn-sc-noai').addEventListener('click', function () { if (state.pk) { state.pk.noai = true; startBuild(); } });
+    var sl = $('#in-sc-slajdy');
+    sl.addEventListener('input', syncScSlider);
+    $$('#sl-sc .stops button').forEach(function (b) {
+      b.addEventListener('click', function () { sl.value = String(b.getAttribute('data-k') === 'min' ? SC.min : SC.max); syncScSlider(); });
+    });
+    syncScSlider();
+  }
+
   /* ---------- API dla Pythona ---------- */
   window.App = {
     analyze: analyze,
+    analyzeMany: analyzeMany,
     showOptions: showOptions,
     onProgress: onProgress,
     onLog: onLog,
@@ -1572,6 +1957,7 @@
     initDok();
     initStrip();
     initButtons();
+    initPakiet();
     updateSteps();
     renderFooter();
     checkUpdate();

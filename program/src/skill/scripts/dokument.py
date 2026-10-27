@@ -38,6 +38,9 @@ ROZSZERZENIA = (".docx", ".doc", ".rtf", ".odt", ".pdf", ".txt", ".md")
 MAX_SLOW_DOK = 60000          # powyżej: ValueError z radą podziału
 MIN_OBRAZ_DOCX, MIN_OBRAZ_PDF = 100, 200  # najkrótszy bok obrazu (px), który uznajemy za treść
 OBRAZ_DEKORACJA = 3           # ten sam obraz na tylu stronach pdf = logo / ozdoba, pomijamy
+OBRAZ_PAS = 0.15              # obraz w pasie góry / dołu strony pdf (tyle wysokości) i węższy niż 1/4 strony = logo, pomijamy (21.10)
+PROG_NAGL = 1.35              # pdf bez pisma ozdobnego: nagłówek od tylu x pismo podstawowe (etykiety 11 pt przy 8 pt tekstu to nie nagłówki)
+KAFEL_MIN = 1.4               # pdf: pismo ozdobne co najmniej tyle x podstawowe = nagłówek strony / liczba w kaflu
 _KONIEC_ZD = ".!?…"
 
 
@@ -104,7 +107,7 @@ def _domknij(nazwa, bloki, ostrz):
     """Porządki wspólne dla wszystkich formatów: czyszczenie, listy numerowane „z ręki”, tytuł, limit słów."""
     out = []
     for b in bloki:
-        if b["typ"] in ("tabela", "obraz"):
+        if b["typ"] in ("tabela", "obraz", "kpi", "kv"):
             out.append(b)
             continue
         b["t"] = _czysc(b["t"])
@@ -722,100 +725,325 @@ def _akapity_z_linii(linie):
     return "\n\n".join(out)
 
 
+def _rodzina(font):
+    """Rodzina pisma ze spanu pdf: „Lato-Bold” -> „lato”; pismo ozdobne wbudowane jako Type3 („Type3 (8 0 R)”) zostaje osobną rodziną."""
+    return re.split(r"[-,]", font.lower(), 1)[0].strip()
+
+
+def _ozdobne(l, ctx):
+    """Linia pismem innym niż podstawowe (Mindset w raportach DK) - nagłówek, etykieta albo liczba w kaflu."""
+    return ctx["f"] is not None and l["f"] != ctx["f"]
+
+
+def _srodek_w(r, l):
+    cx, cy = (l["x0"] + l["x1"]) / 2.0, (l["y0"] + l["y1"]) / 2.0
+    return r.x0 <= cx <= r.x1 and r.y0 <= cy <= r.y1
+
+
 def _pdf_fitz(plik, rob, ostrz, fitz):
+    """PDF -> bloki. Pojemniki z wypełnień (karty, kafle, tabele z separatorami wierszy, metki) wyznaczają strukturę; pismo ozdobne
+    (druga rodzina pisma) = nagłówki i etykiety; obraz w pasie góry / dołu strony = logo (pomijany); strona 1 z największym
+    pismem = okładka (tytuł, etykieta, podtytuł, meta). PDF bez wypełnień i bez drugiego pisma czyta się jak dawniej (rozmiar pisma)."""
     try:
         pdf = fitz.open(plik)
     except Exception:
         raise ValueError("Nie mogę otworzyć tego PDF-a (jest uszkodzony albo zabezpieczony hasłem).")
     if pdf.needs_pass:
         raise ValueError("Ten PDF jest zabezpieczony hasłem - zapisz go bez hasła i spróbuj ponownie.")
-    strony = []  # na stronę: lista elementów (y0, rodzaj, dane) w kolejności czytania
-    znaki = 0
-    obr_licz = collections.Counter()
-    for pn, page in enumerate(pdf):
-        h = page.rect.height
-        el = []
-        tabele = []
-        try:
-            for tb in page.find_tables().tables:
-                dane = tb.extract()
-                if dane and len(dane) >= 2 and max(len(w) for w in dane) >= 2:
-                    tabele.append((fitz.Rect(tb.bbox), dane))
-        except Exception:
-            pass
+    strony, znaki, obr_licz = [], 0, collections.Counter()
+    for page in pdf:
+        W, H = page.rect.width, page.rect.height
+        lin = []
         for blk in page.get_text("dict")["blocks"]:
             if blk.get("type") != 0:
                 continue
-            bb = fitz.Rect(blk["bbox"])
-            if any(bb.intersects(tr) and (bb & tr).get_area() > 0.5 * bb.get_area() for tr, _d in tabele):
-                continue
-            lin = []
             for ln in blk["lines"]:
                 sp = [s for s in ln["spans"] if s["text"].strip()]
                 if not sp:
                     continue
-                tx = "".join(s["text"] for s in ln["spans"])
                 zn = sum(len(s["text"].strip()) for s in sp)
-                sz = sum(s["size"] * len(s["text"].strip()) for s in sp) / max(1, zn)
-                bold = all((s["flags"] & 16) or "bold" in s["font"].lower() for s in sp)
-                lin.append({"t": tx, "sz": round(sz, 1), "b": bold, "x0": ln["bbox"][0], "x1": ln["bbox"][2],
-                            "y0": ln["bbox"][1], "y1": ln["bbox"][3], "n": zn})
+                glowny = max(sp, key=lambda s: len(s["text"].strip()))
+                lin.append({"t": "".join(s["text"] for s in ln["spans"]), "n": zn, "f": _rodzina(glowny["font"]),
+                            "sz": round(sum(s["size"] * len(s["text"].strip()) for s in sp) / max(1, zn), 1),
+                            "b": all((s["flags"] & 16) or "bold" in s["font"].lower() for s in sp),
+                            "x0": ln["bbox"][0], "x1": ln["bbox"][2], "y0": ln["bbox"][1], "y1": ln["bbox"][3]})
                 znaki += zn
-            if lin:
-                el.append((bb.y0, "tekst", {"lin": lin, "bb": bb}))
-        for tr, dane in tabele:
-            el.append((tr.y0, "tabela", dane))
+        boxes, seps, dots = [], [], []
+        try:
+            rys = page.get_drawings()
+        except Exception:
+            rys = []
+        for d in rys:
+            r = d.get("rect")
+            if not d.get("fill") or r is None or (r.width >= 0.8 * W and r.height >= 0.8 * H):
+                continue             # tło strony
+            if r.height <= 2.5 and r.width >= 20:
+                seps.append(r)              # linia pod komórką tabeli
+            elif r.width <= 8 and r.height <= 8:
+                dots.append(r)              # kropka punktora
+            elif r.width >= 30 and r.height >= 10:
+                boxes.append((r, tuple(round(c * 255) for c in d["fill"][:3])))   # karta, kafel, tabela, metka (+ kolor)
+        obrazy = []
         for info in page.get_image_info(xrefs=True):
             xr = info.get("xref") or 0
-            if xr and min(info.get("width", 0), info.get("height", 0)) >= MIN_OBRAZ_PDF:
-                obr_licz[xr] += 1
-                el.append((info["bbox"][1], "obraz", xr))
-        # kolejność: bloki tekstu zostają w kolejności strumienia, tabele i obrazy wchodzą według położenia
-        tekst = [e for e in el if e[1] == "tekst"]
-        reszta = sorted((e for e in el if e[1] != "tekst"), key=lambda e: e[0])
-        for e in reszta:
-            i = next((k for k, t in enumerate(tekst) if t[0] > e[0] + 1), len(tekst))
-            tekst.insert(i, e)
-        strony.append((h, tekst))
+            bb = info["bbox"]
+            if not xr or min(info.get("width", 0), info.get("height", 0)) < MIN_OBRAZ_PDF:
+                continue
+            if (bb[1] < OBRAZ_PAS * H or bb[3] > (1 - OBRAZ_PAS) * H) and (bb[2] - bb[0]) < 0.25 * W:
+                continue                    # logo / ozdoba w pasie nagłówka albo stopki strony
+            obr_licz[xr] += 1
+            obrazy.append((bb[1], xr))
+        strony.append({"W": W, "H": H, "lin": lin, "boxes": boxes, "seps": seps, "dots": dots, "obrazy": obrazy})
     if znaki < 20:
         raise _brak_tekstu()
     # stopki i nagłówki stron: ten sam tekst (cyfry = #) w pasie 8% góry / dołu na >= połowie stron
     pas = collections.Counter()
-    for h, el in strony:
-        wid = set()
-        for y0, rodz, d in el:
-            if rodz == "tekst":
-                for l in d["lin"]:
-                    if l["y0"] < 0.08 * h or l["y1"] > 0.92 * h:
-                        wid.add(_norm_stopka(l["t"]))
-        pas.update(wid)
+    for s in strony:
+        pas.update({_norm_stopka(l["t"]) for l in s["lin"] if l["y0"] < 0.08 * s["H"] or l["y1"] > 0.92 * s["H"]})
     prog = max(2, int(0.5 * len(strony) + 0.5))
     stopki = {k for k, v in pas.items() if len(strony) >= 3 and v >= prog}
-    # rozmiar pisma podstawowego (mediana po znakach)
-    zl = collections.Counter()
-    for _h, el in strony:
-        for _y, rodz, d in el:
-            if rodz == "tekst":
-                for l in d["lin"]:
-                    zl[round(l["sz"] * 2) / 2.0] += l["n"]
+    # pismo podstawowe (mediana po znakach), rodzina podstawowa i czy jest drugie pismo (ozdobne)
+    zl, fam = collections.Counter(), collections.Counter()
+    for s in strony:
+        for l in s["lin"]:
+            zl[round(l["sz"] * 2) / 2.0] += l["n"]
+            fam[l["f"]] += l["n"]
     baza = zl.most_common(1)[0][0] if zl else 11.0
-    wiel = sorted({s for s in zl if s >= baza * 1.15}, reverse=True)
+    f_baza = fam.most_common(1)[0][0] if fam else ""
+    ozdobne = sum(v for k, v in fam.items() if k != f_baza) >= 0.02 * max(1, sum(fam.values()))
+    ctx = {"baza": baza, "f": f_baza if ozdobne else None, "wiel": sorted({s for s in zl if s >= baza * PROG_NAGL}, reverse=True),
+           "max": max(zl) if zl else baza, "pdf": pdf, "rob": rob, "ostrz": ostrz, "fitz": fitz, "obr_licz": obr_licz, "nr_obr": 0}
     bloki = []
-    for pi, (h, el) in enumerate(strony):
-        for y0, rodz, d in el:
-            if rodz == "tabela":
-                _dodaj_tabele(d, bloki)
-            elif rodz == "obraz":
-                if obr_licz[d] >= OBRAZ_DEKORACJA:
-                    continue
-                sc = _pdf_obraz(pdf, d, rob, ostrz, fitz, len([b for b in bloki if b["typ"] == "obraz"]) + 1)
+    for pi, s in enumerate(strony):
+        lin = [l for l in s["lin"] if not ((l["y0"] < 0.08 * s["H"] or l["y1"] > 0.92 * s["H"]) and
+                                           (_norm_stopka(l["t"]) in stopki or _NUMER_STR.match(l["t"])))]
+        if pi == 0 and _pdf_okladka(s, lin, ctx, bloki):
+            continue
+        _pdf_strona(s, lin, ctx, bloki)
+    return _scal_strony(bloki)
+
+
+def _pdf_okladka(s, lin, ctx, bloki):
+    """Strona tytułowa (<= 90 słów, największe pismo dokumentu >= 1,6 x podstawowe) -> h1 (tytuł, `tytul`, `kicker` = etykieta nad nim),
+    akapit `podtytul`, blok `kv` `meta` (kafle AUTOR / STAN NA / ZAKRES, data nad tytułem). True = strona zużyta."""
+    if not lin or sum(_slow(l["t"]) for l in lin) > 90 or ctx["max"] < 1.6 * ctx["baza"]:
+        return False
+    duze = sorted((l for l in lin if l["sz"] >= ctx["max"] - 0.5), key=lambda l: (l["y0"], l["x0"]))
+    if not duze:
+        return False
+    y_t0, y_t1 = duze[0]["y0"], duze[-1]["y1"]
+    if any(l["sz"] >= KAFEL_MIN * ctx["baza"] and l not in duze and not (l["y1"] <= y_t0 + 1 and _slow(l["t"]) <= 6) for l in lin):
+        return False            # inny nagłówek pod tytułem: to pierwsza strona treści, nie okładka
+    meta, w_kaflach = [], set()
+    for r, _col in sorted(s["boxes"], key=lambda rc: (round(rc[0].y0 / 4), rc[0].x0)):
+        w = sorted((l for l in lin if _srodek_w(r, l)), key=lambda l: (l["y0"], l["x0"]))
+        if not w or any(id(l) in w_kaflach for l in w):
+            continue
+        w_kaflach.update(id(l) for l in w)
+        meta.append([w[0]["t"].strip(), _skleja_linie([l["t"] for l in w[1:]])])
+    reszta = sorted((l for l in lin if id(l) not in w_kaflach and l not in duze), key=lambda l: (l["y0"], l["x0"]))
+    nad = [l for l in reszta if l["y1"] <= y_t0 + 1]
+    kicker = ""
+    if nad and _slow(nad[-1]["t"]) <= 6 and y_t0 - nad[-1]["y1"] < 3 * ctx["baza"]:
+        kicker = nad.pop()["t"].strip()
+    for l in nad:
+        if _slow(l["t"]) <= 6:
+            meta.append(["", l["t"].strip()])
+    pod = [l for l in reszta if l["y0"] >= y_t1 - 1]
+    podt = []
+    for l in pod:
+        if podt and l["y0"] - podt[-1]["y1"] > 0.8 * l["sz"]:
+            break
+        podt.append(l)
+    bloki.append(_blok("h1", _skleja_linie([l["t"] for l in duze]), 1, tytul=True, kicker=_czysc(kicker)))
+    if podt:
+        bloki.append(_blok("p", _skleja_linie([l["t"] for l in podt]), 0, podtytul=True))
+    for l in pod[len(podt):]:
+        bloki.append(_blok("p", l["t"], 0))
+    pary = [[_czysc(a), _czysc(b)] for a, b in meta if _czysc(a) or _czysc(b)]
+    if pary:
+        bloki.append(_blok("kv", "", 0, pary=pary, meta=True))
+    return True
+
+
+def _pdf_strona(s, lin, ctx, bloki):
+    """Jedna strona: drzewo pojemników (wypełnienia), linie i separatory przypisane do najmniejszego pojemnika, kropki = punkty."""
+    baza = ctx["baza"]
+    kont = []
+    for r, col in sorted(s["boxes"], key=lambda rc: -(rc[0].width * rc[0].height)):
+        w = [l for l in lin if _srodek_w(r, l)]
+        if r.height <= 2.6 * baza and len(w) <= 1 and r.width < 0.2 * s["W"]:
+            for l in w:
+                l["tag"] = True             # metka (status, termin, „KRYTYCZNE”): linia zostaje, nie jest nagłówkiem strony
+            continue
+        kont.append({"r": r, "col": col, "kids": [], "lin": [], "rodzic": None, "seps": []})
+    for i, k in enumerate(kont):
+        rodz = [p for p in kont[:i] if p["r"].contains(k["r"])]
+        if rodz:
+            k["rodzic"] = min(rodz, key=lambda p: p["r"].width * p["r"].height)
+            k["rodzic"]["kids"].append(k)
+    # biały prostokąt wprost na stronie (tło części strony, nie karta): jego dzieci idą na stronę
+    kont = [k for k in kont if not (k["rodzic"] is None and k["col"] == (255, 255, 255) and not any(k["r"].contains(sp) for sp in s["seps"]))]
+    for k in kont:
+        if k["rodzic"] is not None and k["rodzic"] not in kont:
+            k["rodzic"] = None
+    root = {"r": None, "kids": [k for k in kont if k["rodzic"] is None], "lin": [], "seps": [], "rodzic": None}
+    for l in lin:
+        c = root
+        while True:
+            nx = next((k for k in c["kids"] if _srodek_w(k["r"], l)), None)
+            if nx is None:
+                break
+            c = nx
+        c["lin"].append(l)
+    for sp in s["seps"]:
+        c, cur = None, root
+        while True:
+            nx = next((k for k in cur["kids"] if k["r"].contains(sp)), None)
+            if nx is None:
+                break
+            cur = c = nx
+        if c is not None:
+            c["seps"].append(sp)
+    for d in s["dots"]:
+        cy = (d.y0 + d.y1) / 2.0
+        for l in lin:
+            if l["y0"] <= cy <= l["y1"] and d.x1 <= l["x0"] + 1 and l["x0"] - d.x1 < 2.5 * baza:
+                l["kropka"] = True
+                break
+    _pdf_kont(root, s, ctx, bloki, 0, sorted(s["obrazy"]))
+
+
+def _pdf_kolumny(k, lin):
+    """Linie bez pojemników w 2-4 kolumnach (FAQ w dwóch szpaltach, trzy decyzje obok siebie) -> lista kolumn albo None. Granica kolumny
+    = x, którego nie przecina żadna linia, z >= 2 liniami po każdej stronie."""
+    if len(lin) < 4:
+        return None
+    gran = []
+    for b in sorted({round(l["x0"]) for l in lin})[1:]:
+        if any(l["x0"] < b - 3 and l["x1"] > b + 3 for l in lin):
+            continue
+        if sum(1 for l in lin if l["x0"] >= b - 3) >= 2 and sum(1 for l in lin if l["x1"] <= b + 3) >= 2:
+            gran.append(b)
+    if not gran or len(gran) > 3:
+        return None
+    kol = [[] for _ in range(len(gran) + 1)]
+    for l in lin:
+        kol[sum(1 for b in gran if l["x0"] >= b - 3)].append(l)
+    kol = [sorted(c, key=lambda l: (l["y0"], l["x0"])) for c in kol if c]
+    return kol if len(kol) >= 2 else None
+
+
+def _pdf_kont(k, s, ctx, bloki, gleb, obrazy=()):
+    """Pojemnik (gleb 0 = strona): zawartość w kolejności czytania. Rząd >= 3 równych kafli = kpi / kv; pojemnik z separatorami = tabela;
+    reszta = pojemniki zagnieżdżone i linie tekstu (pierwsza linia ozdobna pojemnika = jego nagłówek)."""
+    lin = k["lin"]
+    if not k["kids"] and not obrazy:
+        kol = _pdf_kolumny(k, lin)
+        if kol:
+            for czesc in kol:
+                _pdf_linie(czesc, ctx, bloki, gleb, True)
+            return
+    items = [(c["r"].y0, c["r"].x0, "k", c) for c in k["kids"]] + [(l["y0"], l["x0"], "l", l) for l in lin] + \
+        [(y, 0.0, "o", xr) for y, xr in obrazy]
+    items.sort(key=lambda it: (round(it[0] / 4.0), it[1]))
+    run, pierwsza, i = [], True, 0
+    while i < len(items):
+        y, _x, rodz, ob = items[i]
+        if rodz == "l":
+            run.append(ob)
+            i += 1
+            continue
+        if run:
+            _pdf_linie(run, ctx, bloki, gleb, pierwsza)
+            run, pierwsza = [], False
+        if rodz == "o":
+            if ctx["obr_licz"][ob] < OBRAZ_DEKORACJA:
+                ctx["nr_obr"] += 1
+                sc = _pdf_obraz(ctx["pdf"], ob, ctx["rob"], ctx["ostrz"], ctx["fitz"], ctx["nr_obr"])
                 if sc:
                     bloki.append(_blok("obraz", "", 0, obraz=sc))
-            else:
-                lin = [l for l in d["lin"]
-                       if not ((l["y0"] < 0.08 * h or l["y1"] > 0.92 * h) and (_norm_stopka(l["t"]) in stopki or _NUMER_STR.match(l["t"])))]
-                _pdf_blok(lin, baza, wiel, bloki)
-    return _scal_strony(bloki)
+            i += 1
+            continue
+        rzad, j = [ob], i + 1
+        while j < len(items) and items[j][2] == "k" and abs(items[j][0] - y) <= 4:
+            rzad.append(items[j][3])
+            j += 1
+        if len(rzad) >= 3 and _pdf_kafle(rzad, ctx, bloki):
+            i = j
+            continue
+        for c in sorted(rzad, key=lambda c: c["r"].x0):
+            if c["seps"] and _pdf_tabela(c, ctx, bloki):
+                continue
+            _pdf_kont(c, s, ctx, bloki, gleb + 1)
+        i = j
+    if run:
+        _pdf_linie(run, ctx, bloki, gleb, pierwsza)
+
+
+def _pdf_kafle(rzad, ctx, bloki):
+    """Rząd >= 3 równych kafli: liczba / słowo ozdobnym pismem + opis -> blok `kpi`; krótka etykieta + wartość -> blok `kv`."""
+    szer = [c["r"].width for c in rzad]
+    if max(szer) > 1.3 * min(szer) or any(c["kids"] or c["seps"] or not c["lin"] or len(c["lin"]) > 6 for c in rzad):
+        return False
+    items = []
+    for c in sorted(rzad, key=lambda c: c["r"].x0):
+        w = sorted(c["lin"], key=lambda l: (l["y0"], l["x0"]))
+        items.append((w[0], _skleja_linie([l["t"] for l in w[1:]])))
+    if all(_ozdobne(l, ctx) and l["sz"] >= KAFEL_MIN * ctx["baza"] for l, _t in items):
+        bloki.append(_blok("kpi", "", 0, items=[{"value": _czysc(l["t"]), "label": _czysc(t)} for l, t in items]))
+    elif all(_slow(l["t"]) <= 4 and t for l, t in items):
+        bloki.append(_blok("kv", "", 0, pary=[[_czysc(l["t"]), _czysc(t)] for l, t in items]))
+    else:
+        return False
+    return True
+
+
+def _pdf_tabela(c, ctx, bloki):
+    """Pojemnik z liniami pod komórkami: kolumny z segmentów pierwszej linii, wiersze z kolejnych; komórka = linie w polu. Nagłówek =
+    pierwszy wiersz w całości ozdobny (bez drugiego pisma: pogrubiony), gdy drugi wiersz zaczyna się zwykłym pismem. Dwie kolumny
+    bez nagłówka z ozdobną pierwszą komórką w każdym wierszu = `kv` (etykieta: wartość). False = to nie tabela."""
+    ys = sorted({round(sp.y0) for sp in c["seps"]})
+    kols = []
+    for a, b in sorted((sp.x0, sp.x1) for sp in c["seps"] if round(sp.y0) == ys[0]):
+        if kols and a < kols[-1][1] - 2:          # segmenty komórek stykają się końcami; scalamy tylko nachodzące
+            kols[-1] = (kols[-1][0], max(kols[-1][1], b))
+        else:
+            kols.append((a, b))
+    if len(kols) < 2:
+        return False
+    gran = [c["r"].y0] + [y + 0.5 for y in ys] + [c["r"].y1]
+    kom = [[[] for _ in kols] for _ in range(len(gran) - 1)]
+    for l in sorted(c["lin"], key=lambda l: (l["y0"], l["x0"])):
+        cy, cx = (l["y0"] + l["y1"]) / 2.0, (l["x0"] + l["x1"]) / 2.0
+        ri = next((i for i in range(len(gran) - 1) if gran[i] <= cy < gran[i + 1]), None)
+        if ri is None:
+            continue
+        ci = next((j for j, (a, b) in enumerate(kols) if a - 2 <= cx <= b + 2), None)
+        if ci is None:
+            ci = min(range(len(kols)), key=lambda j: abs((kols[j][0] + kols[j][1]) / 2.0 - cx))
+        if ci == 0 and l.get("tag") and len(kols) == 2:
+            ci = 1                                   # metka (zielona pigułka) to wartość, nie etykieta
+        kom[ri][ci].append(l)
+
+    def ozd(cell):
+        z = [l for l in cell if not l.get("tag")]
+        return bool(z) and all((_ozdobne(l, ctx) if ctx["f"] else l["b"]) for l in z)
+
+    def etyk(cell):   # etykieta pary: pismo ozdobne albo pogrubione WERSALIKI do 4 słów („JĘZYK”, „DANE”)
+        z = [l for l in cell if not l.get("tag")]
+        return bool(z) and all(_ozdobne(l, ctx) or (l["b"] and l["t"].strip().isupper() and _slow(l["t"]) <= 4) for l in z)
+    pary = [([_skleja_linie([l["t"] for l in cell]) for cell in row], [ozd(cell) for cell in row], etyk(row[0])) for row in kom]
+    pary = [p for p in pary if any(p[0])]
+    if len(pary) < 2:
+        return False
+    wiersze, oz, et = [p[0] for p in pary], [p[1] for p in pary], [p[2] for p in pary]
+    naglowek = all(oz[0]) and not oz[1][0]
+    if len(kols) == 2 and not naglowek and all(et):
+        bloki.append(_blok("kv", "", 0, pary=[[_czysc(a), _czysc(b)] for a, b in wiersze]))
+        return True
+    _dodaj_tabele(wiersze, bloki)
+    return True
 
 
 def _pdf_obraz(pdf, xref, rob, ostrz, fitz, nr):
@@ -833,12 +1061,14 @@ def _pdf_obraz(pdf, xref, rob, ostrz, fitz, nr):
         return None
 
 
-def _pdf_blok(lin, baza, wiel, bloki):
-    """Linie jednego bloku PDF -> nagłówek / lista / akapity (łamanie z dzieleniem wyrazów sklejone)."""
+def _pdf_linie(lin, ctx, bloki, gleb=0, pierwsza=False):
+    """Linie tekstu jednego pojemnika -> nagłówek / lista / akapity. Ozdobne pismo = nagłówek (h1 = największe na stronie; h2 = duże albo
+    pierwsza linia karty; h3 = reszta); metka = h3; kropka przed linią = punkt; pogrubione pytanie „…?” = h3 (FAQ)."""
     if not lin:
         return
-    # sam punktor w osobnej linii (Word: „•” + tabulator) dołącza się do następnej linii
-    l2, i = [], 0
+    baza, wiel = ctx["baza"], ctx["wiel"]
+    lin = sorted(lin, key=lambda l: (round(l["y0"] / 2.0), l["x0"]))
+    l2, i = [], 0     # sam punktor w osobnej linii (Word: „•” + tabulator) dołącza się do następnej linii
     while i < len(lin):
         if lin[i]["t"].strip() and set(lin[i]["t"].strip()) <= set(_BUL + "-–—") and i + 1 < len(lin):
             nx = dict(lin[i + 1])
@@ -849,33 +1079,55 @@ def _pdf_blok(lin, baza, wiel, bloki):
         l2.append(lin[i])
         i += 1
     lin = l2
-    # podział na akapity wewnątrz bloku: przerwa pionowa, zmiana pisma, nowy punkt listy albo krótka linia kończąca zdanie
     grupy, cur = [], [lin[0]]
     for a, b in zip(lin, lin[1:]):
         przerwa = b["y0"] - a["y1"] > 0.6 * a["sz"]
-        zmiana = abs(a["sz"] - b["sz"]) > 0.6 or a["b"] != b["b"]
+        zmiana = abs(a["sz"] - b["sz"]) > 0.6 or a["b"] != b["b"] or a["f"] != b["f"] or a.get("tag") != b.get("tag")
         koniec = a["t"].rstrip()[-1:] in _KONIEC_ZD and a["x1"] < 0.85 * max(l["x1"] for l in lin) and b["t"].lstrip()[:1].isupper()
-        punkt = bool(_BUL_RE.match(b["t"].strip())) or bool(_LISTA_NUM.match(b["t"].strip()))
+        punkt = bool(_BUL_RE.match(b["t"].strip())) or bool(_LISTA_NUM.match(b["t"].strip())) or b.get("kropka")
         if przerwa or zmiana or koniec or punkt:
             grupy.append(cur)
             cur = []
         cur.append(b)
     grupy.append(cur)
-    for g in grupy:
+    for gi, g in enumerate(grupy):
         t = _skleja_linie([l["t"] for l in g])
         sz = max(l["sz"] for l in g)
         sl = _slow(t)
-        if wiel and sz >= baza * 1.15 and sl <= 16:
+        tag = any(l.get("tag") for l in g)
+        if g[0].get("kropka"):
+            bloki.append(_blok("li", _BUL_RE.sub("", t.strip(), 1), 0, num=False))
+            continue
+        if all(_ozdobne(l, ctx) for l in g) and sl <= 16:
+            if gleb == 0 and sz >= ctx["max"] - 0.5 and ctx["max"] >= 1.6 * baza:
+                poz = 1
+            elif sz >= KAFEL_MIN * baza and gleb == 0:
+                poz = 2                                   # nagłówek strony = rozdział
+            elif pierwsza and gi == 0 and gleb >= 1:
+                bloki.append(_blok("h3", t, 3))           # nagłówek karty = podrozdział (bez sklejania z nagłówkiem strony)
+                continue
+            else:
+                poz = 3
+            bloki.append(_blok("h%d" % poz, t, poz, _pdf_h=True, pytanie=(poz == 3 and t.rstrip().endswith("?"))))
+            continue
+        if tag and sl <= 3:
+            bloki.append(_blok("h3", t, 3))
+            continue
+        if ctx["f"] is None and wiel and sz >= baza * PROG_NAGL and sl <= 16:
             poziom = min(3, 1 + min(range(len(wiel)), key=lambda i: abs(wiel[i] - round(sz * 2) / 2.0)))
             bloki.append(_blok("h%d" % poziom, t, poziom, _pdf_h=True))
-        elif all(l["b"] for l in g) and sl <= 10 and t[-1:] not in ".,;!?…":
+            continue
+        if all(l["b"] for l in g) and sl <= 12 and t.rstrip().endswith("?"):
+            bloki.append(_blok("h3", t, 3, pytanie=True))
+            continue
+        if all(l["b"] for l in g) and sl <= 10 and t[-1:] not in ".,;!?…" and not tag and                 g[0]["x0"] <= min(l["x0"] for l in lin) + 2 * baza:         # pogrubiona linia od lewej krawędzi (nie „wersja 2.7.5” z prawej)
             bloki.append(_blok("h3", t, 3, _pdf_h=True))
+            continue
+        m = _BUL_RE.match(t.strip())
+        if m:
+            bloki.append(_blok("li", t.strip()[m.end():], 0, num=False))
         else:
-            m = _BUL_RE.match(t.strip())
-            if m:
-                bloki.append(_blok("li", t.strip()[m.end():], 0, num=False))
-            else:
-                bloki.append(_blok("p", t, 0))
+            bloki.append(_blok("p", t, 0))
 
 
 def _skleja_linie(linie):
@@ -1113,18 +1365,29 @@ def _zdania(t):
 
 
 def _okladka(m):
-    """(tytuł, podtytuł | None, zbiór indeksów bloków zużytych na okładce)."""
-    zuz = set()
+    """Okładka z modelu: {"tytul", "podtytul" | None, "kicker" (etykieta nad tytułem), "meta" (autor, data...), "zuz" (indeksy bloków
+    zużytych na okładce)}. Podtytuł = akapit `podtytul` albo krótki akapit pod tytułem przed nagłówkiem; meta = blok `kv` `meta`."""
+    zuz, pod, kicker, meta = set(), None, "", ""
     i = m.get("tytul_idx")
-    pod = None
     if i is not None:
         zuz.add(i)
+        kicker = m["bloki"][i].get("kicker") or ""
         b = m["bloki"][i + 1] if i + 1 < len(m["bloki"]) else None
-        if b and b["typ"] == "p" and (_slow(b["t"]) <= PODTYTUL_SLOW if len(m["tytul"]) <= COVER_DLUGI else len(b["t"]) <= 68) and \
-                (b.get("podtytul") or any(x["typ"] in ("h1", "h2", "h3") for x in m["bloki"][i + 2:i + 3])):
+        if b and b["typ"] == "p" and (_slow(b["t"]) <= PODTYTUL_SLOW if len(m["tytul"]) <= COVER_DLUGI else len(b["t"]) <= 68) and                 (b.get("podtytul") or any(x["typ"] in ("h1", "h2", "h3", "kv", "kpi") for x in m["bloki"][i + 2:i + 3])):
             pod = b["t"]
             zuz.add(i + 1)
-    return m["tytul"], pod, zuz
+        for j in range(i + 1, min(len(m["bloki"]), i + 4)):
+            b = m["bloki"][j]
+            if b["typ"] == "kv" and b.get("meta"):
+                pary = [p for p in b["pary"] if p[1] and _slow(p[1]) <= 6]
+                if any(p[0] for p in pary):
+                    pary = [p for p in pary if p[0]]        # data z nagłówka strony dubluje „STAN NA”
+                meta = " · ".join(p[1] for p in pary)
+                zuz.add(j)
+                break
+            if b["typ"] not in ("p",) or j not in zuz:
+                break
+    return {"tytul": m["tytul"], "podtytul": pod, "kicker": kicker, "meta": meta, "zuz": zuz}
 
 
 def _wagi_tabeli(head, rows):
@@ -1136,38 +1399,12 @@ def _wagi_tabeli(head, rows):
     return out
 
 
-def _tabela_tekstowa(w):
-    """Tabela z długimi komórkami (zawijałyby się poza wiersz): slajd `table` ma stałą wysokość wiersza i jedną linię pisma 13 pt."""
-    n = len(w[0])
-    wagi = _wagi_tabeli(w[0], w[1:])
-    razem = sum(wagi)
-    for j in range(n):
-        znaki = max(4.0, (28.5 * wagi[j] / razem - 1.0) * 3.5)       # tyle znaków mieści się w kolumnie w jednej linii
-        if any(len(r[j]) > znaki for r in w if j < len(r)):
-            return True
-    return False
-
-
-def _tabela_na_akapity(w):
-    """Tabela tekstowa -> akapity: dwie kolumny = „etykieta – wartość” na wiersz; więcej = akapit na kolumnę („nagłówek – komórki”; komórka bez
-    kropki na końcu dostaje ją, żeby granice komórek były granicami zdań - hasło i dopisek tną po zdaniach)."""
-    n = len(w[0])
-    if n == 2:
-        return [("%s – %s" % (r[0], r[1])) if r[0] and r[1] else (r[0] or r[1]) for r in w if r[0] or r[1]]
-    out = []
-    for j in range(n):
-        kom = [r[j] for r in w[1:] if j < len(r) and r[j]]
-        tx = " ".join(c if c[-1] in ".!?…:;)" else c + "." for c in kom[:-1]) + (" " if len(kom) > 1 else "") + (kom[-1] if kom else "")
-        out.append(("%s – %s" % (w[0][j], tx)) if w[0][j] and tx else (w[0][j] or tx))
-    return [x for x in out if x]
-
-
 def _drzewo(m, uw=None):
     """Sekcje dokumentu w kolejności: {"naglowek", "poziom", "rodzic", "idx", "atomy": [...]}. Pierwsza sekcja (bez nagłówka) to treść
     przed pierwszym nagłówkiem. Atomy: p (zdania), li (pozycje), tab, obr (obrazy z podpisem), cyt."""
-    _t, _p, zuz = _okladka(m)
+    zuz = _okladka(m)["zuz"]
     bl = m["bloki"]
-    sek = [{"naglowek": None, "poziom": 0, "rodzic": None, "idx": None, "atomy": []}]
+    sek = [{"naglowek": None, "poziom": 0, "rodzic": None, "idx": None, "atomy": [], "rodzic_idx": None, "pytanie": False}]
     stos = []
     i = 0
     while i < len(bl):
@@ -1181,8 +1418,9 @@ def _drzewo(m, uw=None):
             lv = int(typ[1])
             while stos and stos[-1][0] >= lv:
                 stos.pop()
-            sek.append({"naglowek": b["t"], "poziom": lv, "rodzic": stos[-1][1] if stos else None, "idx": i, "atomy": []})
-            stos.append((lv, b["t"]))
+            sek.append({"naglowek": b["t"], "poziom": lv, "rodzic": stos[-1][1] if stos else None, "idx": i, "atomy": [],
+                        "rodzic_idx": stos[-1][2] if stos else None, "pytanie": bool(b.get("pytanie"))})
+            stos.append((lv, b["t"], len(sek) - 1))
         elif typ == "p":
             cur["atomy"].append({"k": "p", "zd": _zdania(b["t"]), "b": [i]})
         elif typ == "li":
@@ -1192,16 +1430,13 @@ def _drzewo(m, uw=None):
             else:
                 cur["atomy"].append({"k": "li", "poz": [b["t"]], "b": [i], "num": bool(b.get("num"))})
         elif typ == "tabela":
-            if _tabela_tekstowa(b["wiersze"]):
-                if uw is not None:
-                    uw.append("Tabela z długimi komórkami (%d x %d) nie zmieściłaby się w wierszach tabeli - przepisałem ją jako karty z tekstem "
-                              "(nagłówek - treść)." % (len(b["wiersze"]), len(b["wiersze"][0])))
-                for t in _tabela_na_akapity(b["wiersze"]):
-                    cur["atomy"].append({"k": "p", "zd": _zdania(t), "b": [i]})
-            else:
-                cur["atomy"].append({"k": "tab", "wiersze": b["wiersze"], "b": [i]})
+            cur["atomy"].append({"k": "tab", "wiersze": b["wiersze"], "b": [i]})
         elif typ == "cytat":
             cur["atomy"].append({"k": "cyt", "t": b["t"], "b": [i]})
+        elif typ == "kpi":
+            cur["atomy"].append({"k": "kpi", "items": b["items"], "b": [i]})
+        elif typ == "kv":
+            cur["atomy"].append({"k": "kv", "pary": b["pary"], "b": [i]})
         elif typ == "obraz":
             at = {"k": "obr", "items": [{"obraz": b["obraz"], "podpis": "", "b": [i]}], "b": [i]}
             pop = cur["atomy"][-1] if cur["atomy"] else None
@@ -1234,97 +1469,13 @@ def _slow_atomu(a):
         return sum(_slow(x) for x in a["poz"])
     if a["k"] == "cyt":
         return _slow(a["t"])
+    if a["k"] == "tab":
+        return sum(_slow(c) for w in a["wiersze"] for c in w)
+    if a["k"] == "kpi":
+        return sum(_slow(it["value"]) + _slow(it["label"]) for it in a["items"])
+    if a["k"] == "kv":
+        return sum(_slow(p[0]) + _slow(p[1]) for p in a["pary"])
     return 0
-
-
-def _jednostki(atomy):
-    """Atomy tekstu (p, li) -> jednostki myśli: zdanie (p) albo porcja listy po <= LISTA_PORCJA pozycji (li)."""
-    u = []
-    for ai, a in enumerate(atomy):
-        if a["k"] == "p":
-            for z in a["zd"]:
-                u.append({"k": "p", "id": ai, "t": [z], "w": _slow(z), "b": a["b"]})
-        else:
-            poz = a["poz"]
-            n = len(poz)
-            porcje = max(1, -(-n // LISTA_PORCJA))
-            for j in range(porcje):
-                sl = poz[j * n // porcje:(j + 1) * n // porcje]
-                u.append({"k": "li", "id": ai, "t": sl, "w": sum(_slow(x) for x in sl), "b": a["b"], "num": a.get("num"), "n": len(sl)})
-    return u
-
-
-def _fragmenty(units):
-    """Jednostki jednego slajdu -> fragmenty (kolejne zdania tego samego akapitu = jeden fragment, porcje tej samej listy = jeden)."""
-    out = []
-    for u in units:
-        if out and out[-1]["id"] == u["id"] and out[-1]["k"] == u["k"]:
-            out[-1]["t"] = out[-1]["t"] + u["t"]
-            out[-1]["w"] += u["w"]
-        else:
-            out.append({"k": u["k"], "id": u["id"], "t": list(u["t"]), "w": u["w"], "b": u["b"], "num": u.get("num")})
-    return out
-
-
-def _grupa_ok(frs):
-    """Czy tak zmieszane fragmenty (k: p / li, w: słowa, n: pozycje listy) da się ułożyć na jednym slajdzie (zgodnie z `_wiersze_frag`)?
-    Najwyżej CAP_FRAG kart, lista najwyżej LISTA_MAX punktów; zdanie wprowadzające przed listą do 60 słów (jedna karta)."""
-    if len(frs) > CAP_FRAG or any(f["k"] == "li" and f.get("n", 0) > LISTA_MAX for f in frs):
-        return False
-    k = "".join("p" if f["k"] == "p" else "l" for f in frs)
-    if k == "pl" and frs[0]["w"] > 60:
-        return False
-    return True
-
-
-def _pakuj(units):
-    """Najgęstszy podział jednostek na slajdy (limit słów, zgodne rodzaje fragmentów, najwyżej CAP_FRAG kart): lista list indeksów."""
-    grupy, cur, w, frs = [], [], 0, []
-    for i, u in enumerate(units):
-        if frs and frs[-1]["id"] == u["id"] and frs[-1]["k"] == u["k"]:
-            nowe = [dict(f) for f in frs]
-            nowe[-1]["w"] += u["w"]
-            nowe[-1]["n"] = nowe[-1].get("n", 0) + u.get("n", 0)
-        else:
-            nowe = [dict(f) for f in frs] + [{"k": u["k"], "id": u["id"], "w": u["w"], "n": u.get("n", 0)}]
-        if cur and (w + u["w"] > CAP_SLOW or not _grupa_ok(nowe)):
-            grupy.append(cur)
-            cur, w = [], 0
-            nowe = [{"k": u["k"], "id": u["id"], "w": u["w"], "n": u.get("n", 0)}]
-        cur.append(i)
-        w += u["w"]
-        frs = nowe
-    if cur:
-        grupy.append(cur)
-    return grupy
-
-
-def _ile_slajdow_tabeli(wiersze):
-    kol = len(wiersze[0])
-    w = max(0, len(wiersze) - 1)
-    return max(1, -(-w // TABELA_WIERSZE)) * max(1, -(-(kol - 1) // (TABELA_KOLUMNY - 1)) if kol > TABELA_KOLUMNY else 1)
-
-
-def _elementy(sek):
-    """Sekcje -> elementy do rozdzielenia na slajdy: {"sek": i, "k": "tekst"|"tab"|"obr"|"cyt", ...}; tekst: jednostki + k_min / k_max."""
-    el = []
-    for si, s in enumerate(sek):
-        run = []
-
-        def zrzut():
-            if run:
-                u = _jednostki(run)
-                el.append({"sek": si, "k": "tekst", "atomy": list(run), "u": u, "w": sum(x["w"] for x in u),
-                           "kmin": len(_pakuj(u)), "kmax": len(u)})
-                run.clear()
-        for a in s["atomy"]:
-            if a["k"] in ("p", "li"):
-                run.append(a)
-            else:
-                zrzut()
-                el.append({"sek": si, "k": a["k"], "atom": a})
-        zrzut()
-    return el
 
 
 def _kandydaci_rozdzialow(sek):
@@ -1353,16 +1504,6 @@ def _slowa_poddrzewa(sek, i):
     return w
 
 
-def _wybierz_rozdzialy(sek, n):
-    """n sekcji, od których zaczynają się rozdziały: najwyższe poziomem, przy równym poziomie najdłuższe; wynik w kolejności dokumentu."""
-    kand = _kandydaci_rozdzialow(sek)
-    n = max(0, min(n, len(kand), MAX_ROZDZIALOW))
-    if not n:
-        return []
-    wyb = sorted(kand, key=lambda i: (sek[i]["poziom"], -_slowa_poddrzewa(sek, i), i))[:n]
-    return sorted(wyb)
-
-
 def _rozdzialy_domyslnie(sek, slajdy_domyslnie):
     """Przekładki domyślnie tylko wtedy, gdy rozdział ma średnio >= 3 slajdy treści (inaczej przekładki zjadają prezentację)."""
     if slajdy_domyslnie < 9:
@@ -1376,118 +1517,480 @@ def _rozdzialy_domyslnie(sek, slajdy_domyslnie):
 
 
 # =====================================================================================================================
-# 3. STATYSTYKA
+# 3. PLAN: ROZDZIAŁY, NOŚNIKI TREŚCI, BUDŻET SLAJDÓW (21.10.2026)
 # =====================================================================================================================
-def _zakres(el):
-    fix = sum(_ile_slajdow_tabeli(e["atom"]["wiersze"]) if e["k"] == "tab" else 1 for e in el if e["k"] != "tekst")
-    kmin = sum(e["kmin"] for e in el if e["k"] == "tekst")
-    kmax = sum(e["kmax"] for e in el if e["k"] == "tekst")
-    wt = sum(e["w"] for e in el if e["k"] == "tekst")
-    mn = fix + kmin
-    mx = max(mn, min(MAX_SLAJDOW, fix + kmax))
-    my = sum(len(e["u"]) for e in el if e["k"] == "tekst")
-    cel = max(wt / float(SLOW_NA_SLAJD), my / MYSLI_NA_SLAJD)
-    dom = fix + (min(kmax, max(kmin, int(round(cel)))) if kmax else 0)
-    return fix, mn, mx, max(mn, min(mx, dom)), wt
+# Slajd pokazuje NOŚNIK treści (liczby, tabela, lista jako hasła, pary etykieta: wartość, karty, FAQ, akapit jako hasło z dopiskiem);
+# pełny tekst dokumentu idzie do notatek prelegenta. Suwak = liczba slajdów z treścią; nośniki wchodzą według rangi.
+ROZDZIAL_MIN_SLOW = 40    # sekcja najwyższego poziomu krótsza niż tyle słów nie jest osobnym rozdziałem (dokleja się do sąsiada)
+_RANGA0 = re.compile(r"decyz|wniosk|rekomend|podsumow|\bplan|nast[eę]pne kroki", re.I)   # rozdział dla zarządu: zawsze na slajdzie
+PAS_MAX = 12              # pas-wniosek (zielony) do tylu słów; dłuższe zdanie idzie do notatek
+ZIELONA_MAX = 10          # zielona karta z jednym hasłem do tylu słów; dłuższe = kremowa karta z hasłem i dopiskiem
+SLAJD_MAX_SLOW = 60       # bramka: tyle słów najwyżej na jednym slajdzie treści
+TAB_KOL, TAB_WIERSZY = 3, 6                  # tabela „Standardowo”: kolumny i wiersze na slajdzie
+TAB_KOL_SZCZ, TAB_WIERSZY_SZCZ = 4, 8        # tabela „Szczegółowo”
+KOMORKA_SLOW = 4          # komórka tabeli na slajdzie: do tylu słów (pierwszy człon), reszta w notatkach
+KPI_MAX, LISTA_MAX_POZ, FAQ_NA_SLAJD, KARTY_MAX, KV_MAX = 4, 6, 5, 4, 8
+HASLO_POZ = 12            # pozycja listy / hasło karty: pierwszy człon do tylu słów
+HASLO_KROTKIE = 6         # hasło kafla: pierwsza fraza do tylu słów (reszta = dopisek Lato)
+KOMORKA_FRAZA = 7         # komórka tabeli: pierwsza fraza do tylu słów; dłuższa = komórka w notatkach
+DOPISEK_SLOW = 25         # dopisek pod hasłem do tylu słów (karta akapitu)
+DOPISEK_KAFLA = 16        # dopisek w kaflu listy do tylu słów (reszta w notatkach)
+RANGA = {"kpi": 1, "tab": 2, "lista-liczby": 2, "obr": 2, "siatka": 2, "kv": 3, "lista": 3, "kroki": 3, "karty": 3, "cyt": 3, "faq": 4, "tekst": 5}
+
+
+def _slow_sek(sek, i):
+    return sum(_slow_atomu(a) for a in sek[i]["atomy"])
+
+
+def _rozdzialy(sek):
+    """Rozdziały = sekcje najwyższego poziomu z nagłówkiem; krótsze niż ROZDZIAL_MIN_SLOW doklejają się: sam wstęp (tylko akapity) do
+    następnego, inne do poprzedniego. [{"sekcje": [indeksy], "start": indeks sekcji z nagłówkiem | None}] w kolejności dokumentu."""
+    kand = _kandydaci_rozdzialow(sek)
+    if not kand:
+        return [{"sekcje": list(range(len(sek))), "start": next((i for i in range(len(sek)) if sek[i]["naglowek"]), None)}]
+    lv = min(sek[i]["poziom"] for i in kand)
+    starty = [i for i in range(len(sek)) if sek[i]["naglowek"] and sek[i]["poziom"] == lv]
+    gr = [list(range(0, starty[0]))] if starty[0] > 0 else []
+    gr += [list(range(a, b)) for a, b in zip(starty, starty[1:] + [len(sek)])]
+    out, pend = [], []
+    for g in gr:
+        w = sum(_slow_sek(sek, i) for i in g)
+        tylko_p = all(a["k"] == "p" for i in g for a in sek[i]["atomy"])
+        if w < ROZDZIAL_MIN_SLOW and (tylko_p or not out):
+            pend += g
+        elif w < ROZDZIAL_MIN_SLOW:
+            out[-1] += g
+        else:
+            out.append(pend + g)
+            pend = []
+    if pend:
+        if out and sum(_slow_sek(sek, i) for i in pend) < ROZDZIAL_MIN_SLOW:
+            out[-1] += pend
+        else:
+            out.append(pend)
+    return [{"sekcje": g, "start": next((i for i in g if sek[i]["naglowek"]), None)} for g in out]
+
+
+def _nowy(k, si, ri, atomy, sek):
+    b = sorted({i for a in atomy for i in a["b"]})
+    return {"k": k, "sek": si, "roz": ri, "tytul": sek[si]["naglowek"], "atomy": list(atomy), "b": b, "wstep": [], "po": [],
+            "ranga": RANGA[k], "extra": 0, "wybrany": 0, "pominiete": []}
+
+
+def _liczby_w(poz):
+    sz = _sz()
+    return sum(1 for x in poz if sz.liczba_bohater((x, None)))
+
+
+def _grupa_podsekcji(sek, secs, i):
+    """Od sekcji secs[i]: ciąg sąsiednich podsekcji tego samego poziomu (głębszego niż rozdział) z <= 2 atomami tekstu każda."""
+    s = sek[secs[i]]
+    if not s["naglowek"] or not s["atomy"] or len(s["atomy"]) > 2 or any(a["k"] != "p" for a in s["atomy"]):
+        return [i]
+    j = i
+    while j + 1 < len(secs):
+        t = sek[secs[j + 1]]
+        if not (t["naglowek"] and t["poziom"] == s["poziom"] and t["rodzic"] == s["rodzic"] and 1 <= len(t["atomy"]) <= 2 and
+                all(a["k"] == "p" for a in t["atomy"]) and bool(t.get("pytanie")) == bool(s.get("pytanie"))):
+            break
+        j += 1
+    return list(range(i, j + 1))
+
+
+def _grupy_kv(sek):
+    """Grupy >= 3 sąsiednich sekcji tego samego poziomu z blokiem `kv` o >= 2 wspólnych etykietach (karty programów), także przez
+    nagłówek rozdziału między nimi („Karty programów (cd.)”). {indeks pierwszej sekcji: ([indeksy sekcji], [wspólne etykiety])}."""
+    def kv(si):
+        return next((a for a in sek[si]["atomy"] if a["k"] == "kv"), None)
+    out, i = {}, 0
+    while i < len(sek):
+        s = sek[i]
+        if not s["naglowek"] or kv(i) is None:
+            i += 1
+            continue
+        idx, j = [i], i + 1
+        etyk0 = {p[0] for p in kv(i)["pary"]}
+        while j < len(sek):
+            t = sek[j]
+            if t["naglowek"] and t["poziom"] == s["poziom"] and kv(j) is not None:
+                if len(etyk0 & {p[0] for p in kv(j)["pary"]}) < 2:
+                    break           # inna karta (inne etykiety) kończy siatkę
+                idx.append(j)
+            elif t["poziom"] < s["poziom"] and all(a["k"] == "p" for a in t["atomy"]):
+                pass            # nagłówek rozdziału z samym wstępem: karty ciągną się dalej
+            else:
+                break
+            j += 1
+        etyk = [p[0] for p in kv(i)["pary"]]
+        wspolne = [e for e in etyk if all(any(p[0] == e for p in kv(x)["pary"]) for x in idx)]
+        if len(idx) >= 3 and len(wspolne) >= 2:
+            out[i] = (idx, wspolne)
+            i = idx[-1] + 1
+        else:
+            i += 1
+    return out
+
+
+def _nosniki(sek, rozdz):
+    """Nośniki treści w kolejności dokumentu. Akapity przed pierwszym nośnikiem sekcji = wstęp (band / notatki), po nim = komentarz."""
+    out = []
+    grupy = _grupy_kv(sek)
+    zuzyte = set()
+    for ri, r in enumerate(rozdz):
+        secs = r["sekcje"]
+        i = 0
+        while i < len(secs):
+            si = secs[i]
+            s = sek[si]
+            if si in zuzyte:
+                i += 1
+                continue
+            if si in grupy:
+                idx, etyk = grupy[si]
+                atomy, reszta, karty = [], [], []
+                for x in idx:
+                    kvat = next(a for a in sek[x]["atomy"] if a["k"] == "kv")
+                    karty.append((sek[x]["naglowek"], [(e, next((p[1] for p in kvat["pary"] if p[0] == e), "")) for e in etyk]))
+                    atomy.append(kvat)
+                    reszta += [a for a in sek[x]["atomy"] if a is not kvat]
+                    zuzyte.add(x)
+                n = _nowy("siatka", si, ri, atomy, sek)
+                n["karty"], n["po"] = karty, reszta
+                n["tytul"] = sek[s["rodzic_idx"]]["naglowek"] if s.get("rodzic_idx") is not None else s["naglowek"]
+                n["b"] = sorted(set(n["b"]) | {i2 for a in reszta for i2 in a["b"]} | {sek[x]["idx"] for x in idx})
+                out.append(n)
+                i += 1
+                continue
+            idx = _grupa_podsekcji(sek, secs, i)
+            if len(idx) >= 2 and s["poziom"] > sek[r["start"]]["poziom"] if r["start"] is not None else False:
+                k = "faq" if s.get("pytanie") else "karty"
+                atomy = [a for x in idx for a in sek[secs[x]]["atomy"]]
+                n = _nowy(k, si, ri, atomy, sek)
+                n["karty"] = [(sek[secs[x]]["naglowek"], " ".join(z for a in sek[secs[x]]["atomy"] for z in a["zd"])) for x in idx]
+                pop = sek[secs[i - 1]] if i > 0 else None     # pusty nagłówek tuż przed grupą („Decyzje zarządu” nad 1. 2. 3.) = jej tytuł
+                if pop is not None and pop["naglowek"] and not pop["atomy"] and pop["poziom"] >= sek[r["start"]]["poziom"]:
+                    n["tytul"] = pop["naglowek"]
+                    n["b"] = sorted(set(n["b"]) | {pop["idx"]})
+                else:
+                    n["tytul"] = sek[s["rodzic_idx"]]["naglowek"] if s.get("rodzic_idx") is not None else s["naglowek"]
+                n["b"] = sorted(set(n["b"]) | {sek[secs[x]]["idx"] for x in idx})
+                out.append(n)
+                i = idx[-1] + 1
+                continue
+            wst, wsek = [], []
+            for a in s["atomy"]:
+                if a["k"] == "p" or (a["k"] == "kv" and len(a["pary"]) < 3):
+                    if a["k"] == "kv":
+                        a = {"k": "p", "zd": ["%s: %s" % tuple(p) if p[0] else p[1] for p in a["pary"]], "b": a["b"]}
+                    (wsek[-1]["po"] if wsek else wst).append(a)
+                    continue
+                if a["k"] == "li":
+                    k = "kroki" if a.get("num") and 2 <= len(a["poz"]) <= 5 else ("lista-liczby" if _liczby_w(a["poz"]) >= 2 else "lista")
+                else:
+                    k = a["k"]
+                n = _nowy(k, si, ri, [a], sek)
+                if k == "tab":
+                    n["ksztalt"], n["kol_wart"] = _ksztalt_tabeli(a["wiersze"])
+                wsek.append(n)
+            if wsek:
+                wsek[0]["wstep"] = wst
+                out += wsek
+            elif wst:
+                out.append(_nowy("tekst", si, ri, wst, sek))
+            i += 1
+    for n in out:
+        n["b"] = sorted(set(n["b"]) | {i for a in n["wstep"] + n["po"] for i in a["b"]} | ({sek[n["sek"]]["idx"]} if sek[n["sek"]]["idx"] is not None else set()))
+    return out
+
+
+def _jednostki_planu(nos, szcz):
+    """Jednostki budżetu: slajd bazowy każdego nośnika + slajdy dodatkowe (dalsze wiersze tabeli, akapity, pary FAQ, karty)."""
+    u = []
+    for i, n in enumerate(nos):
+        u.append((n, 0))
+        if n["k"] == "tab" and n.get("ksztalt", "tab") == "tab":
+            w = len(n["atomy"][0]["wiersze"]) - 1
+            ex = max(0, -(-w // TAB_WIERSZY_SZCZ) - 1)
+        elif n["k"] == "faq":
+            ex = max(0, -(-len(n["karty"]) // FAQ_NA_SLAJD) - 1)
+        elif n["k"] == "karty":
+            ex = max(0, -(-len(n["karty"]) // KARTY_MAX) - 1)
+        elif n["k"] == "tekst":
+            ex = len(n["atomy"]) - 1
+        else:
+            ex = 0
+        n["dod"] = [a for a in n["wstep"] + n["po"] if a["k"] == "p" and _slow_atomu(a) >= 12] if n["k"] != "tekst" else []
+        n["wlasne"] = ex
+        ex += len(n["dod"])
+        n["extra_max"] = ex
+        u += [(n, e) for e in range(1, ex + 1)]
+    return u
+
+
+def plan(m, N=None, sek=None):
+    """Plan prezentacji: rozdziały, nośniki, zakres suwaka (min = najlepszy nośnik każdego rozdziału + nośniki rangi 0; domyślnie = nośniki
+    rangi <= 3; max = wszystkie nośniki i ich dalsze części) oraz wybór N jednostek według rangi. Oznacza nośniki: `wybrany` = liczba
+    slajdów, `pominiete` = nośniki, których tekst idzie do notatek tego slajdu."""
+    sek = sek if sek is not None else _drzewo(m)
+    rozdz = _rozdzialy(sek)
+    nos = _nosniki(sek, rozdz)
+    for n in nos:
+        n["wybrany"], n["pominiete"] = 0, []
+        roz_t = sek[rozdz[n["roz"]]["start"]]["naglowek"] if rozdz[n["roz"]]["start"] is not None else ""
+        if n["k"] != "faq" and (_RANGA0.search(n["tytul"] or "") or (n["k"] != "tekst" and _RANGA0.search(roz_t or ""))):
+            n["ranga"] = 0
+        elif n["k"] == "tekst" and all(x["k"] == "tekst" for x in nos if x["roz"] == n["roz"]):
+            n["ranga"] = 2        # rozdział z samego tekstu: jego akapity pokazują się „Standardowo”
+        else:
+            n["ranga"] = RANGA[n["k"]]
+    for ri in range(len(rozdz)):
+        w = [n for n in nos if n["roz"] == ri and n["k"] != "faq"]    # FAQ nigdy nie jest wymuszone (ranga 4)
+        if w:
+            best = min(w, key=lambda n: (n["ranga"], nos.index(n)))
+            best["wymuszony"] = True
+            if ri == len(rozdz) - 1:
+                best["ranga"] = 0
+    for n in nos:
+        if n["ranga"] == 0:
+            n["wymuszony"] = True
+    units = _jednostki_planu(nos, False)
+    kolej = sorted(range(len(units)), key=lambda i: (0 if (units[i][1] == 0 and units[i][0].get("wymuszony")) else 1,
+                                                     units[i][0]["ranga"] if units[i][1] == 0 else 6, nos.index(units[i][0]), units[i][1]))
+    mn = sum(1 for n in nos if n.get("wymuszony"))
+    dom = sum(1 for n in nos if n.get("wymuszony") or n["ranga"] <= 2)
+    mx = min(MAX_SLAJDOW, len(units))
+    mn, dom = min(mn, mx), min(max(dom, mn), mx)
+    N = dom if N is None else max(mn, min(mx, int(N)))
+    for i in kolej[:N]:
+        units[i][0]["wybrany"] += 1
+    prev = None
+    for n in nos:
+        if n["wybrany"]:
+            prev = n
+        elif prev is not None:
+            prev["pominiete"].append(n)
+        else:
+            nast = next((x for x in nos if x["wybrany"]), None)
+            if nast is not None:
+                nast["pominiete"].append(n)
+    return {"sek": sek, "rozdzialy": rozdz, "nosniki": nos, "min": mn, "dom": dom, "max": mx, "N": N, "szczegolowo": N > dom,
+            "na_slajdach": _udzial_na_slajdach(nos, N > dom)}
+
+
+ZAWIESZKI = {"z", "w", "i", "o", "a", "u", "na", "do", "od", "po", "za", "ze", "we", "oraz", "lub", "albo", "ani", "czy", "że", "bo", "dla",
+             "nie", "jak", "bez", "pod", "nad", "przez", "przy", "jako", "który", "która", "które", "których", "też", "to", "jest", "są", "się", "ich",
+             "tylko", "także", "oraz", "między", "wobec", "przed", "ponad", "ok.", "np.", "tj."}
+
+
+def _konc_ok(toks):
+    """Tekst na slajdzie nie kończy się spójnikiem, przyimkiem ani otwartym nawiasem."""
+    if not toks:
+        return False
+    ost = toks[-1].strip().rstrip(",;:–—-")
+    calosc = "".join(toks)
+    return bool(ost) and ost.lower() not in ZAWIESZKI and not ost.endswith("(") and calosc.count("(") <= calosc.count(")")
+
+
+def _fraza(t, maks, nr=0, min_sl=1):
+    """Pierwsza pełna fraza tekstu (do przecinka / średnika / dwukropka / myślnika / końca zdania) o najwyżej `maks` słowach; `nr` = weź
+    frazę o tyle granic dalej (dłuższy człon, gdy krótszy się powtarza). None, gdy pierwsza fraza jest za długa. Fraza nie kończy się
+    spójnikiem, przyimkiem ani otwartym nawiasem (granica przesuwa się na poprzednie słowo albo fraza odpada)."""
+    t = " ".join(t.split())
+    toks = t.split()
+    if not toks:
+        return None
+    abbr = _sz().ABBR
+    gr = [i for i in range(1, len(toks)) if toks[i - 1][-1:] in ",;:" or toks[i] in ("–", "—", "-") or
+          (toks[i - 1][-1:] in ".!?…" and toks[i][:1].isupper() and len(toks[i - 1]) > 2 and toks[i - 1].lower() not in abbr)]
+    gr = [g for g in gr if g >= min_sl] + [len(toks)]       # fraza nie krótsza niż min_sl słów („Oprogramowanie,” to nie fraza)
+    k = min(nr, len(gr) - 1)
+    out = toks[:gr[k]]
+    while out and not _konc_ok(out):
+        out = out[:-1]
+    if not out or len(out) > (maks + 2 if len(out) == len(toks) else maks):     # cały krótki tekst wolno o 2 słowa dłuższy
+        return None
+    return " ".join(out).rstrip(",;:–—- ").strip()
+
+
+def _czlon(t, maks):
+    """Pierwszy człon tekstu do `maks` słów: pełna fraza (`_fraza`), a gdy jest za długa - pierwsze słowa bez zawieszki na końcu."""
+    f = _fraza(t, maks, min_sl=3)      # fraza krótsza niż 3 słowa („Podejście:”) to nie człon
+    if f is not None:
+        return f
+    toks = " ".join(t.split()).split()
+    # bez granicy interpunkcyjnej: tnij przed ostatnim przyimkiem / spójnikiem w zasięgu („zrzuty ekranów porównywane | z projektem”)
+    przed = [i for i in range(2, min(len(toks), maks + 1)) if toks[i].lower() in ZAWIESZKI]
+    out = toks[:przed[-1]] if przed else toks[:maks]
+    while len(out) > 2 and not _konc_ok(out):
+        out.pop()
+    return " ".join(out).rstrip(",;:–—- ")
+
+
+def _haslo_poz(t, maks=HASLO_POZ):
+    """Pozycja listy / karta -> (hasło, dopisek): hasło = pierwsza fraza do ~6 słów (`_fraza`), gdy jej nie ma - pierwszy człon
+    (`szablonuj.haslo_cut`); dopisek = reszta pierwszego zdania (+ drugie), do DOPISEK_SLOW słów; None, gdy nic nie zostaje."""
+    sz = _sz()
+    zd = _zdania(t)
+    z0 = " ".join(zd[0].split())
+    h = _fraza(z0, HASLO_KROTKIE, min_sl=2)
+    if h is None:
+        hh, _r = sz.haslo_cut((z0, None))
+        h = _czlon(hh[0], maks)
+    if _slow(z0) <= HASLO_KROTKIE and _slow(h) >= _slow(z0) - 1:
+        h, reszta = z0.rstrip(".").strip() if z0.count(".") == 1 and z0.endswith(".") else z0, " ".join(zd[1:2])
+    else:
+        hw = _slow(h)
+        reszta = " ".join(z0.split()[hw:] + zd[1:2]).lstrip(",;:–—- ")
+    reszta = " ".join(reszta.split())
+    if reszta and _slow(reszta) > DOPISEK_KAFLA:
+        reszta = _czlon(reszta, DOPISEK_KAFLA)
+    return h, (reszta or None)
+
+
+_DATA = re.compile(r"\b(\d{1,2}[./]\d{4}|\d{4}|stycz|lut|mar|kwie|maj|czerw|lip|sierp|wrze|paźdz|listop|grud)", re.I)
+_TAKNIE = {"tak", "nie", "częściowo", "czesciowo", "✓", "✗", "x", "-"}
+
+
+def _komorka(t):
+    """Komórka na slajdzie: pierwsza fraza do KOMORKA_FRAZA słów albo None (brak pełnej frazy: na slajd idzie krótsze ujęcie `_czlon`,
+    a kolumna z wieloma takimi komórkami znika)."""
+    t = " ".join(str(t).split())
+    if not t:
+        return None
+    if _slow(t) <= KOMORKA_SLOW:
+        return t if _konc_ok(t.split()) or _slow(t) <= 1 else _czlon(t, KOMORKA_SLOW)
+    return _fraza(t, KOMORKA_FRAZA, min_sl=2)
+
+
+def _ksztalt_tabeli(wiersze):
+    """Kształt tabeli -> pojemnik: „kpi” (kolumna liczb / krótkich wartości, <= 6 wierszy), „czas” (kolumna dat), „taknie” (kolumna
+    tak / nie), „kv” (2 kolumny krótkich wartości), „tab” (>= 3 sensowne kolumny). Zwraca (kształt, numer kolumny wartości)."""
+    head, rows = wiersze[0], wiersze[1:]
+    n = len(head)
+    if not rows or n < 2 or n > 3:
+        return "tab", None          # >= 4 kolumn: tabela zostaje tabelą
+
+    def kol(j):
+        return [r[j] if j < len(r) else "" for r in rows]
+    for j in range(1, n):
+        c = [x for x in kol(j) if x]
+        if len(rows) <= 8 and c and sum(1 for x in c if x.strip().lower().rstrip(".") in _TAKNIE) >= 0.6 * len(rows):
+            return "taknie", j
+    for j in range(1, n):
+        c = [x for x in kol(j) if x]
+        if len(rows) <= 6 and c and sum(1 for x in c if _slow(x) <= 4 and re.search(r"\d", x) and not _DATA.search(x)) >= 0.6 * len(rows):
+            return "kpi", j         # kolumna liczb (nie dat)
+    if n == 2 and len(rows) <= 6:
+        c = [x for x in kol(1) if x]
+        if c and sum(1 for x in c if _DATA.search(x)) >= 0.6 * len(rows):
+            return "czas", 1
+        if all(_slow(x) <= 8 for x in c):
+            return "kv", 1
+    return "tab", None
+
+
+def _tab_skrot(wiersze, szcz, czesc=0):
+    """Tabela na slajd: kolumny = pierwsza (nazwa) + druga + najkrótsze z pozostałych do TAB_KOL (TAB_KOL_SZCZ); komórka = pierwsza fraza
+    do KOMORKA_FRAZA słów (`_komorka`); kolumna, w której ponad 1/3 komórek nie ma takiej frazy, znika (zostaje w notatkach); dwa wiersze
+    o tej samej nazwie dostają dłuższy człon. Wiersze porcji `czesc`. Zwraca (head, rows)."""
+    kol_max, wi_max = (TAB_KOL_SZCZ, TAB_WIERSZY_SZCZ) if szcz else (TAB_KOL, TAB_WIERSZY)
+    head, rows = wiersze[0], wiersze[1:]
+    n = len(head)
+    kom = [[_komorka(r[j]) if j < len(r) else "" for j in range(n)] for r in rows]
+    zle = [sum(1 for r in kom if r[j] is None) for j in range(n)]
+    ok = [j for j in range(n) if j == 0 or zle[j] * 3 <= len(rows)]
+    dl = [max([_slow(head[j])] + [_slow(r[j] or "") for r in kom]) for j in range(n)]
+    reszta = [j for j in ok if j >= 2]
+    wyb = ok if len(ok) <= kol_max else sorted([j for j in ok if j < 2] + sorted(reszta, key=lambda j: (dl[j], j))[:kol_max - len([j for j in ok if j < 2])])
+    porcja = list(range(czesc * wi_max, min(len(rows), (czesc + 1) * wi_max)))
+    out = [[(kom[i][j] if kom[i][j] is not None else (_czlon(rows[i][j], KOMORKA_FRAZA) if j < len(rows[i]) else "")) for j in wyb] for i in porcja]
+    for a in range(len(out)):          # ta sama nazwa w dwóch wierszach: dłuższy człon
+        for b in range(a):
+            if out[a] and out[a][0] and out[a][0] == out[b][0]:
+                for i2, k in ((porcja[a], a), (porcja[b], b)):
+                    f = _fraza(rows[i2][0], HASLO_POZ, nr=1)
+                    if f and f != out[k][0]:
+                        out[k][0] = f
+    return [head[j] for j in wyb], out
+
+
+def _udzial_na_slajdach(nos, szcz):
+    """Szacunek: ile słów dokumentu widać na slajdach (bez pomiaru układu) / wszystkie słowa nośników."""
+    razem = pokaz = 0
+    for n in nos:
+        w = sum(_slow_atomu(a) for a in n["atomy"] + n["wstep"] + n["po"])
+        razem += w
+        if not n["wybrany"]:
+            continue
+        k = n["k"]
+        if k == "kpi":
+            pokaz += sum(_slow(it["value"]) + _slow(it["label"]) for it in n["atomy"][0]["items"][:KPI_MAX])
+        elif k == "tab" and n.get("ksztalt", "tab") == "tab":
+            for c in range(n["wybrany"]):
+                h, r = _tab_skrot(n["atomy"][0]["wiersze"], szcz, c)
+                pokaz += sum(_slow(x) for x in h) + sum(_slow(x) for row in r for x in row)
+        elif k == "tab":
+            pokaz += sum(min(HASLO_KROTKIE, _slow(r[0])) + min(6, _slow(r[n["kol_wart"]]) if n["kol_wart"] is not None and n["kol_wart"] < len(r) else 0)
+                         for r in n["atomy"][0]["wiersze"][1:7])
+        elif k == "siatka":
+            pokaz += sum(_slow(h) + sum(_slow(e) + min(6, _slow(v)) for e, v in kv) for h, kv in n["karty"])
+        elif k == "kv":
+            pokaz += sum(_slow(p[0]) + min(6, _slow(p[1])) for p in n["atomy"][0]["pary"][:KV_MAX])
+        elif k in ("lista", "lista-liczby", "kroki"):
+            pokaz += sum(min(HASLO_POZ, _slow(x)) for x in n["atomy"][0]["poz"][:LISTA_MAX_POZ])
+        elif k in ("faq", "karty"):
+            na = FAQ_NA_SLAJD if k == "faq" else KARTY_MAX
+            pokaz += sum(_slow(h) + min(HASLO_POZ, _slow(t)) for h, t in n["karty"][:na * n["wybrany"]])
+        elif k == "tekst":
+            pokaz += sum(min(HASLO_POZ + DOPISEK_SLOW, _slow_atomu(a)) for a in n["atomy"][:n["wybrany"]])
+        else:
+            pokaz += w
+        if n["wstep"] or n["po"]:
+            pokaz += min(PAS_MAX, 0)
+    return int(round(100.0 * pokaz / razem)) if razem else 100
+
+
+def _rozdzialy_domyslnie(pl):
+    """Przekładki domyślnie tylko wtedy, gdy rozdział ma średnio >= 3 slajdy treści (inaczej przekładki zjadają prezentację)."""
+    n = sum(1 for r in pl["rozdzialy"] if r["start"] is not None)
+    return n if 2 <= n <= MAX_ROZDZIALOW and pl["dom"] >= 9 and pl["dom"] >= 3 * n else 0
 
 
 def statystyka(m):
     """Zakresy suwaków liczone Z DOKUMENTU (bez pomiaru układu - natychmiast). `slajdy_*` = slajdy Z TREŚCIĄ (okładka, agenda, przekładki
-    i zakończenie dochodzą). min = najgęściej, jak się da bez łamania progów pisma (najwyżej %d słów i %d kart na slajd, sekcje się nie
-    łączą); max = jedna myśl (zdanie) na slajd, najwyżej %d; domyślnie 1 slajd na ok. %d słów treści (2-3 karty hasło + dopisek na slajd;
-    nie rzadziej niż 1 slajd na %d zdań), w granicach min-max - luźniej niż min, ale nie jedna karta na slajd. `rozdzialy_max` = ile nagłówków może być przekładką (najwyżej %d; 0, gdy
-    dokument nie ma nagłówków - tytułów nie wymyślamy); `rozdzialy_domyslnie` = liczba nagłówków najwyższego poziomu (2-8) albo 0.""" % (
-        CAP_SLOW, CAP_FRAG, MAX_SLAJDOW, SLOW_NA_SLAJD, int(MYSLI_NA_SLAJD), MAX_ROZDZIALOW)
+    i zakończenie dochodzą): min = jeden nośnik na rozdział (+ rozdziały dla zarządu: decyzje, plan, wnioski); domyślnie = każda liczba,
+    tabela, lista i para etykieta: wartość; max = także akapity, dalsze wiersze tabel i pytania FAQ. `na_slajdach` = ile procent słów
+    dokumentu widać na slajdach przy min / domyślnie / max (reszta w notatkach prelegenta). `rozdzialy_max` = ile rozdziałów może
+    dostać slajd tytułowy (najwyżej %d; 0 bez nagłówków)."""
     sek = _drzewo(m)
-    el = _elementy(sek)
-    fix, mn, mx, dom, wt = _zakres(el)
+    pl = plan(m, None, sek)
     nag = {1: 0, 2: 0, 3: 0}
     for i, b in enumerate(m["bloki"]):
         if b["typ"] in ("h1", "h2", "h3") and i != m.get("tytul_idx"):
             nag[int(b["typ"][1])] += 1
-    slowa = sum(_slow(b["t"]) for b in m["bloki"] if b["typ"] not in ("tabela", "obraz")) + \
-        sum(_slow(c) for b in m["bloki"] if b["typ"] == "tabela" for w in b["wiersze"] for c in w)
-    kand = _kandydaci_rozdzialow(sek)
+    slowa = sum(_slowa_bloku(b) for b in m["bloki"])
     return {"slowa": slowa, "akapity": sum(1 for b in m["bloki"] if b["typ"] in ("p", "li", "cytat")), "naglowki": nag,
             "tabele": sum(1 for b in m["bloki"] if b["typ"] == "tabela"), "obrazy": sum(1 for b in m["bloki"] if b["typ"] == "obraz"),
-            "slajdy_min": mn, "slajdy_max": mx, "slajdy_domyslnie": dom,
-            "rozdzialy_max": min(MAX_ROZDZIALOW, len(kand)), "rozdzialy_domyslnie": _rozdzialy_domyslnie(sek, dom),
-            "slajdy_stale": fix}
+            "slajdy_min": pl["min"], "slajdy_max": pl["max"], "slajdy_domyslnie": pl["dom"],
+            "rozdzialy_max": min(MAX_ROZDZIALOW, sum(1 for r in pl["rozdzialy"] if r["start"] is not None)),
+            "rozdzialy_domyslnie": _rozdzialy_domyslnie(pl), "slajdy_stale": 0, "nosniki": len(pl["nosniki"]),
+            "na_slajdach": {"min": plan(m, pl["min"], sek)["na_slajdach"], "domyslnie": pl["na_slajdach"],
+                            "max": plan(m, pl["max"], sek)["na_slajdach"]}}
 
 
-# =====================================================================================================================
-# 4. ZŁOŻENIE: rozdzielenie slajdów, układy z szablonu
-# =====================================================================================================================
-def _przydziel(runs, n_tekst):
-    """Ile slajdów dostaje każdy ciąg tekstu: proporcjonalnie do słów, w granicach [kmin, kmax]; suma = n_tekst, gdy się da."""
-    sk = [r["kmin"] for r in runs]
-    if n_tekst <= sum(sk):
-        return sk
-    if n_tekst >= sum(r["kmax"] for r in runs):
-        return [r["kmax"] for r in runs]
-    razem = float(sum(r["w"] for r in runs)) or 1.0
-    ideal = [n_tekst * r["w"] / razem for r in runs]
-    k = [max(r["kmin"], min(r["kmax"], int(x))) for r, x in zip(runs, ideal)]
-    while sum(k) < n_tekst:
-        j = max((i for i in range(len(k)) if k[i] < runs[i]["kmax"]), key=lambda i: ideal[i] - k[i])
-        k[j] += 1
-    while sum(k) > n_tekst:
-        j = min((i for i in range(len(k)) if k[i] > runs[i]["kmin"]), key=lambda i: ideal[i] - k[i])
-        k[j] -= 1
-    return k
+statystyka.__doc__ = statystyka.__doc__ % MAX_ROZDZIALOW
 
 
-def _koncowki(units):
-    """Dla każdego początku grupy i: dozwolone końce [(j, słowa)] (grupa units[i:j] mieści się w limicie słów i ma zgodne fragmenty)."""
-    n, out = len(units), []
-    for i in range(n):
-        frs, w, res = [], 0, []
-        for j in range(i, n):
-            u = units[j]
-            if frs and frs[-1]["id"] == u["id"] and frs[-1]["k"] == u["k"]:
-                frs[-1]["w"] += u["w"]
-                frs[-1]["n"] = frs[-1].get("n", 0) + u.get("n", 0)
-            else:
-                frs.append({"k": u["k"], "id": u["id"], "w": u["w"], "n": u.get("n", 0)})
-            w += u["w"]
-            if j > i and (w > CAP_SLOW or not _grupa_ok(frs)):
-                break
-            res.append((j + 1, w))
-        out.append(res)
-    return out
-
-
-def _podziel_jednostki(units, k):
-    """Dokładnie k kolejnych grup jednostek o zbliżonej liczbie słów (programowanie dynamiczne): każda grupa jest dozwolona (limit słów,
-    zgodne fragmenty), cięcie w środku akapitu kosztuje. Gdy k jest mniejsze niż najgęstszy podział - podział najgęstszy."""
-    n = len(units)
-    k = max(1, min(k, n))
-    razem = sum(u["w"] for u in units)
-    cel = razem / float(k)
-    kara = 0.5 * cel * cel
-    gran = _koncowki(units)
-    inf = float("inf")
-    f = [[inf] * (n + 1) for _ in range(k + 1)]
-    wstecz = [[0] * (n + 1) for _ in range(k + 1)]
-    f[0][0] = 0.0
-    for g in range(1, k + 1):
-        for i in range(n):
-            if f[g - 1][i] == inf:
-                continue
-            for j, w in gran[i]:
-                c = f[g - 1][i] + (w - cel) ** 2
-                if j < n and units[j - 1]["id"] == units[j]["id"] and units[j - 1]["k"] == units[j]["k"]:
-                    c += kara
-                if c < f[g][j]:
-                    f[g][j], wstecz[g][j] = c, i
-    if f[k][n] == inf:
-        return _pakuj(units)
-    out, j = [], n
-    for g in range(k, 0, -1):
-        i = wstecz[g][j]
-        out.append(list(range(i, j)))
-        j = i
-    return out[::-1]
+def _slowa_bloku(b):
+    if b["typ"] == "tabela":
+        return sum(_slow(c) for w in b["wiersze"] for c in w)
+    if b["typ"] == "kpi":
+        return sum(_slow(it["value"]) + _slow(it["label"]) for it in b["items"])
+    if b["typ"] == "kv":
+        return sum(_slow(p[0]) + _slow(p[1]) for p in b["pary"])
+    if b["typ"] == "obraz":
+        return 0
+    return _slow(b["t"])
 
 
 @contextlib.contextmanager
@@ -1571,46 +2074,12 @@ def _wzor(ctx, id_):
 
 
 # --- wiersze z fragmentów --------------------------------------------------------------------------------------------
-def _tekst_frag(fr):
-    return " ".join(fr["t"])
-
-
 def _karta_p(sz, tekst):
     return sz.k_karta(sz.blok("p", (tekst, None), align="l"))
 
 
 def _karta_li(sz, poz):
     return sz.k_karta(*[{"k": "li", "t": x, "icon": "check"} for x in poz])
-
-
-def _wiersze_frag(ctx, frags):
-    """Fragmenty slajdu -> (wiersze, gotowy). gotowy = układ ułożony ręcznie (bez reguł szablonuj.stosuj). None = tak się nie da
-    (za dużo kart albo zmieszane rodzaje) - slajd zostanie podzielony."""
-    sz = ctx.sz
-    n = len(frags)
-    if n > CAP_FRAG:
-        return None
-    rodz = [f["k"] for f in frags]
-    if n == 1:
-        return _wiersze_p(ctx, frags[0]["t"]) if rodz[0] == "p" else _wiersze_lista(ctx, frags[0])
-    if all(k == "p" for k in rodz):      # kilka akapitów: rząd równych kart (hasło + dopisek)
-        return [sz.k_cols([_karta_p(sz, " ".join(f["t"])) for f in frags], pad=1.0)], False
-    if n == 2 and rodz == ["p", "li"] and sum(_slow(x) for x in frags[0]["t"]) <= 60:
-        zd = frags[0]["t"]       # zdanie wprowadzające + lista: jedna karta (hasło, dopisek, punkty)
-        h, r = sz.haslo_cut((zd[0], None))
-        blocks = [sz.blok("lead", h, color="ink")]
-        reszta = ([r[0]] if r else []) + zd[1:]
-        if reszta:
-            blocks.append(sz.blok("p", (" ".join(reszta), None), max_pt=18))
-        blocks += [{"k": "li", "t": x, "icon": "check"} for x in frags[1]["t"]]
-        return [sz.k_cols([sz.k_karta(*blocks)], pad=1.0)], True
-    if n == 2 and rodz == ["li", "p"] and sum(_slow(x) for x in frags[1]["t"]) <= 25:
-        w = _wiersze_lista(ctx, frags[0])    # lista, a pod nią krótki komentarz = pas
-        if w is not None:
-            rows, gotowy = w
-            return rows + [sz.k_band((" ".join(frags[1]["t"]), None), "brand")], gotowy
-    # inne mieszanki: rząd kart, każda z hasłem i dopiskiem (akapit) albo z punktami (lista) - ręcznie, bez reguł S1-S15
-    return [sz.k_cols([_karta_reczna(sz, f) for f in frags], pad=1.0, rwane_ok=True)], True
 
 
 def _hero_i_haslo(sz, h, liczba):
@@ -1621,20 +2090,6 @@ def _hero_i_haslo(sz, h, liczba):
     if r:
         return {"k": "hero", "t": r[2], "zast": True}, sz.blok("lead", (r[0], r[1]), color="ink")
     return {"k": "hero", "t": liczba}, sz.blok("lead", h, color="ink")
-
-
-def _karta_reczna(sz, fr):
-    """Fragment -> karta: akapit = (liczba-bohater) + hasło z pierwszego zdania + dopisek; lista = punkty z ikoną."""
-    if fr["k"] == "li":
-        return _karta_li(sz, fr["t"])
-    zd = fr["t"]
-    h, r = sz.haslo_cut((zd[0], None))
-    liczba = sz.liczba_bohater(h)
-    bl = list(_hero_i_haslo(sz, h, liczba)) if liczba and liczba in h[0] else [sz.blok("lead", h, color="ink")]
-    reszta = ([r[0]] if r else []) + zd[1:]
-    if reszta:
-        bl.append(sz.blok("p", (" ".join(reszta), None), max_pt=18))
-    return sz.k_karta(*bl)
 
 
 def _liczby(sz, poz):
@@ -1768,128 +2223,6 @@ def _ilosc(t):
     return bool(m and m.group(1).islower())
 
 
-def _tytul_z_hasla(ctx, frags):
-    """Pierwsze zdanie slajdu (fragment akapitu) -> (tytuł = jego hasło, fragmenty bez tego hasła) albo None. Słowa źródła, tylko przeniesione:
-    reszta pierwszego zdania zostaje na początku fragmentu jako dopisek. Nie dla hasła z liczbą-bohaterem (zostaje kartą z liczbą), numeru
-    pozycji / składnika (liczba i mała litera), uciętej zapowiedzi listy („:”), hasła dłuższego niż HASLO_TYTUL_SLOW słów, ani gdy na slajdzie zostałoby mniej niż RESZTA_MIN_SLOW słów."""
-    f0 = frags[0]
-    if f0["k"] != "p":
-        return None
-    sz = ctx.sz
-    z0 = f0["t"][0]
-    h, r = sz.haslo_cut((z0, None))
-    tyt = h[0].strip().rstrip(",;-–—").strip()      # urwany przecinek / myślnik na końcu hasła nie należy do tytułu
-    if not tyt or sz.nslow(h) > HASLO_TYTUL_SLOW or len(tyt) > HASLO_TYTUL_ZNAKI or _ilosc(tyt) or sz.liczba_bohater(h) or             (r is not None and ":" in tyt):
-        return None             # liczba-bohater w haśle: fakt zostaje kartą; „:” w uciętym haśle = zapowiedź listy, której ciąg jest w reszcie zdania
-    reszta = ([r[0]] if r else []) + list(f0["t"][1:])
-    nowe = ([dict(f0, t=reszta, w=sum(_slow(x) for x in reszta))] if reszta else []) + list(frags[1:])
-    if sum(f["w"] for f in nowe) < RESZTA_MIN_SLOW:
-        return None
-    return tyt, nowe
-
-
-def _zbuduj_tekst(ctx, frags, tytul, kicker, nazwa=None):
-    """Fragmenty jednego slajdu -> (slajd, decyzje, rekord) albo None, gdy się nie mieści. `nazwa` (nazwa sekcji dłuższej niż DLUGA_SEKCJA
-    slajdy): tytuł slajdu = hasło z jego pierwszego zdania, nazwa sekcji nad nim; gdy się nie da - zwykły tytuł `tytul`."""
-    if nazwa:
-        th = _tytul_z_hasla(ctx, frags)
-        w = _wiersze_frag(ctx, th[1]) if th else None
-        if w is not None:
-            rows, gotowy = w
-            sp = {"type": "uklad", "title": th[0], "kicker": _etykieta_sekcji(nazwa), "rows": rows, "valign": "t", "zrodlo": ctx.nowy_nr()}
-            wyn = _wybierz_uklad(ctx, sp, gotowy)
-            if wyn is not None:
-                ctx.wlasne.add(id(wyn[0]))
-                return wyn
-            ctx.nr -= 1
-        z0 = frags[0]["t"][0] if frags else ""
-        if len(frags) == 1 and frags[0]["k"] == "p" and len(frags[0]["t"]) == 1 and _slow(z0) <= STATEMENT_SLOW and                 not ctx.sz.liczba_bohater((z0, None)):
-            sp = {"type": "statement", "bg": "card", "text": z0, "title": z0, "kicker": _etykieta_sekcji(nazwa), "max_pt": 54,
-                  "zrodlo": ctx.nowy_nr()}
-            ctx.wlasne.add(id(sp))
-            return sp, [], None
-    w = _wiersze_frag(ctx, frags)
-    if w is None:
-        return None
-    rows, gotowy = w
-    sp = {"type": "uklad", "title": tytul, "rows": rows, "valign": "t", "zrodlo": ctx.nowy_nr()}
-    if kicker:
-        sp["kicker"] = kicker
-    wyn = _wybierz_uklad(ctx, sp, gotowy)
-    if wyn is None:
-        ctx.nr -= 1
-    return wyn
-
-
-def _polowa(frags):
-    """Fragmenty -> dwie połowy o zbliżonej liczbie słów (cięcie między fragmentami, a przy jednym fragmencie - między zdaniami)."""
-    if len(frags) >= 2:
-        cum, c = [], 0
-        for f in frags:
-            c += f["w"]
-            cum.append(c)
-        i = min(range(len(frags) - 1), key=lambda j: abs(cum[j] - cum[-1] / 2.0))
-        return frags[:i + 1], frags[i + 1:]
-    f = frags[0]
-    t = f["t"]
-    if len(t) < 2:
-        return None
-    cum, c = [], 0
-    for x in t:
-        c += _slow(x)
-        cum.append(c)
-    i = min(range(len(t) - 1), key=lambda j: abs(cum[j] - cum[-1] / 2.0))
-    a, b = dict(f, t=t[:i + 1], w=cum[i]), dict(f, t=t[i + 1:], w=cum[-1] - cum[i])
-    return [a], [b]
-
-
-def _slajdy_tekstu(ctx, frags, tytul_fn, kicker, nazwa=None):
-    """Fragmenty -> lista (slajd, decyzje, rekord, bloki); gdy slajd się nie mieści, dzieli go (wynik ma wtedy więcej slajdów)."""
-    wyn = _zbuduj_tekst(ctx, frags, tytul_fn(), kicker, nazwa)
-    bl = sorted({i for f in frags for i in f["b"]})
-    if wyn is not None:
-        return [(wyn[0], wyn[1], wyn[2], bl)]
-    pol = _polowa(frags) if sum(len(f["t"]) for f in frags) > 1 or len(frags) > 1 else None
-    if pol is None:
-        # jedna myśl, która się nie mieści: tekst do czytania (flow, pismo 20-13 pt)
-        t = _tekst_frag(frags[0])
-        sp = {"type": "flow", "title": tytul_fn(), "blocks": [{"k": "li" if frags[0]["k"] == "li" else "p", "t": x}
-                                                             for x in (frags[0]["t"] if frags[0]["k"] == "li" else [t])]}
-        if kicker:
-            sp["kicker"] = kicker
-        ctx.uwagi.append("Slajd z jednym bardzo długim fragmentem tekstu (%d słów) zostaje tekstem do czytania, bez haseł: „%s…”" % (
-            _slow(t), t[:60]))
-        return [(sp, [], None, bl)]
-    return _slajdy_tekstu(ctx, pol[0], tytul_fn, kicker, nazwa) + _slajdy_tekstu(ctx, pol[1], tytul_fn, kicker, nazwa)
-
-
-# --- tabele, cytaty, obrazy ----------------------------------------------------------------------------------------------------
-def _slajdy_tabeli(ctx, tab):
-    """Tabela -> slajdy `table` (t42): do 6 kolumn i 8 wierszy na slajd; dłuższa dzieli się na kolejne slajdy z powtórzonym
-    nagłówkiem (przy > 6 kolumnach pierwsza kolumna powtarza się w każdej części)."""
-    w = tab["wiersze"]
-    head, dane = w[0], w[1:]
-    ncol = len(head)
-    if ncol > TABELA_KOLUMNY:
-        reszta, grupy = list(range(1, ncol)), []
-        while reszta:
-            grupy.append([0] + reszta[:TABELA_KOLUMNY - 1])
-            reszta = reszta[TABELA_KOLUMNY - 1:]
-        ctx.uwagi.append("Tabela ma %d kolumn - podzieliłem ją na %d slajdy (pierwsza kolumna powtarza się)." % (ncol, len(grupy)))
-    else:
-        grupy = [list(range(ncol))]
-    out = []
-    for g in grupy:
-        for a in range(0, max(1, len(dane)), TABELA_WIERSZE):
-            chunk = dane[a:a + TABELA_WIERSZE]
-            wagi = _wagi_tabeli([head[j] for j in g], [[r[j] for j in g] for r in chunk])
-            out.append({"type": "table", "head": [head[j] for j in g], "rows": [[r[j] for j in g] for r in chunk], "widths": wagi,
-                        "zrodlo": ctx.nowy_nr()})
-    if len(out) > len(grupy):
-        ctx.uwagi.append("Tabela ma %d wierszy - podzieliłem ją na %d slajdów (nagłówek się powtarza)." % (len(dane), len(out)))
-    return out
-
-
 _AUTOR = re.compile(r"^(?P<q>.{20,}?)\s+[-–—]\s+(?P<a>[A-ZĄĆĘŁŃÓŚŹŻ][^-–—]{2,60})$")
 _AUTOR_NAW = re.compile(r"^(?P<q>.{20,}?)\s*\((?P<a>[^()]{4,80})\)\.?$")
 
@@ -1908,18 +2241,25 @@ def _slajd_cytatu(ctx, t):
 
 
 # --- ramka: okładka, agenda, przekładki, zakończenie ------------------------------------------------------------------------------
-def _slajd_okladki(m, podtytul):
-    """Okładka bez produktu 50/50 (t07). Wszystkie warianty `cover_text` źle znoszą tytuł dłuższy niż ~45 znaków (pismo nie schodzi poniżej
-    36 pt w wąskim polu, tytuł wychodzi poza kadr), dlatego długi tytuł dostaje okładkę z jednym zdaniem na środku (`statement`, t14, kremowe
-    tło, logo u dołu), a podtytuł tylko gdy ma najwyżej 68 znaków (jedna linia; inaczej akapit zostaje w treści - `_okladka`)."""
+def _slajd_okladki(m, ok):
+    """Okładka raportu (t09: jasna, zielony pas z logo marki, etykieta, tytuł, podtytuł, autor i data w stopce). Tytuł dłuższy niż ~45
+    znaków dostaje okładkę z jednym zdaniem na środku (`statement`, t14), bo `cover_text` nie mieści go w wąskim polu."""
     if len(m["tytul"]) > COVER_DLUGI:
         sp = {"type": "statement", "bg": "card", "text": m["tytul"], "max_pt": 54}
-        if podtytul:
-            sp["note"] = podtytul
+        if ok["podtytul"]:
+            sp["note"] = ok["podtytul"]
+        elif ok["meta"]:
+            sp["note"] = ok["meta"]
+        if ok["kicker"]:
+            sp["kicker"] = ok["kicker"]
         return sp
-    sp = {"type": "cover_text", "variant": 1, "title": m["tytul"]}
-    if podtytul:
-        sp["subtitle"] = podtytul
+    sp = {"type": "cover_text", "variant": 3, "title": m["tytul"]}
+    if ok["podtytul"]:
+        sp["subtitle"] = _fraza(ok["podtytul"], 14, min_sl=4) or _czlon(ok["podtytul"], 14)   # do ~2 linii; całość w notatkach
+    if ok["kicker"]:
+        sp["kicker"] = ok["kicker"]
+    if ok["meta"]:
+        sp["meta"] = ok["meta"]
     return sp
 
 
@@ -1938,90 +2278,305 @@ def zloz(m, ustawienia=None):
         return _zloz(m, ustawienia)
 
 
+def _pas(n):
+    """Zdanie-wniosek do pasa pod treścią: pierwsze zdanie komentarza po nośniku, inaczej wstępu; całe do PAS_MAX słów albo jego pierwszy
+    człon (`haslo_cut`), gdy ten jest <= PAS_MAX słów. Dłuższe teksty nigdy nie idą na zieleń (zostają w notatkach)."""
+    sz = _sz()
+    for a in n["po"] + n["wstep"]:
+        if a["k"] != "p" or not a["zd"] or _slow(a["zd"][0]) < 4:
+            continue
+        z = a["zd"][0]
+        if _slow(z) <= PAS_MAX:
+            return z
+        h, r = sz.haslo_cut((z, None))
+        if r is not None and _slow(h[0]) <= PAS_MAX:
+            return h[0].strip().rstrip(",;:–—- ")
+    return None
+
+
+def _karta_hasla(sz, t, hero=True):
+    """Tekst -> karta: (liczba-bohater) + hasło z pierwszego członu pierwszego zdania + dopisek (reszta zdania, do DOPISEK_SLOW słów)."""
+    zd = _zdania(t)
+    h, r = sz.haslo_cut((zd[0], None))
+    liczba = sz.liczba_bohater(h) if hero else None
+    bl = list(_hero_i_haslo(sz, h, liczba)) if liczba and liczba in h[0] else [sz.blok("lead", h, color="ink")]
+    reszta = ([r[0]] if r else []) + zd[1:2]
+    if reszta:
+        bl.append(sz.blok("p", (_czlon(" ".join(reszta), DOPISEK_SLOW), None), max_pt=18))
+    return sz.k_karta(*bl)
+
+
+def _slajd_z_wierszy(ctx, n, rows, gotowy, tytul, kicker, pas=True):
+    """Wiersze `uklad` (+ pas-wniosek) -> (slajd, decyzje, rekord) albo None, gdy się nie mieści."""
+    sz = ctx.sz
+    if pas:
+        z = _pas(n)
+        if z:
+            rows = rows + [sz.k_band((z, None), "brand")]
+    sp = {"type": "uklad", "title": tytul, "rows": rows, "valign": "t", "zrodlo": ctx.nowy_nr()}
+    if kicker:
+        sp["kicker"] = kicker
+    w = _wybierz_uklad(ctx, sp, gotowy)
+    if w is None:
+        ctx.nr -= 1
+    return w
+
+
+def _kafle_listy(sz, poz, num=False, stopien=0):
+    """Pozycje listy -> wiersze kafli: hasło (pierwsza fraza do ~6 słów) + dopisek Lato; ikona ze słownika na wszystkich kaflach albo na
+    żadnym (numerowana: numer-bohater). 1-4 kafle w rzędzie, 5 = 3 + 2, 6 = 3 + 3. stopien 1 = bez dopisków, 2 = najwyżej 4 kafle."""
+    poz = poz[:LISTA_MAX_POZ if stopien < 2 else 4]
+    pary = [_haslo_poz(x) for x in poz]
+    ik = sz.ikony()
+    nazwy = [sz.ikona_dla(h, ik) for h, _d in pary]
+    if not num and not all(nazwy):
+        nazwy = [None] * len(pary)
+    karty = []
+    for i, ((h, d), nazwa) in enumerate(zip(pary, nazwy), 1):
+        bl = []
+        if num:
+            bl.append({"k": "hero", "t": str(i)})
+        elif nazwa:
+            bl.append(sz.k_icon(nazwa, align="l", d=1.6))
+        bl.append(sz.blok("lead", (h, None), color="ink"))
+        if d and stopien < 1:
+            bl.append(sz.blok("p", (d, None), max_pt=18))
+        karty.append(sz.k_karta(*bl))
+    n = len(karty)
+    rzedy = [karty] if n <= 4 else [karty[:3], karty[3:]]
+    return [sz.k_cols(r, pad=0.9, rwane_ok=True) for r in rzedy]
+
+
+def _wiersze_tabeli(sz, n, stopien):
+    """Tabela o kształcie innym niż tabela -> wiersze `uklad`: kpi (karty liczba + nazwa), taknie (karta na każdą wartość z punktami),
+    kv (kafle etykieta: wartość)."""
+    wiersze = n["atomy"][0]["wiersze"]
+    head, rows = wiersze[0], wiersze[1:]
+    j = n["kol_wart"]
+    ks = n["ksztalt"]
+    if ks == "kpi":
+        karty = []
+        for r in rows[:6 if stopien < 2 else 4]:
+            v = r[j] if j < len(r) else ""
+            karty.append(sz.k_karta({"k": "hero", "t": _czlon(v, 4)}, sz.blok("lead", (_czlon(r[0], HASLO_KROTKIE), None), color="ink", align="l")))
+        rzedy = [karty] if len(karty) <= 4 else [karty[:3], karty[3:]]
+        return [sz.k_cols(r, pad=0.9, rwane_ok=True) for r in rzedy], True
+    if ks == "taknie":
+        grupy = collections.OrderedDict()
+        for r in rows:
+            v = (r[j] if j < len(r) else "").strip()
+            grupy.setdefault(v.lower(), (v, []))[1].append(_czlon(r[0], HASLO_POZ))
+        ik = {"tak": "check", "częściowo": "minus", "czesciowo": "minus", "nie": "x"}
+        karty = [sz.k_karta(sz.blok("h", (v or head[j], None)), *[{"k": "li", "t": x, "icon": ik.get(kl, "check")} for x in xs])
+                 for kl, (v, xs) in list(grupy.items())[:3]]
+        return [sz.k_cols(karty, pad=0.9, rwane_ok=True)], True
+    karty = [sz.k_karta({"k": "kv", "label": _czlon(r[0], 4), "t": _czlon(r[j] if j < len(r) else "", 6)}) for r in rows[:KV_MAX - 2 * stopien]]
+    return [sz.k_cols(karty[i:i + 4], pad=0.8, rwane_ok=True) for i in range(0, len(karty), 4)], True
+
+
+def _wiersze_nosnika(ctx, n, szcz, czesc, stopien):
+    """Wiersze slajdu dla nośnika; `stopien` 0 = pełny, 1-2 = mniej pozycji (gdy się nie mieści). Zwraca (rows, gotowy) albo None."""
+    sz = ctx.sz
+    k = n["k"]
+    if k == "kpi":
+        it = n["atomy"][0]["items"][:max(2, KPI_MAX - stopien)]
+        karty = [sz.k_karta({"k": "hero", "t": x["value"]}, sz.blok("lead", (x["label"], None), color="ink", align="l")) for x in it]
+        return [sz.k_cols(karty, pad=1.0, rwane_ok=True)], True
+    if k == "kv":
+        pary = n["atomy"][0]["pary"][:max(3, KV_MAX - 2 * stopien)]
+        karty = [sz.k_karta({"k": "kv", "label": p[0], "t": _czlon(p[1], 6)}) for p in pary]
+        return [sz.k_cols(karty[i:i + 4], pad=0.8, rwane_ok=True) for i in range(0, len(karty), 4)], True
+    if k == "siatka":
+        karty = []
+        for h, kv in n["karty"][:6 if stopien < 2 else 4]:
+            bl = [sz.blok("lead", (_czlon(h, HASLO_KROTKIE), None), color="ink")] + \
+                [{"k": "kv", "label": e, "t": _czlon(v, 6)} for e, v in kv[:3 if stopien < 1 else 2] if v]
+            karty.append(sz.k_karta(*bl))
+        rzedy = [karty] if len(karty) <= 4 else [karty[:3], karty[3:]]
+        return [sz.k_cols(r, pad=0.8, rwane_ok=True) for r in rzedy], True
+    if k == "tab":
+        return _wiersze_tabeli(sz, n, stopien)
+    if k in ("lista", "lista-liczby", "kroki"):
+        a = n["atomy"][0]
+        poz = a["poz"][:LISTA_MAX_POZ if stopien < 2 else 4]
+        pary = [_haslo_poz(x) for x in poz]
+        if k != "kroki" and all(d is None and _slow(h) <= HASLO_KROTKIE for h, d in pary):
+            return [{"k": "li", "t": h} for h, _d in pary], False      # same krótkie hasła: kafle S4 z ikonami (reguły + kandydaci układu)
+        return _kafle_listy(sz, poz, num=(k == "kroki"), stopien=stopien), True
+    if k in ("faq", "karty"):
+        na = FAQ_NA_SLAJD if k == "faq" else KARTY_MAX
+        karty = n["karty"][czesc * na:(czesc + 1) * na][:max(2, na - stopien)]
+        cards = []
+        for i, (h, t) in enumerate(karty, 1):
+            bl = ([{"k": "hero", "t": str(i)}] if k == "karty" and re.match(r"\d+[.)]\s", h or "") else []) + \
+                [sz.blok("lead", (re.sub(r"^\d+[.)]\s+", "", h or ""), None), color="ink"), sz.blok("p", (_czlon(t, DOPISEK_SLOW), None), max_pt=18)]
+            cards.append(sz.k_karta(*bl))
+        if k == "faq" and len(cards) > 3:
+            return [sz.k_cols(cards[:3], pad=0.9, rwane_ok=True), sz.k_cols(cards[3:], pad=0.9, rwane_ok=True)], True
+        return [sz.k_cols(cards, pad=0.9, rwane_ok=True)], True
+    if k == "tekst":
+        a = n["atomy"][czesc]
+        t = " ".join(a["zd"])
+        if len(a["zd"]) == 1 and _slow(t) <= ZIELONA_MAX:
+            return [sz.k_cols([sz.k_karta(sz.blok("lead", (t, None), align="c"), fill="brand", align="c")], pad=1.6, valign="m", min_h=8.5)], True
+        karta = _karta_hasla(sz, t)
+        if stopien:
+            karta["blocks"] = karta["blocks"][:-1] if len(karta["blocks"]) > 1 else karta["blocks"]
+        return [sz.k_cols([karta], pad=1.3, valign="m", min_h=7.5)], True
+    if k == "cyt":
+        return _slajd_cytatu(ctx, n["atomy"][0]["t"])["rows"], True
+    return None
+
+
+def _tekst_pokazany(sl):
+    """Słowa widoczne na slajdzie (spec): tytuł, wiersze `uklad`, tabela, pozostałe pola tekstowe."""
+    out = []
+
+    def zb(x):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                if k in ("t", "title", "kicker", "label", "text", "caption", "author", "note") and isinstance(v, str):
+                    out.append(v)
+                elif k in ("rows", "items", "blocks", "head") or isinstance(v, (list, dict)):
+                    zb(v)
+        elif isinstance(x, list):
+            for v in x:
+                zb(v) if isinstance(v, (list, dict)) else (out.append(v) if isinstance(v, str) else None)
+    zb(sl)
+    return " ".join(out)
+
+
+def _notatki(m, n, sek):
+    """Notatki prelegenta: nagłówek, cały tekst nośnika (w kolejności dokumentu) i tekst nośników pominiętych na slajdach."""
+    L = []
+
+    def dodaj(x):
+        if x["tytul"]:
+            L.append(x["tytul"])
+        for i in x["b"]:
+            L.extend(_tekst_bloku(m["bloki"][i]))
+    dodaj(n)
+    for p in n["pominiete"]:
+        L.append("")
+        dodaj(p)
+    return "\n".join(L)
+
+
+def _slajdy_nosnika(ctx, n, szcz, m, sek, rozdz):
+    """Nośnik -> lista (slajd, bloki, decyzje, rekord): slajd bazowy + dalsze części (tabela, FAQ, akapity), gdy je wybrano."""
+    sz = ctx.sz
+    tytul = n["tytul"] or m["tytul"]
+    r = rozdz[n["roz"]]
+    roz_t = sek[r["start"]]["naglowek"] if r["start"] is not None else None
+    kicker = roz_t if roz_t and roz_t != tytul and len(roz_t) <= KICKER_MAX else None
+    if roz_t and roz_t != tytul and len(roz_t) > KICKER_MAX and n["tytul"]:
+        tytul = "%s - %s" % (roz_t, tytul)          # etykieta nad tytułem jest jednoliniowa; za długą dopisujemy do tytułu
+    out = []
+    for czesc in range(n["wybrany"]):
+        tyt = tytul if czesc == 0 else "%s (%d)" % (tytul, czesc + 1)
+        if czesc > n.get("wlasne", 0) and n["k"] != "tekst":   # wstęp / komentarz nośnika jako osobny slajd (hasło + dopisek)
+            a = n["dod"][czesc - n["wlasne"] - 1]
+            rows = [sz.k_cols([_karta_hasla(sz, " ".join(a["zd"]))], pad=1.3, valign="m", min_h=7.5)]
+            w = _slajd_z_wierszy(ctx, n, rows, True, tyt, kicker, pas=False)
+            if w is None:
+                sp = {"type": "flow", "title": tyt, "blocks": [{"k": "p", "t": " ".join(a["zd"])}], "zrodlo": ctx.nowy_nr()}
+                w = (sp, [], None)
+            out.append((w[0], w[1], w[2], _dec(ctx, "haslo-dopisek", "t61", "akapit jako hasło z dopiskiem")))
+            continue
+        if n["k"] == "tab" and n.get("ksztalt", "tab") == "tab":
+            wiersze = n["atomy"][0]["wiersze"]
+            head, rows = _tab_skrot(wiersze, szcz, czesc)
+            if not rows:
+                break
+            sp = {"type": "table", "title": tyt, "head": head, "rows": rows, "widths": _wagi_tabeli(head, rows), "zrodlo": ctx.nowy_nr()}
+            if kicker:
+                sp["kicker"] = kicker
+            out.append((sp, [], None, _dec(ctx, "tabela", "t42", "tabela %dx%d (skrót: %d kolumn, %d wierszy; reszta w notatkach)" % (
+                len(wiersze) - 1, len(wiersze[0]), len(head), len(rows)))))
+            continue
+        if n["k"] == "tab" and n["ksztalt"] == "czas":
+            rows = n["atomy"][0]["wiersze"][1:7]
+            items = []
+            for r in rows:
+                v = r[1] if len(r) > 1 else ""
+                data = _fraza(v, 5) or _czlon(v, 4)
+                reszta = " ".join(v.split()[_slow(data):]).lstrip(",;:–—- ")
+                items.append({"date": data, "title": _czlon(r[0], HASLO_KROTKIE), "text": _czlon(reszta, 10) if reszta else ""})
+            sp = {"type": "timeline", "title": tyt, "items": items, "zrodlo": ctx.nowy_nr()}
+            if kicker:
+                sp["kicker"] = kicker
+            out.append((sp, [], None, _dec(ctx, "os-czasu", "t43", "tabela z datami jako oś czasu")))
+            continue
+        if n["k"] == "obr":
+            a = n["atomy"][0]
+            sp = {"type": "pics", "title": tyt, "items": [{"image": it["obraz"], "caption": it["podpis"]} for it in a["items"]], "zrodlo": ctx.nowy_nr()}
+            if a.get("nota"):
+                sp["items"][0]["caption"] = (a["nota"] + " " + sp["items"][0]["caption"]).strip()
+            out.append((sp, [], None, _dec(ctx, "zrzuty", "t26" if len(a["items"]) == 1 else "t63", "%d obraz(y) w całości" % len(a["items"]))))
+            continue
+        w = None
+        for stopien in (0, 1, 2):
+            rw = _wiersze_nosnika(ctx, n, szcz, czesc, stopien)
+            if rw is None:
+                break
+            rows, gotowy = rw
+            w = _slajd_z_wierszy(ctx, n, rows, gotowy, tyt, kicker, pas=(czesc == 0))
+            if w is not None:
+                break
+        if w is None:   # ostateczność: tekst do czytania (sam zmniejsza pismo), nigdy dodatkowy slajd
+            rw = _wiersze_nosnika(ctx, n, szcz, czesc, 2) or ([], True)
+            t = _tekst_pokazany({"rows": rw[0]})
+            sp = {"type": "flow", "title": tyt, "blocks": [{"k": "p", "t": t}], "zrodlo": ctx.nowy_nr()}
+            if kicker:
+                sp["kicker"] = kicker
+            ctx.uwagi.append("Slajd „%s”: treść nie zmieściła się w układzie z szablonu - został tekst do czytania." % tyt)
+            w = (sp, [], None)
+        wz = {"kpi": ("fakt-z-liczba", "t62", "liczby w kartach z hasłem"), "kv": ("etykieta-wartosc", "t45", "kafle etykieta: wartość"),
+              "tab": {"kpi": ("fakt-z-liczba", "t62", "tabela z liczbami jako karty liczba + nazwa"), "taknie": ("tak-nie", "t59", "tabela tak / nie jako karty z punktami"),
+                      "kv": ("etykieta-wartosc", "t45", "tabela dwukolumnowa jako kafle etykieta: wartość")}.get(n.get("ksztalt")),
+              "siatka": ("karty-kv", "t45", "karty z nagłówkiem i parami etykieta: wartość"), "lista": ("kafle", "t36", "kafle z hasłem i dopiskiem"),
+              "lista-liczby": ("kafle", "t36", "kafle z hasłem i dopiskiem"), "kroki": ("kroki", "t19", "kroki z numerem"),
+              "faq": ("pytania", "t17", "pytania z pierwszym zdaniem odpowiedzi"), "karty": ("karty", "t19", "karty z nagłówkiem i dopiskiem"),
+              "tekst": ("haslo-dopisek", "t61", "akapit jako hasło z dopiskiem"), "cyt": ("cytat", "t20", "cytat")}.get(n["k"])
+        out.append((w[0], w[1], w[2], _dec(ctx, *wz) if wz else None))
+    return out
+
+
 def _zloz(m, ustawienia=None):
-    """Model -> spec dla build_dk (typy slajdów z szablonu + `uklad` z klockami S1-S15). Ustawienia: `slajdy` (slajdy Z TREŚCIĄ,
-    domyślnie z `statystyka`; poza zakresem = najbliższa dozwolona wartość), `rozdzialy` (przekładki; 0 = bez), `wyjscie`, `styl`.
-    Klucze specu poza slajdami: output, uwagi, mapa_blokow {nr slajdu: [indeksy bloków modelu]}, bledy_tekstu, szablon (decyzje
-    z polem `wzor`), warianty (kandydaci układu, jak w konwersji), ustawienia (co wyszło)."""
+    """Model -> spec dla build_dk: plan (rozdziały, nośniki, budżet = suwak `slajdy`), slajd na nośnik z pełnym tekstem w notatkach,
+    ramka (okładka, agenda, przekładki = suwak `rozdzialy`, zakończenie). Twarda bramka: slajdów treści nie więcej niż ustawienie.
+    Klucze specu poza slajdami: output, uwagi, mapa_blokow, bledy_tekstu, szablon, warianty, ustawienia, plan."""
     ust = ustawienia or {}
     ctx = _Ctx()
     ctx.bd.T = dict(ctx.bd.THEMES["shop"])
     if ust.get("styl") not in (None, "nowy"):
         ctx.uwagi.append("Z dokumentu powstaje tylko nowy styl (sklep) - zbudowałem w nowym stylu.")
     sek = _drzewo(m, ctx.uwagi)
-    el = _elementy(sek)
-    fix, mn, mx, dom, _wt = _zakres(el)
-    zad_slajdy = ust.get("slajdy")
-    N = max(mn, min(mx, int(zad_slajdy if zad_slajdy else dom)))
-    if zad_slajdy and int(zad_slajdy) != N:
-        ctx.uwagi.append("Dokument pozwala na %d-%d slajdów z treścią - zamiast %s ustawiłem %d." % (mn, mx, zad_slajdy, N))
+    zad = ust.get("slajdy")
+    pl = plan(m, int(zad) if zad else None, sek)
+    N, szcz, rozdz = pl["N"], pl["szczegolowo"], pl["rozdzialy"]
+    if zad and int(zad) != N:
+        ctx.uwagi.append("Dokument pozwala na %d-%d slajdów z treścią - zamiast %s ustawiłem %d." % (pl["min"], pl["max"], zad, N))
+    z_nagl = [i for i, r in enumerate(rozdz) if r["start"] is not None]
     zad_roz = ust.get("rozdzialy")
-    R = _rozdzialy_domyslnie(sek, dom) if zad_roz is None else int(zad_roz)
-    rozdz = _wybierz_rozdzialy(sek, R)
-    if zad_roz is not None and len(rozdz) != int(zad_roz):
-        ctx.uwagi.append("Dokument ma %d nagłówków, które mogą być rozdziałami (najwyżej %d) - zamiast %s ustawiłem %d." % (
-            len(_kandydaci_rozdzialow(sek)), MAX_ROZDZIALOW, zad_roz, len(rozdz)))
-    runs = [e for e in el if e["k"] == "tekst"]
-    for e, k in zip(runs, _przydziel(runs, N - fix) if runs else []):
-        e["k_zad"] = k
-    _tyt, podtytul, _zuz = _okladka(m)
-    kand_roz = _kandydaci_rozdzialow(sek)
-    out = []     # {"slajd", "bloki", "dec", "rek", "sek"}
-    for si, s in enumerate(sek):
-        elems = [e for e in el if e["sek"] == si]
-        czesci = []
-        n_sl = sum(e["k_zad"] if e["k"] == "tekst" else (_ile_slajdow_tabeli(e["atom"]["wiersze"]) if e["k"] == "tab" else 1) for e in elems)
-        dluga = n_sl > DLUGA_SEKCJA
-        for e in elems:
-            if e["k"] == "tekst":
-                units = e["u"]
-                for g in _podziel_jednostki(units, e["k_zad"]):
-                    fr = _fragmenty([units[i] for i in g])
-                    kick = s["rodzic"] if s["naglowek"] else None
-                    miara = (s["naglowek"] or m["tytul"]) + " (2)"
-                    # sekcja na > 2 slajdy: nazwa nad tytułem, tytuł = hasło slajdu (pierwszy slajd sekcji z nagłówkiem zostaje z nagłówkiem)
-                    nazwa = (s["naglowek"] or m["tytul"]) if dluga and (czesci or not s["naglowek"]) else None
-                    czesci += [("tekst",) + x for x in _slajdy_tekstu(ctx, fr, lambda t=miara: t, kick, nazwa)]
-            elif e["k"] == "tab":
-                czesci += [("tab", sl, [], None, e["atom"]["b"]) for sl in _slajdy_tabeli(ctx, e["atom"])]
-            elif e["k"] == "cyt":
-                a = e["atom"]
-                czesci.append(("cyt", _slajd_cytatu(ctx, a["t"]), [], None, a["b"]))
-            elif e["k"] == "obr":
-                a = e["atom"]
-                sp = {"type": "pics", "items": [{"image": it["obraz"], "caption": it["podpis"]} for it in a["items"]],
-                      "zrodlo": ctx.nowy_nr()}
-                if a.get("nota"):    # zapowiedź z dwukropkiem przed obrazem + podpis pod nim = jeden podpis (kolejność zostaje)
-                    sp["items"][0]["caption"] = (a["nota"] + " " + sp["items"][0]["caption"]).strip()
-                czesci.append(("obr", sp, [], None, a["b"]))
-        for n, (rodzaj, sl, dec, rek, bl) in enumerate(czesci):
-            baza = s["naglowek"] or m["tytul"]
-            wl = id(sl) in ctx.wlasne          # tytuł z hasła i nazwa sekcji nad nim są już ustawione
-            etykieta = sl.get("kicker") if wl else None
-            if rek:
-                _tytul_w_kandydatach(rek, sl)  # (wybrany kandydat to ten sam obiekt co `sl`: czyści też jego etykietę)
-            if wl:
-                if etykieta:
-                    sl["kicker"] = etykieta
-            else:
-                sl.pop("kicker", None)
-                if s["naglowek"] and s["rodzic"] and len(s["rodzic"]) > KICKER_MAX:
-                    baza = "%s - %s" % (s["rodzic"], baza)       # etykieta nad tytułem jest jednoliniowa; za długą dopisujemy do tytułu
-                sl["title"] = baza if n == 0 else "%s (%d)" % (baza, n + 1)
-                if s["naglowek"] and s["rodzic"] and len(s["rodzic"]) <= KICKER_MAX:
-                    sl["kicker"] = s["rodzic"]
-            if rek:
-                _tytul_w_kandydatach(rek, sl, tak=True)
-            bb = list(bl)
-            if n == 0 and s["idx"] is not None:
-                bb = [s["idx"]] + bb
-            out.append({"slajd": sl, "bloki": bb, "dec": dec, "rek": rek, "sek": si, "rodzaj": rodzaj})
-    n_hasla = sum(1 for r in out if id(r["slajd"]) in ctx.wlasne)
-    if n_hasla:
-        ctx.uwagi.append("Sekcje dłuższe niż %d slajdy nie mają numerków „(3)”: %d slajdów ma tytuł z pierwszego zdania (hasło ze słów dokumentu) albo samo "
-                         "zdanie na środku, a nazwa sekcji stoi nad nim." % (DLUGA_SEKCJA, n_hasla))
+    R = _rozdzialy_domyslnie(pl) if zad_roz is None else int(zad_roz)
+    R = max(0, min(R, len(z_nagl), MAX_ROZDZIALOW))
+    wyb = sorted(sorted(z_nagl, key=lambda i: -sum(_slow_sek(sek, s) for s in rozdz[i]["sekcje"]))[:R])
+    if zad_roz is not None and len(wyb) != int(zad_roz):
+        ctx.uwagi.append("Dokument ma %d rozdziałów (najwyżej %d dostaje slajd tytułowy) - zamiast %s ustawiłem %d." % (
+            len(z_nagl), MAX_ROZDZIALOW, zad_roz, len(wyb)))
+    tresc = []
+    for n in pl["nosniki"]:
+        if not n["wybrany"]:
+            continue
+        czesci = _slajdy_nosnika(ctx, n, szcz, m, sek, rozdz)
+        for ci, (sl, dec, rek, wz) in enumerate(czesci):
+            sl["notes"] = _notatki(m, n, sek) if ci == 0 else "%s - ciąg dalszy (pełny tekst w notatkach poprzedniego slajdu)." % (n["tytul"] or m["tytul"])
+            tresc.append({"slajd": sl, "bloki": n["b"] if ci == 0 else [], "dec": dec, "rek": rek, "wz": wz, "roz": n["roz"], "n": n})
+    n_tresc = len(tresc)
+    if n_tresc > N:
+        raise RuntimeError("Program złożył %d slajdów treści przy ustawieniu %d - błąd planu (to nie powinno się zdarzyć)." % (n_tresc, N))
     # --- ramka
-    nazwy_roz = {i: sek[i]["naglowek"] for i in rozdz}
     slides, mapa, decyzje, rekordy = [], {}, [], []
 
     def dodaj(sl, bloki, dec=(), wz=None):
@@ -2032,86 +2587,61 @@ def _zloz(m, ustawienia=None):
             decyzje.append(dict(d, slajd=nr))
         if wz:
             decyzje.append(dict(wz, slajd=nr))
-    ok_bl = [i for i in (m.get("tytul_idx"),) if i is not None] + ([m["tytul_idx"] + 1] if podtytul and m.get("tytul_idx") is not None else [])
-    okl = _slajd_okladki(m, podtytul)
-    dodaj(okl, ok_bl, wz=_dec(ctx, "okladka", "t14" if okl["type"] == "statement" else "t07", "okładka %s (tytuł dokumentu%s)" % (
-        "z jednym zdaniem na środku (długi tytuł)" if okl["type"] == "statement" else "bez produktu", 
-        " i podtytuł z pierwszego akapitu" if podtytul else "")))
-    agenda = len(rozdz) >= 3
-    if agenda and max(len(nazwy_roz[i]) for i in rozdz) > AGENDA_MAX[0 if len(rozdz) <= 4 else 1]:
+    ok = _okladka(m)
+    okl = _slajd_okladki(m, ok)
+    okl["notes"] = chr(10).join(t for i in sorted(ok["zuz"]) for t in _tekst_bloku(m["bloki"][i]))
+    dodaj(okl, sorted(ok["zuz"]), wz=_dec(ctx, "okladka", "t14" if okl["type"] == "statement" else "t09", "okładka %s (tytuł dokumentu%s)" % (
+        "z jednym zdaniem na środku (długi tytuł)" if okl["type"] == "statement" else "bez produktu", " i podtytuł" if ok["podtytul"] else "")))
+    nazwy = {i: sek[rozdz[i]["start"]]["naglowek"] for i in wyb}
+    agenda = len(wyb) >= 3
+    if agenda and max(len(nazwy[i]) for i in wyb) > AGENDA_MAX[0 if len(wyb) <= 4 else 1]:
         agenda = False
-        ctx.uwagi.append("Agendy nie dodałem: nazwy rozdziałów są za długie na jedną linię punktu agendy (przekładki zostają).")
+        ctx.uwagi.append("Spisu treści nie dodałem: nazwy rozdziałów są za długie na jedną linię punktu (slajdy tytułowe rozdziałów zostają).")
     if agenda:
-        dodaj({"type": "agenda", "title": "Agenda", "items": [nazwy_roz[i] for i in rozdz]}, [sek[i]["idx"] for i in rozdz],
-              wz=_dec(ctx, "agenda", "t10", "agenda z %d rozdziałów" % len(rozdz)))
-    wstawione, ile_roz = set(), 0
-    sekcje_pptx = len(rozdz) >= 2
-    for rec in out:
-        si = rec["sek"]
-        for ri in rozdz:   # przekładka stoi przed pierwszym slajdem rozdziału (jego własnym albo podsekcji)
-            if ri not in wstawione and (ri == si or (ri < si and _w_poddrzewie(sek, ri, si))):
-                wstawione.add(ri)
-                ile_roz += 1
-                dodaj({"type": "section", "variant": "dark", "number": "%02d" % ile_roz, "title": sek[ri]["naglowek"],
-                       "section": sek[ri]["naglowek"]}, [sek[ri]["idx"]],
-                      wz=_dec(ctx, "przekladka", "t11", "przekładka rozdziału %d: „%s”" % (ile_roz, sek[ri]["naglowek"])))
-        sl = rec["slajd"]
-        wz = None
-        if sl["type"] == "table":
-            wz = _dec(ctx, "tabela", "t42", "tabela %dx%d" % (len(sl["rows"]) + 1, len(sl["head"])))
-        elif sl["type"] == "statement":
-            wz = _dec(ctx, "teza-zielona", "t14", "jedno zdanie na środku slajdu (sekcja dłuższa niż %d slajdy)" % DLUGA_SEKCJA)
-        elif sl["type"] == "pics":
-            n = len(sl["items"])
-            wz = _dec(ctx, "zrzuty", "t26" if n == 1 else ("t63" if n == 2 else "t28"), "%d obraz(y) w całości z podpisem" % n)
-        elif sl["type"] == "uklad" and sl["rows"] and sl["rows"][0]["k"] == "quote":
-            wz = _dec(ctx, "cytat", "t20", "cytat")
-        elif sl["type"] == "flow":
-            wz = _dec(ctx, "akapit-do-czytania", "t15", "bardzo długi fragment jako tekst do czytania")
-        decs = list(rec["dec"])
-        if sl["type"] == "uklad" and not decs and sl["rows"] and sl["rows"][0]["k"] == "cols":
-            it = sl["rows"][0]["items"]
-            if len(it) == 1 and it[0].get("fill") == "brand":
-                decs = [_dec(ctx, "teza-zielona", "t14", "jedna teza: zielona karta z hasłem")]
-            elif len(it) == 1 and any(b["k"] == "hero" for b in it[0]["blocks"]):
-                decs = [_dec(ctx, "fakt-z-liczba", "t37", "jeden fakt z liczbą-bohaterem")]
-            elif any(b["k"] == "li" for x in it for b in x["blocks"]):
-                decs = [_dec(ctx, "lista-z-ikona", "t17", "punkty z ikoną")]
+        dodaj({"type": "agenda", "title": "Agenda", "items": [nazwy[i] for i in wyb]}, [sek[rozdz[i]["start"]]["idx"] for i in wyb],
+              wz=_dec(ctx, "agenda", "t10", "spis treści z %d rozdziałów" % len(wyb)))
+    wstawione = set()
+    for rec in tresc:
+        ri = rec["roz"]
+        if ri in wyb and ri not in wstawione:
+            wstawione.add(ri)
+            dodaj({"type": "section", "variant": "dark", "number": "%02d" % len(wstawione), "title": nazwy[ri], "section": nazwy[ri]},
+                  [sek[rozdz[ri]["start"]]["idx"]], wz=_dec(ctx, "przekladka", "t11", "slajd tytułowy rozdziału %d: „%s”" % (len(wstawione), nazwy[ri])))
         if rec["rek"]:
+            _tytul_w_kandydatach(rec["rek"], rec["slajd"], tak=True)
             rekordy.append(rec["rek"])
-        dodaj(sl, rec["bloki"], decs, wz)
+        dodaj(rec["slajd"], rec["bloki"], rec["dec"], rec["wz"])
     dodaj({"type": "end", "variant": "brand", "hashtag": "#zawszedobra"}, [], wz=_dec(ctx, "zakonczenie", "t64", "zakończenie"))
-    bez_hasla = [i for i, sl in enumerate(slides, 1) if "AKAPIT_BEZ_HASLA" in ctx.kody.get(sl.get("zrodlo"), ())]
-    if bez_hasla:
-        ctx.uwagi.append("Slajdy %s: dłuższy akapit zostaje bez hasła (zdanie ma ponad 24 słowa i nie ma przecinka ani spójnika, na którym da się "
-                         "je podzielić) - to jedyny dopuszczalny akapit Lato bez hasła; do decyzji autora." % ", ".join(str(i) for i in bez_hasla[:12]))
-    n_tresc = len(out)
-    if n_tresc != N:
-        if n_tresc > N:
-            ctx.uwagi.append("Slajdów z treścią wyszło %d zamiast %d: tyle potrzeba, żeby pismo nie spadło poniżej progów (hasło od 16 pt, "
-                             "dopisek od 13 pt) i żeby żaden fragment nie został obcięty." % (n_tresc, N))
-        else:
-            ctx.uwagi.append("Slajdów z treścią wyszło %d zamiast %d: dokument nie ma więcej osobnych myśli." % (n_tresc, N))
-    puste = [sek[i]["naglowek"] for i in range(len(sek)) if sek[i]["naglowek"] and i not in kand_roz and
-             not sek[i]["atomy"] and not any(sek[j]["atomy"] for j in range(i + 1, len(sek)) if _w_poddrzewie(sek, i, j))]
-    if puste:
-        ctx.uwagi.append("Nagłówki bez żadnej treści pod spodem pominąłem (nie ma co pokazać): %s." % "; ".join("„%s”" % x for x in puste[:8]))
-    if any(not sek[r["sek"]]["naglowek"] for r in out):
-        ctx.uwagi.append("Część dokumentu nie ma nagłówków (tytułów nie wymyślam): jej slajdy mają tytuł dokumentu z numerem - w Wordzie dodaj "
-                         "nagłówki, a tytuły slajdów będą zgodne z treścią.")
+    # --- bramki jakości w specu
+    for i, sl in enumerate(slides, 1):
+        if sl["type"] in ("cover_text", "statement", "agenda", "section", "end"):
+            continue
+        w = _slow(_tekst_pokazany(sl))
+        if w > SLAJD_MAX_SLOW + (15 if sl["type"] == "table" else 0):
+            ctx.uwagi.append("Slajd %d ma %d słów (limit %d) - sprawdź, czy nie jest za gęsty." % (i, w, SLAJD_MAX_SLOW))
+        for r in (sl.get("rows", []) if sl["type"] == "uklad" else []):
+            if r.get("k") == "band" and _slow(r.get("t", "")) > PAS_MAX:
+                raise RuntimeError("Slajd %d: pas zielony ma %d słów (limit %d)." % (i, _slow(r["t"]), PAS_MAX))
+    pomin = [n for n in pl["nosniki"] if not n["wybrany"]]
+    if pomin:
+        ctx.uwagi.append("W notatkach prelegenta (nie na slajdach): %s%s." % (
+            "; ".join("„%s”" % (n["tytul"] or m["tytul"]) for n in pomin[:8]), " i %d innych" % (len(pomin) - 8) if len(pomin) > 8 else ""))
+    tab_sk = [rec for rec in tresc if rec["slajd"]["type"] == "table" and rec["n"]["wybrany"] * (TAB_WIERSZY_SZCZ if szcz else TAB_WIERSZY) <
+              len(rec["n"]["atomy"][0]["wiersze"]) - 1]
+    if tab_sk:
+        ctx.uwagi.append("Tabele skrócone na slajdach (pełne wiersze i kolumny w notatkach): %s." % "; ".join("„%s”" % (r["n"]["tytul"] or m["tytul"]) for r in tab_sk[:6]))
     ramka = len(slides) - n_tresc
-    ctx.uwagi.append("Razem w pliku: %d slajdów (%d z treścią + okładka%s%s i zakończenie)." % (
-        len(slides), n_tresc, ", agenda" if agenda else "", (", %d przekładki" % len(rozdz)) if rozdz else ""))
-    # --- błędy tekstu (lint): tekst źródła każdego slajdu
+    ctx.uwagi.append("Razem w pliku: %d slajdów (%d z treścią + okładka%s%s i zakończenie); na slajdach ok. %d%% słów dokumentu, całość w notatkach prelegenta." % (
+        len(slides), n_tresc, ", spis treści" if agenda else "", (", %d slajdów tytułowych rozdziałów" % len(wyb)) if wyb else "", pl["na_slajdach"]))
     bledy = _lint(m, mapa, ctx.uwagi)
     for w in m.get("ostrzezenia", []):
         ctx.uwagi.append(w)
-    spec = {"theme": "shop", "sections": sekcje_pptx, "slides": slides, "mapa_blokow": mapa, "uwagi": ctx.uwagi, "cel": "dokument",
+    return {"theme": "shop", "sections": len(wyb) >= 2, "slides": slides, "mapa_blokow": mapa, "uwagi": ctx.uwagi, "cel": "dokument",
             "szablon": decyzje, "bledy_tekstu": bledy, "warianty": {"wersja": 1, "slajdy": rekordy}, "warianty_plik": "warianty-szablon.json",
             "nazwa": m["nazwa"], "tytul": m["tytul"],
-            "ustawienia": {"slajdy": n_tresc, "rozdzialy": len(rozdz), "razem": len(slides), "ramka": ramka},
+            "ustawienia": {"slajdy": n_tresc, "rozdzialy": len(wyb), "razem": len(slides), "ramka": ramka, "na_slajdach": pl["na_slajdach"],
+                           "zakres": [pl["min"], pl["dom"], pl["max"]]},
             "output": _nazwa_wyniku(m, ust.get("wyjscie"))}
-    return spec
 
 
 def _tytul_w_kandydatach(rek, sl, tak=False):
@@ -2135,7 +2665,11 @@ def _w_poddrzewie(sek, rodzic, i):
 
 def _tekst_bloku(b):
     if b["typ"] == "tabela":
-        return [" ".join(w) for w in b["wiersze"]]
+        return [" | ".join(c for c in w if c) for w in b["wiersze"]]
+    if b["typ"] == "kpi":
+        return ["%s - %s" % (it["value"], it["label"]) for it in b["items"]]
+    if b["typ"] == "kv":
+        return [("%s: %s" % (p[0], p[1])) if p[0] else p[1] for p in b["pary"]]
     return [b["t"]] if b["t"] else []
 
 
@@ -2179,14 +2713,16 @@ def _tokeny(t):
     return re.findall(r"\w+", t, re.U)
 
 
-def _akapity_pptx(pptx):
-    """Slajdy pptx -> [Counter tokenów slajdu] (cały tekst: tytuły, pola, tabele, grupy; bez numerów stron)."""
+def _akapity_pptx(pptx, notatki=True):
+    """Slajdy pptx -> [Counter tokenów slajdu] (cały tekst: tytuły, pola, tabele, grupy; bez numerów stron; z notatkami prelegenta)."""
     from pptx import Presentation
     from pptx.oxml.ns import qn
     prs = Presentation(pptx)
     out = []
     for sl in prs.slides:
         c = collections.Counter()
+        if notatki and sl.has_notes_slide:
+            c.update(_tokeny(sl.notes_slide.notes_text_frame.text or ""))
         for p in sl._element.iter(qn("a:p")):
             sp = next((a for a in p.iterancestors() if a.tag == qn("p:sp")), None)
             if sp is not None:
@@ -2214,6 +2750,8 @@ def _wymagane(m):
             continue
         if b["typ"] == "tabela":
             out += [(i, "tabela", " ".join(w)) for w in b["wiersze"]]
+        elif b["typ"] in ("kpi", "kv"):
+            out += [(i, b["typ"], t) for t in _tekst_bloku(b)]
         elif b["t"]:
             out.append((i, b["typ"], b["t"]))
     return out
@@ -2236,7 +2774,7 @@ def _dopasuj(sl, tk, need, start, smax, limit=None):
 
 
 def pokrycie(m, pptx, mapa=None):
-    """Czy każdy akapit dokumentu (>= 95% jego słów) stoi na slajdach pptx? Szuka po kolei, od slajdu, na którym skończył poprzedni akapit,
+    """Czy każdy akapit dokumentu (>= 95% jego słów) stoi w pliku pptx (na slajdzie albo w jego notatkach prelegenta)? Szuka po kolei, od slajdu, na którym skończył poprzedni akapit,
     w oknie kilku kolejnych slajdów (akapit może być rozcięty na tyle slajdów, ile ma zdań) - to sprawdza też kolejność; czego nie
     ma w pobliżu, szuka na całej prezentacji. `mapa` ({nr slajdu: [indeksy bloków]}) zawęża okno do slajdów, na które trafił blok.
     Zwraca {"akapity", "przeniesione", "brakuje": [...], "procent", "tekst"}."""
@@ -2271,9 +2809,15 @@ def pokrycie(m, pptx, mapa=None):
             brak.append({"blok": i, "typ": typ, "tekst": t[:160], "zgodnosc": round(best, 2)})
     n = len(wym)
     pct = 100.0 * ok / n if n else 100.0
-    return {"akapity": n, "przeniesione": ok, "brakuje": brak, "procent": round(pct, 1),
-            "tekst": ("Treść: 100%% akapitów (%d/%d) przeniesionych" % (ok, n)) if ok == n else
-                     ("Treść: %.1f%% akapitów (%d/%d) przeniesionych, brakuje %d" % (pct, ok, n, n - ok))}
+    dok = collections.Counter()
+    for _i, _typ, t in wym:
+        dok.update(_tokeny(t))
+    na_sl = sum(_akapity_pptx(pptx, notatki=False), collections.Counter())
+    razem = sum(dok.values())
+    na_slajdach = int(round(100.0 * sum(min(v, na_sl[k]) for k, v in dok.items()) / razem)) if razem else 100
+    return {"akapity": n, "przeniesione": ok, "brakuje": brak, "procent": round(pct, 1), "na_slajdach": na_slajdach,
+            "tekst": ("Treść: 100%% akapitów (%d/%d) w pliku (slajdy i notatki prelegenta); na slajdach ok. %d%% słów" % (ok, n, na_slajdach)) if ok == n else
+                     ("Treść: %.1f%% akapitów (%d/%d) w pliku, brakuje %d; na slajdach ok. %d%% słów" % (pct, ok, n, n - ok, na_slajdach))}
 
 
 # =====================================================================================================================

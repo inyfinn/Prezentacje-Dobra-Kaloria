@@ -28,6 +28,10 @@
         wygląd zrzutów („Sprawdź najpierw: slajd N…”), robi plansze (<robocze>\\plansze) i zapisuje dwa polecenia dla AI
         (raport.json: prompt_agent, prompt_ai) z celem „dopracuj prezentację w stylu DK”. Plik z folderu programu (np. szablon)
         też jest dopracowaniem - program nic tam nie zapisuje. --mimo-to: skonwertuj taki plik jak obcą prezentację.
+    stworz-cli.exe "<folder prezentacji>" --scenariusz "<folder>\\scenariusz.md" [--wyjscie <folder>] [--bez-qa] [--bez-oka] [--json]
+        budowa ze SCENARIUSZA (Markdown od AI, wzór: skill\\assets\\scenariusz-wzor.md): jeden nagłówek ## = jeden slajd, 1:1. Najpierw
+        kontrola scenariusza (linie „BŁĄD” trzeba poprawić w pliku i zbudować jeszcze raz, „uwaga” to wskazówki), potem budowa i te same
+        kontrole co przy dokumencie. Wynik: "<tytuł>.pptx" (kolejne: "<tytuł> v2.pptx"…) w folderze prezentacji, obok "_robocze" i "plansze".
 Kod wyjścia 0 = gotowe. Raport także w <folder>\\_robocze\\raport.json (konwersja: <folder>\\_robocze\\<nazwa>\\raport.json).
 """
 import argparse
@@ -57,8 +61,11 @@ def main(argv=None):
         except Exception:
             pass
     ap = argparse.ArgumentParser(prog="stworz-cli", description="Stwórz prezentację Dobra Kaloria z folderu produktu.")
-    ap.add_argument("folder", help="folder produktu (karty wprowadzenia, copy, Wizualizacje, Elementy) ALBO gotowa "
-                                   "prezentacja .pptx do przełożenia na styl DK")
+    ap.add_argument("folder", nargs="?", default="",
+                    help="folder produktu (karty wprowadzenia, copy, Wizualizacje, Elementy) ALBO gotowa "
+                         "prezentacja .pptx do przełożenia na styl DK; z --scenariusz: folder prezentacji")
+    ap.add_argument("--scenariusz", default="", help="plik scenariusza (.md): buduje prezentację ze scenariusza do folderu prezentacji "
+                                                     "(domyślnie folder tego pliku)")
     ap.add_argument("--styl", choices=["nowy", "stary"], default="nowy")
     ap.add_argument("--dlugosc", choices=["krotka", "standard", "pelna"], default="standard")
     ap.add_argument("--tekst", choices=["mniej", "standard", "wiecej"], default="standard")
@@ -92,12 +99,30 @@ def main(argv=None):
     ap.add_argument("--tylko-analiza", action="store_true", help="tylko pokaż, co program znalazł w folderze")
     a = ap.parse_args(argv)
     import engine
+    if a.scenariusz:
+        return _scenariusz(engine, a)
+    if not a.folder:
+        ap.error("podaj folder produktu, plik albo --scenariusz")
     engine.set_robocze(a.robocze)
     try:
         an = engine.analyze(a.folder, mimo_to=a.mimo_to)
     except Exception as e:
         print("BŁĄD:", e)
         return 2
+    if an.get("tryb") == "scenariusz":      # folder prezentacji z gotowym scenariuszem: najnowszy scenariusz
+        a.scenariusz = an["scenariusz"]
+        return _scenariusz(engine, a)
+    if an.get("tryb") == "pakiet":          # folder prezentacji bez scenariusza: Źródła zamieniane na prezentację jak dokument
+        sw = an["suwaki"]
+        print("Folder prezentacji: %s | pliki ze Źródeł: %s | slajdy: %d-%d (domyślnie %d)" % (
+            an["nazwa_folderu"], ", ".join(x["nazwa"] for x in an["pliki"]) or "brak", sw["slajdy"]["min"], sw["slajdy"]["max"], sw["slajdy"]["domyslnie"]))
+        for u in an["uwagi"]:
+            print(" -", u)
+        if a.tylko_analiza:
+            return 0
+        opts = {"slajdy": a.slajdy or None, "rozdzialy": None if a.rozdzialy < 0 else a.rozdzialy, "bez_qa": a.bez_qa,
+                "oko": not a.bez_oka, "szacowany_czas_s": an["szacowany_czas_s"]}
+        return _run(engine, an, opts, a)
     pptx = an.get("tryb") == "pptx"
     dok = an.get("tryb") == "dokument"
     dopr = an.get("tryb") == "dopracowanie"
@@ -159,6 +184,37 @@ def main(argv=None):
     return _run(engine, an, opts, a)
 
 
+def _scenariusz(engine, a):
+    """--scenariusz: kontrola pliku scenariusza, potem budowa 1:1 w folderze prezentacji (wynik i _robocze zawsze tam)."""
+    sc = os.path.abspath(a.scenariusz)
+    if not os.path.isfile(sc):
+        print("BŁĄD: Nie znalazłem scenariusza:", sc)
+        return 2
+    folder = os.path.abspath(a.folder) if a.folder else os.path.dirname(sc)
+    if not os.path.isdir(folder):
+        print("BŁĄD: Nie znalazłem folderu prezentacji:", folder)
+        return 2
+    try:
+        S = engine.scenariusz_modul()
+        k = S.sprawdz(engine._czytaj_scenariusz(sc), folder, a.slajdy or None)
+    except (ValueError, OSError) as e:
+        print("BŁĄD:", e)
+        return 2
+    print("Scenariusz: %s | tytuł: %s | slajdów z treścią: %d, przekładek: %d" % (os.path.basename(sc), k["tytul"] or "brak", k["slajdy"], k["rozdzialy"]))
+    for u in k["uwagi"]:
+        print(" - uwaga:", u)
+    for b in k["bledy"]:
+        print("BŁĄD:", b)
+    if not k["ok"]:
+        return 1
+    if a.tylko_analiza:
+        print(json.dumps(k, ensure_ascii=False, indent=1))
+        return 0
+    opts = {"scenariusz": sc, "wyjscie": folder, "bez_qa": a.bez_qa, "oko": not a.bez_oka, "slajdy": a.slajdy or None,
+            "szacowany_czas_s": engine._czas_slajdow(k["slajdy"])}
+    return _run(engine, {"folder": folder}, opts, a)
+
+
 def _run(engine, an, opts, a):
     last = [""]
 
@@ -180,8 +236,11 @@ def _run(engine, an, opts, a):
                                                            "nie został zmieniony" if res.get("plik_bez_zmian") else "ZMIENIŁ SIĘ w trakcie sprawdzania"))
     else:
         print("\nGOTOWE: %s (%d slajdów, %d s)" % (res["pptx"], res["slajdy"], res["czas_s"]))
-    if res.get("tryb") in ("pptx", "dokument", "dopracowanie"):
-        if res["tryb"] == "pptx":
+    if res.get("tryb") in ("pptx", "dokument", "dopracowanie", "scenariusz"):
+        if res["tryb"] == "scenariusz":
+            print("Ze scenariusza %s | suwaki: slajdy z treścią %s, przekładki %s" % (
+                os.path.basename(res["scenariusz"]), res["suwaki"]["slajdy"], res["suwaki"]["rozdzialy"]))
+        elif res["tryb"] == "pptx":
             print("Cel: %s | ukryte slajdy: %d | nowe slajdy z szablonu: %d" % (res["cel_nazwa"], res["ukryte"], len(res["nowe"])))
         elif res["tryb"] == "dokument":
             print("Z dokumentu | suwaki: slajdy %s, przekładki rozdziałów %s" % (res["suwaki"]["slajdy"], res["suwaki"]["rozdzialy"]))

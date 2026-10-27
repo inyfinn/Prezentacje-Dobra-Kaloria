@@ -24,6 +24,7 @@ import time
 import traceback
 
 import paths
+import folder_prez
 
 paths.ensure_user_dirs()
 os.environ.setdefault("DK_GUARD_CACHE", os.path.join(paths.USER_DIR, "wygenerowane.json"))
@@ -367,6 +368,8 @@ def normalize_folder(path):
             raise ValueError(KOMUNIKAT_PROGRAM)
     if _ma_karty(path):
         return path
+    if folder_prez.czy_folder_prezentacji(path):   # folder z Źródłami / scenariuszem (1.3): program otwiera go w całości
+        return path
     wyn, pom = _do_czytania(path)
     if len(wyn) == 1:
         return wyn[0]
@@ -380,9 +383,12 @@ def normalize_folder(path):
 
 
 def tryb_wejscia(sciezka):
-    """'pptx' | 'dokument' | 'folder' dla ścieżki zwróconej przez normalize_folder."""
+    """'pptx' | 'dokument' | 'folder' | 'scenariusz' | 'pakiet' dla ścieżki zwróconej przez normalize_folder.
+    scenariusz = folder prezentacji (1.3) z gotowym scenariuszem, pakiet = folder prezentacji ze Źródłami, bez scenariusza."""
     if os.path.isfile(sciezka):
         return "pptx" if sciezka.lower().endswith(PPTX_EXT) else "dokument"
+    if folder_prez.czy_folder_prezentacji(sciezka) and not _ma_karty(sciezka):
+        return "scenariusz" if folder_prez.najnowszy_scenariusz(sciezka)[0] else "pakiet"
     return "folder"
 
 
@@ -416,6 +422,8 @@ def analyze(path, mimo_to=False):
                              "w PowerPoint jako .pptx i upuść ponownie.")
     if t == "dokument":
         return analyze_dokument(folder)
+    if t in ("scenariusz", "pakiet"):
+        return analyze_folder_prez(folder)
     cards = _Glob.glob(os.path.join(glob.escape(folder), "Karta wprowadzenia*.xls*"))
     if not cards:
         raise ValueError("W tym folderze nie ma kart wprowadzenia (plików 'Karta wprowadzenia_....xlsx') - "
@@ -502,7 +510,12 @@ def _pptx_rob(plik):
         os.makedirs(_ROB, exist_ok=True)
         return _ROB
     stem = os.path.splitext(os.path.basename(plik))[0]
-    rob = os.path.join(os.path.dirname(plik), "_robocze", stem)
+    kat = os.path.dirname(plik)
+    if os.path.basename(kat) == folder_prez.ZRODLA:   # plik ze Źródeł: _robocze leży w folderze prezentacji, nie w Źródłach
+        kat = os.path.dirname(kat)
+    rob = os.path.join(kat, "_robocze", stem)
+    if os.path.basename(kat).lower() == "_robocze":   # plik roboczy (np. połączone źródła): katalog obok niego, nie _robocze\_robocze
+        rob = os.path.join(kat, stem)
     try:
         if _w_folderze_programu(plik):   # szablon z folderu programu: program nic tam nie zapisuje (może być tylko do odczytu)
             raise OSError("folder programu")
@@ -607,8 +620,9 @@ _dcache = {}  # plik -> (mtime, model)
 DOK_MIN_ROZDZIALOW = 3   # od tylu rozdziałów program dokłada agendę (reguła w dokument.zloz); domyślna liczba przekładek >= tyle
 
 
-def _dok_model(plik):
-    """Model treści dokumentu (dokument.wczytaj) z cache: analiza i budowa czytają plik raz. Błędy po polsku (ValueError)."""
+def _dok_model(plik, rob=None):
+    """Model treści dokumentu (dokument.wczytaj) z cache: analiza i budowa czytają plik raz. Błędy po polsku (ValueError).
+    rob = własny katalog roboczy (obrazy z dokumentu); domyślnie _pptx_rob(plik)."""
     if dokument is None:
         raise ValueError(KOMUNIKAT_BEZ_DOKUMENTOW)
     mt = os.path.getmtime(plik)
@@ -622,7 +636,7 @@ def _dok_model(plik):
         raise ValueError("Plik jest otwarty albo zablokowany przez inny program. Zamknij go (np. w Wordzie) i upuść jeszcze raz.")
     except OSError as e:
         raise ValueError("Nie mogę otworzyć pliku (%s). Sprawdź, czy istnieje i czy masz do niego dostęp." % e.strerror)
-    rob = _pptx_rob(plik)
+    rob = rob or _pptx_rob(plik)
     try:
         m = dokument.wczytaj(plik, rob)
     except ValueError:
@@ -2012,13 +2026,17 @@ def _oko_dla_dokumentu(spec, wynik, rob, opts, emit, say, t_pierwszy_s):
 def build(folder, opts, progress=None, log=None, cancel=None):
     """Główna praca. progress(krok_id, opis, procent, eta_s); log(tekst); cancel = threading.Event."""
     t0 = time.time()
-    folder = normalize_folder(folder)
     opts = dict(opts or {})
+    # opts["scenariusz"] (CLI --scenariusz): budowa z TEGO pliku, folder = folder prezentacji (bez rozpoznawania wejścia)
+    folder = os.path.abspath(folder) if opts.get("scenariusz") else normalize_folder(folder)
     est_total = float(opts.get("szacowany_czas_s") or 40)
     done_w = 0
     weights = dict((s, wt) for s, _, wt in STEPS)
     dopr = _czy_dopracowanie(folder, opts)
-    if os.path.isfile(folder):
+    tryb = "scenariusz" if opts.get("scenariusz") else tryb_wejscia(folder)
+    if tryb == "scenariusz" and opts.get("bez_ai"):   # folder ma scenariusz, ale człowiek chce budowy wprost z dokumentów
+        tryb = "pakiet"
+    if os.path.isfile(folder) or tryb in ("scenariusz", "pakiet"):
         weights.update(DOPR_WEIGHTS if dopr else PPTX_WEIGHTS)
 
     def emit(step, opis, frac):
@@ -2047,8 +2065,12 @@ def build(folder, opts, progress=None, log=None, cancel=None):
         if log:
             log(t)
 
+    if tryb == "scenariusz":    # folder prezentacji (1.3): budowa 1:1 z najnowszego scenariusza
+        return _build_scenariusz(folder, opts, t0, emit, finish_step, check, say, progress)
+    if tryb == "pakiet":        # folder prezentacji bez scenariusza: Źródła bez AI (dokument albo kilka dokumentów)
+        return _build_pakiet(folder, opts, t0, emit, finish_step, check, say, progress)
     if os.path.isfile(folder):  # gotowa prezentacja (konwersja bez utraty treści) albo dokument
-        if tryb_wejscia(folder) == "dokument":
+        if tryb == "dokument":
             return _build_dokument(folder, opts, t0, emit, finish_step, check, say, progress)
         if dopr:   # plik już w stylu marki: niczego nie budujemy ani nie zmieniamy
             return _build_dopracowanie(folder, opts, t0, emit, finish_step, check, say, progress)
@@ -2352,8 +2374,14 @@ def _build_dokument(plik, opts, t0, emit, finish_step, check, say, progress):
     # składanie slajdów liczy układy z pomiaru (pomiar 13.10: ok. 1,5 s na slajd) - w tle, żeby pasek postępu się nie zatrzymał
     spec = _z_postepem(lambda: dokument.zloz(model, {"slajdy": n_sl, "rozdzialy": n_rz, "wyjscie": opts.get("wyjscie"), "styl": "nowy"}),
                        emit, check, "slajdy", "Układam slajdy", 1.6 * n_sl)
-    uwagi = list(spec.get("uwagi", []))
+    uwagi = list(opts.get("uwagi_wstep") or []) + list(spec.get("uwagi", []))
     spec["uwagi"] = []   # dokument.popraw_po_renderze dopisuje tu wpis o zmianie układu; własną linię z oka składa silnik
+    if opts.get("wyjscie_plik"):   # folder prezentacji (1.3): wynik z numerem wersji w folderze prezentacji
+        spec["output"] = opts["wyjscie_plik"]
+    n_tresc = int((spec.get("ustawienia") or {}).get("slajdy") or 0)
+    if n_tresc > n_sl + 2:   # dokument.zloz nie zawęża liczby slajdów poniżej progów pisma - człowiek ma o tym wiedzieć
+        uwagi.append("Suwak: %d slajdów, w pliku jest ich %d z treścią - bez AI program niczego nie skraca, tylko dzieli slajdy, na "
+                     "których treść nie mieści się czytelnie. Krótszą prezentację da »Przygotuj z AI« (czat sam skraca treść)." % (n_sl, n_tresc))
     _wyjscie_krotkie(spec, uwagi, say)
     os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
     spec_json = os.path.join(rob, "spec_program.json")
@@ -2380,7 +2408,8 @@ def _build_dokument(plik, opts, t0, emit, finish_step, check, say, progress):
     bledy = spec.get("bledy_tekstu") or []
     uwagi_wyniku, bledy_okno = uwagi_okno(uwagi, bledy, rodzaj="dokument")
     _zapisz_uwagi(rob, uwagi, say)
-    result = {"ok": True, "tryb": "dokument", "uwagi_top": _uwagi_top(uwagi_wyniku, bledy, oko), "pptx": pptx, "nazwa": os.path.basename(pptx), "folder": os.path.dirname(plik),
+    result = {"ok": True, "tryb": "dokument", "uwagi_top": _uwagi_top(uwagi_wyniku, bledy, oko), "pptx": pptx, "nazwa": os.path.basename(pptx),
+              "folder": opts.get("folder_prezentacji") or os.path.dirname(plik),
               "plik": plik, "slajdy": wszystkie, "ukryte": 0, "nowe": [], "cel": "dokument", "cel_nazwa": "Dokument",
               "suwaki": {"slajdy": n_sl, "rozdzialy": n_rz},
               "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa,
@@ -2491,6 +2520,520 @@ def _build_dopracowanie(plik, opts, t0, emit, finish_step, check, say, progress)
               "raport": os.path.join(rob, "raport.json")}
     with open(result["raport"], "w", encoding="utf8") as fh:
         json.dump({k: v for k, v in result.items() if k != "miniatury"}, fh, ensure_ascii=False, indent=1, default=str)
+    finish_step("zapis")
+    if progress:
+        progress("zapis", "Gotowe", 100, 0)
+    return result
+
+
+# --- folder prezentacji (1.3): wiele plików, propozycja folderu, scenariusz od AI -------------------------------------------
+KOMUNIKAT_BEZ_SCENARIUSZA = "Ta wersja programu nie umie jeszcze pracować ze scenariuszem. Zaktualizuj program."
+KOMUNIKAT_ZRZUTY_BEZ_AI = ("Zrzuty i zdjęcia czyta czat - użyj »Przygotuj z AI«. Bez AI program zbuduje prezentację z dokumentów "
+                           "(.docx, .pdf, .txt…) albo przełoży gotową prezentację (.pptx).")
+AI_Q_PARAM = {}   # klucz czatu -> nazwa parametru adresu (np. {"chatgpt": "q"}): wstępnie wpisane polecenie. NIESPRAWDZONE - puste, włączyć po teście
+AI_Q_MAX = 1500   # parametr ?q= tylko dla krótkiego polecenia (adres ma limit długości)
+POLECENIE_CLAUDE_CODE = "Przeczytaj POLECENIE.md i wykonaj"
+SLAJDY_BEZ_DOKUMENTU = {"min": 3, "max": 30, "domyslnie": 8}   # suwak, gdy w folderze nie ma dokumentu (same zrzuty): czat wybiera treść
+
+
+def scenariusz_modul():
+    """Moduł skilla `scenariusz` (importowany dopiero tu: starszy skill go nie ma, a program ma nadal działać)."""
+    try:
+        import scenariusz
+    except ImportError:
+        raise ValueError(KOMUNIKAT_BEZ_SCENARIUSZA)
+    return scenariusz
+
+
+def _czytaj_scenariusz(plik):
+    with open(plik, encoding="utf-8-sig") as f:
+        return f.read()
+
+
+def _rob_analizy(plik):
+    """Jeden wspólny katalog roboczy do SAMEJ analizy plików, które jeszcze nie leżą w folderze prezentacji (obrazy z dokumentów
+    nadpisują się nawzajem - analiza ich nie używa): nic obok pliku użytkownika i bez rosnącej liczby katalogów."""
+    return os.path.join(paths.USER_DIR, "cache", "analiza-zrodel")
+
+
+def _suwaki_pakietu(lista):
+    """Suwaki z listy `_suwaki_dokumentu` (po jednym na dokument): jeden dokument = jego suwaki; kilka = sumy (dokumenty łączą się w jedną
+    prezentację); bez dokumentów (same zrzuty) = zakres stały. Wartości w budowie i tak są przycinane do zakresu połączonego dokumentu."""
+    if not lista:
+        return {"slajdy": dict(SLAJDY_BEZ_DOKUMENTU), "rozdzialy": {"max": 0, "domyslnie": 0}}
+    if len(lista) == 1:
+        return lista[0]
+    mx_sl = getattr(dokument, "MAX_SLAJDOW", 80)
+    mn = min(sum(s["slajdy"]["min"] for s in lista), mx_sl)
+    mx = max(mn, min(sum(s["slajdy"]["max"] for s in lista), mx_sl))
+    dom = max(mn, min(mx, sum(s["slajdy"]["domyslnie"] for s in lista)))
+    rmax = min(8, sum(s["rozdzialy"]["max"] for s in lista))
+    rdom = max(0, min(rmax, sum(s["rozdzialy"]["domyslnie"] for s in lista)))
+    return {"slajdy": {"min": mn, "max": mx, "domyslnie": dom}, "rozdzialy": {"max": rmax, "domyslnie": rdom}}
+
+
+def _pola_wspolne(res):
+    """Klucze, których ekran opcji oczekuje od każdej analizy (jak w analyze_dokument), puste dla trybów folderu prezentacji."""
+    res.update({"sekcje": [], "grupy": [], "cele": [], "smaki": [], "karty": 0, "presety": {"0": [], "1": [], "2": []},
+                "domyslne": {"styl": "nowy", "dlugosc": 1, "tekst": 1}, "powerpoint": powerpoint_available()})
+    return res
+
+
+def _czas_slajdow(n):
+    c = _czas_dokumentu()
+    return int(c["stale"] + c["na_slajd"] * n + c["kw"] * n * n)
+
+
+def analyze_many(sciezki):
+    """Analiza tego, co upuszczono lub wybrano: LISTA ścieżek (plików albo folderów).
+    - jeden folder produktu / jedna prezentacja .pptx / plik z folderu produktu / folder z jednym dokumentem-do-przeczytania lub pptx:
+      wynik jak `analyze` (dodany klucz "tryb": folder | pptx | dopracowanie | dokument...);
+    - jeden folder prezentacji (ma Źródła\\ albo scenariusz*.md): "tryb": "scenariusz" (jest scenariusz) albo "pakiet", "istnieje": True;
+    - inne pliki (jeden lub wiele: dokumenty, obrazy, zrzuty, pptx): "tryb": "pakiet", "istnieje": False + propozycja folderu prezentacji
+      (baza, nazwa_folderu, folder, m_dostepny). Folder powstaje dopiero w `create_folder` (okno), analiza niczego nie tworzy obok plików."""
+    lista, widziane = [], set()
+    for p in sciezki or []:
+        p = str(p or "").strip().strip('"')
+        if p:
+            p = os.path.abspath(p)
+            if os.path.normcase(p) not in widziane:
+                widziane.add(os.path.normcase(p))
+                lista.append(p)
+    if not lista:
+        raise ValueError("Nie wskazano pliku ani folderu.")
+    for p in lista:
+        if not os.path.exists(p):
+            raise ValueError("Nie znalazłem: %s" % p)
+    uwagi = []
+    if len(lista) == 1:
+        p = lista[0]
+        if os.path.isdir(p):
+            n = normalize_folder(p)   # komunikat po polsku dla folderu programu / pustego / z wieloma plikami
+            if os.path.isdir(n) or n.lower().endswith(PPTX_EXT):
+                return _z_trybem(analyze(n))
+            lista = [n]   # folder z jednym dokumentem = ten dokument
+        elif p.lower().endswith(PPTX_EXT) or _ma_karty(os.path.dirname(p)):
+            return _z_trybem(analyze(p))
+    else:
+        for p in [x for x in lista if os.path.isdir(x)]:
+            lista.remove(p)
+            uwagi.append("Pominąłem folder „%s” - przeciągnij pliki, a nie foldery." % os.path.basename(p))
+        if not lista:
+            raise ValueError("Przeciągnij pliki (dokumenty, zrzuty ekranu, zdjęcia, prezentacje) albo jeden folder.")
+    return analyze_pakiet(lista, uwagi)
+
+
+def _z_trybem(res):
+    res.setdefault("tryb", "folder")
+    return res
+
+
+def analyze_pakiet(lista, uwagi=None):
+    """Pliki do nowej prezentacji (jeszcze bez folderu): lista plików, tytuł, suwaki i propozycja folderu."""
+    uwagi = list(uwagi or [])
+    dok = dok_ext()
+    pliki = [folder_prez.opis_pliku(p, dok) for p in lista]
+    modele, suwaki, slowa = [], [], 0
+    for x in pliki:
+        if x["typ"] != "dokument":
+            continue
+        try:
+            m = _dok_model(x["sciezka"], _rob_analizy(x["sciezka"]))
+        except ValueError as e:   # skan, pusty plik, za długi: czat może go przeczytać z załącznika, więc nie blokujemy
+            x["problem"] = str(e)
+            uwagi.append("%s: %s" % (x["nazwa"], e))
+            continue
+        st = dokument.statystyka(m)
+        modele.append(m)
+        suwaki.append(_suwaki_dokumentu(st))
+        slowa += int(st.get("slowa") or 0)
+    for x in pliki:
+        if x["typ"] == "inny":
+            uwagi.append("„%s” trafi do folderu ze źródłami, ale program nie umie go przeczytać - dołącz go w czacie." % x["nazwa"])
+    tytul = (modele[0].get("tytul") if modele else "") or os.path.splitext(pliki[0]["nazwa"])[0]
+    tytul = " ".join(str(tytul).replace("_", " ").split())
+    baza, m_ok = folder_prez.baza_domyslna()
+    if not m_ok and baza == folder_prez.dokumenty_baza():
+        uwagi.append("Dysk M: z folderem prezentacji firmy jest teraz niedostępny - proponuję folder w Dokumentach.")
+    folder = folder_prez.unikalna_sciezka(baza, folder_prez.nazwa_folderu(tytul))
+    sw = _suwaki_pakietu(suwaki)
+    est = _czas_slajdow(sw["slajdy"]["domyslnie"])
+    return _pola_wspolne({
+        "ok": True, "tryb": "pakiet", "istnieje": False, "pliki": pliki, "tytul": tytul, "produkt": tytul, "baza": baza,
+        "nazwa_folderu": os.path.basename(folder), "folder": folder, "m_dostepny": m_ok, "uwagi": uwagi,
+        "slowa": slowa, "suwaki": sw, "czas": _czas_dokumentu(),
+        "szacowany_czas_s": est})
+
+
+def analyze_folder_prez(folder):
+    """Folder prezentacji (ma Źródła\\ albo scenariusz*.md): pliki ze Źródeł, najnowszy scenariusz (z kontrolą), poprzednie wyniki."""
+    folder = os.path.abspath(folder)
+    pliki = [folder_prez.opis_pliku(p, dok_ext()) for p in folder_prez.pliki_zrodel(folder)]
+    sc, nr = folder_prez.najnowszy_scenariusz(folder)
+    try:
+        wyniki = sorted((n for n in os.listdir(folder) if n.lower().endswith(".pptx") and not n.startswith("~$")),
+                        key=lambda n: -os.path.getmtime(os.path.join(folder, n)))
+    except OSError:
+        wyniki = []
+    uwagi = []
+    res = {"ok": True, "istnieje": True, "folder": folder, "nazwa_folderu": os.path.basename(folder), "baza": os.path.dirname(folder),
+           "m_dostepny": folder_prez.zapisywalny(folder_prez.baza_m()), "pliki": pliki, "wyniki": wyniki, "uwagi": uwagi,
+           "tytul": folder_prez.tytul_z_folderu(folder), "produkt": folder_prez.tytul_z_folderu(folder), "czas": _czas_dokumentu()}
+    if sc:
+        md = _czytaj_scenariusz(sc)
+        k = scenariusz_modul().sprawdz(md, folder, None)
+        res.update(tryb="scenariusz", scenariusz=sc, scenariusz_nazwa=os.path.basename(sc), scenariusz_wersja=nr,
+                   tytul=k.get("tytul") or res["tytul"], produkt=k.get("tytul") or res["produkt"], slajdy=k["slajdy"],
+                   rozdzialy=k["rozdzialy"], scenariusz_ok=k["ok"], scenariusz_bledy=k["bledy"], scenariusz_uwagi=k["uwagi"],
+                   szacowany_czas_s=_czas_slajdow(k["slajdy"]))
+        uwagi += ["Scenariusz: " + b for b in k["bledy"]]
+        res["suwaki"] = {"slajdy": {"min": 1, "max": max(k["slajdy"], 1), "domyslnie": max(k["slajdy"], 1)}, "rozdzialy": {"max": 0, "domyslnie": 0}}
+    else:
+        suwaki = []
+        for x in pliki:
+            if x["typ"] == "dokument":
+                try:
+                    suwaki.append(_suwaki_dokumentu(dokument.statystyka(_dok_model(x["sciezka"]))))
+                except ValueError as e:
+                    x["problem"] = str(e)
+                    uwagi.append("%s: %s" % (x["nazwa"], e))
+        sw = _suwaki_pakietu(suwaki)
+        res.update(tryb="pakiet", suwaki=sw, szacowany_czas_s=_czas_slajdow(sw["slajdy"]["domyslnie"]))
+    return _pola_wspolne(res)
+
+
+# --- źródła w folderze prezentacji -> tekst dla AI i dla budowy bez AI --------------------------------------------------
+def _model_na_md(model, przesuniecie=0, kopiuj_obraz=None, bez_tytulu=False, obraz_tekst="[obraz w dokumencie]"):
+    """Model dokumentu (bloki) -> Markdown: nagłówki #, listy, tabele GFM, cytaty. przesuniecie = o ile poziomów nagłówki schodzą niżej
+    (max ###). kopiuj_obraz(ścieżka) -> ścieżka względna w .md albo None (obraz pomijany); bez niego obraz to linia `obraz_tekst`."""
+    L, poprzedni_li = [], False
+    pomin = model.get("tytul_idx") if bez_tytulu else None
+    for i, b in enumerate(model.get("bloki", [])):
+        if i == pomin:
+            continue
+        typ = b.get("typ", "p")
+        t = " ".join(str(b.get("t") or "").split())
+        if typ in ("h1", "h2", "h3"):
+            wiersz = "%s %s" % ("#" * min(3, int(typ[1]) + przesuniecie), t)
+        elif typ == "li":
+            wiersz = ("1. " if b.get("num") else "- ") + t
+        elif typ == "cytat":
+            wiersz = "> " + t
+        elif typ == "tabela":
+            w = b.get("wiersze") or []
+            if not w:
+                continue
+            kol = max(len(r) for r in w)
+            tab = ["| " + " | ".join(" ".join(str(c).replace("|", "/").split()) for c in list(r) + [""] * (kol - len(r))) + " |" for r in w]
+            tab.insert(1, "|" + "---|" * kol)
+            wiersz = "\n".join(tab)
+        elif typ == "obraz":
+            rel = kopiuj_obraz(b.get("obraz")) if kopiuj_obraz else obraz_tekst
+            if not rel:
+                continue
+            wiersz = "![](%s)" % rel if kopiuj_obraz else rel
+        else:
+            wiersz = t
+        if not wiersz.strip():
+            continue
+        L.append((("\n" if typ == "li" and poprzedni_li else "\n\n") if L else "") + wiersz)
+        poprzedni_li = typ == "li"
+    return "".join(L)
+
+
+def zrodla_folderu(folder):
+    """Co jest w <folder>\\Źródła dla AI: {"dokumenty": [{"plik", "tekst"}], "do_zalaczenia": [nazwy], "uwagi": [str]}.
+    "suwaki" = zakresy suwaka slajdów po jednym na dokument. Dokumenty i prezentacje -> tekst (Markdown). Obrazy, zrzuty, PDF-y (oryginał ma rysunki), pliki nieczytelne i inne typy
+    -> `do_zalaczenia` (użytkownik przeciąga je do czatu)."""
+    dok, wyn, zalacz, uwagi, suwaki = dok_ext(), [], [], [], []
+    for p in folder_prez.pliki_zrodel(folder):
+        nazwa, typ = os.path.basename(p), folder_prez.typ_pliku(p, dok)
+        if typ == "dokument":
+            try:
+                m = _dok_model(p)
+                wyn.append({"plik": nazwa, "tekst": _model_na_md(m)})
+                suwaki.append(_suwaki_dokumentu(dokument.statystyka(m)))
+                if p.lower().endswith(".pdf"):
+                    zalacz.append(nazwa)
+            except ValueError as e:
+                uwagi.append("%s: %s" % (nazwa, e))
+                zalacz.append(nazwa)
+        elif typ == "pptx":
+            try:
+                wyn.append({"plik": nazwa, "tekst": _source_dump(_pptx_model(p), limit=10 ** 6)})
+            except Exception as e:   # uszkodzona / chroniona prezentacja: czat dostanie ją jako załącznik
+                _log_file(traceback.format_exc())
+                uwagi.append("Nie przeczytałem prezentacji „%s” (%s) - dołącz ją w czacie." % (nazwa, type(e).__name__))
+                zalacz.append(nazwa)
+        else:
+            zalacz.append(nazwa)
+    return {"dokumenty": wyn, "do_zalaczenia": zalacz, "uwagi": uwagi, "suwaki": suwaki}
+
+
+def polecenie_przygotowania_ai(folder, slajdy=None):
+    """Polecenie dla czatu: źródła z folderu -> scenariusz. Zwraca {"tekst", "do_zalaczenia", "uwagi", "katalog" (Źródła), "slajdy"}."""
+    S = scenariusz_modul()
+    z = zrodla_folderu(folder)
+    try:
+        n = int(slajdy or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        n = _suwaki_pakietu(z["suwaki"])["slajdy"]["domyslnie"]
+    tekst = S.polecenie_przygotowania(z["dokumenty"], z["do_zalaczenia"], n, folder_prez.tytul_z_folderu(folder), folder)
+    return {"tekst": tekst, "do_zalaczenia": z["do_zalaczenia"], "uwagi": z["uwagi"], "katalog": os.path.join(folder, folder_prez.ZRODLA),
+            "slajdy": n}
+
+
+def polecenie_poprawki_ai(folder, slajdy=None):
+    """Polecenie dla czatu: popraw najnowszy scenariusz po budowie (uwagi i plansze z ostatniego raportu). None, gdy nie ma scenariusza."""
+    S = scenariusz_modul()
+    sc, _nr = folder_prez.najnowszy_scenariusz(folder)
+    if not sc:
+        return None
+    md = _czytaj_scenariusz(sc)
+    raport = {}
+    try:
+        with open(os.path.join(folder, "_robocze", "raport.json"), encoding="utf8") as f:
+            raport = json.load(f)
+    except (OSError, ValueError):
+        pass
+    uwagi = _uwagi_dla_ai(raport.get("uwagi_pelne") or raport.get("uwagi") or [], raport.get("bledy_tekstu") or [])
+    plansze_folder = raport.get("plansze_folder") or os.path.join(folder, "plansze")
+    plansze = [os.path.basename(p) for p in raport.get("plansze") or [] if os.path.isfile(p)]
+    try:
+        n = int(slajdy or 0) or S.sprawdz(md, folder, None)["slajdy"]
+    except (TypeError, ValueError):
+        n = S.sprawdz(md, folder, None)["slajdy"]
+    tekst = S.polecenie_poprawki(md, uwagi, plansze, n, plansze_folder if plansze else "")
+    return {"tekst": tekst, "do_zalaczenia": plansze, "uwagi": [], "katalog": plansze_folder if plansze else os.path.dirname(sc),
+            "slajdy": n}
+
+
+def zapisz_polecenie(folder):
+    """POLECENIE.md w folderze prezentacji (dla Claude Code i innych agentów z plikami). Błąd zapisu nie przerywa pracy: zwraca ścieżkę albo None."""
+    try:
+        tekst = scenariusz_modul().polecenie_agenta(folder)
+        p = os.path.join(folder, "POLECENIE.md")
+        with open(p, "w", encoding="utf8", newline="\n") as f:
+            f.write(tekst.rstrip() + "\n")
+        return p
+    except (ValueError, OSError):
+        _log_file(traceback.format_exc())
+        return None
+
+
+def zapisz_scenariusz(folder, tekst, limit=None):
+    """Odpowiedź czatu (cała wklejka) -> walidacja -> nowa wersja scenariusza w folderze prezentacji.
+    {"ok", "plik", "wersja", "slajdy", "uwagi", "blad"}; przy błędach scenariusza nic nie zapisuje."""
+    S = scenariusz_modul()
+    md = S.wyciagnij(tekst)
+    if md is None:
+        return {"ok": False, "plik": None, "wersja": 0, "slajdy": 0, "uwagi": [],
+                "blad": "To nie wygląda na scenariusz - brakuje linii „# SCENARIUSZ DK”. Wklej całą odpowiedź czatu."}
+    k = S.sprawdz(md, folder, limit)
+    if not k["ok"]:
+        return {"ok": False, "plik": None, "wersja": 0, "slajdy": k["slajdy"], "uwagi": k["uwagi"],
+                "blad": "Scenariusza nie da się zbudować: " + " ".join(k["bledy"][:3]) + " Popraw odpowiedź w czacie i wklej ją jeszcze raz."}
+    try:
+        lim = int(limit or 0)
+    except (TypeError, ValueError):
+        lim = 0
+    if lim and k["slajdy"] > lim:   # suwak ma działać w programie, nie tylko w poleceniu: nic nie ucinamy po cichu
+        return {"ok": False, "plik": None, "wersja": 0, "slajdy": k["slajdy"], "uwagi": k["uwagi"],
+                "blad": "Scenariusz ma %d slajdów, a ustawiłeś najwyżej %d. Napisz w czacie: „Skróć scenariusz do %d slajdów, zostaw "
+                        "najważniejsze, ten sam format.” i wklej nową odpowiedź (albo przesuń suwak)." % (k["slajdy"], lim, lim)}
+    plik, nr = folder_prez.nowa_wersja_scenariusza(folder, md)
+    return {"ok": True, "plik": plik, "wersja": nr, "slajdy": k["slajdy"], "rozdzialy": k["rozdzialy"], "tytul": k["tytul"],
+            "uwagi": k["uwagi"], "blad": "", "szacowany_czas_s": _czas_slajdow(k["slajdy"])}
+
+
+# --- czaty AI -----------------------------------------------------------------------------------------------------------
+def ai_cele():
+    """[{"id", "nazwa", "dostepny"}]: Claude, ChatGPT, Gemini oraz (gdy `claude` jest w PATH) Claude Code. Każdy ma też "ostatni"
+    (True dla zapamiętanego wyboru; bez zapamiętanego - dla pierwszego)."""
+    cele = [{"id": k, "nazwa": v[0], "dostepny": True} for k, v in AI_CHATS.items()]
+    if claude_protokol():   # aplikacja Claude Desktop: sesja Cowork z dostępem do folderu prezentacji
+        cele.insert(1, {"id": "claude_cowork", "nazwa": "Claude Cowork (z folderem)", "dostepny": True})
+    if shutil.which("claude") or claude_protokol():
+        cele.append({"id": "claude_code", "nazwa": "Claude Code", "dostepny": True})
+    ost = folder_prez.ustawienia().get("ostatni_ai")
+    ost = ost if ost in {c["id"] for c in cele} else cele[0]["id"]
+    for c in cele:
+        c["ostatni"] = c["id"] == ost
+    return cele
+
+
+def adres_czatu(ktory, url, tekst):
+    """Adres czatu; z wpisanym poleceniem tylko dla czatu z AI_Q_PARAM i krótkiego polecenia (domyślnie: pusty słownik = nigdy)."""
+    par = AI_Q_PARAM.get(ktory)
+    if par and tekst and len(tekst) <= AI_Q_MAX:
+        import urllib.parse
+        return "%s?%s=%s" % (url, par, urllib.parse.quote(tekst))
+    return url
+
+
+def claude_protokol():
+    """True, gdy Windows zna schemat claude:// (zainstalowana aplikacja Claude Desktop)."""
+    try:
+        import winreg
+        winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "claude"))
+        return True
+    except OSError:
+        return False
+
+
+def adres_claude(rodzaj, polecenie, folder=None):
+    """Link aplikacji Claude Desktop: rodzaj "chat" | "cowork" | "code". Polecenie jest wpisywane w nowej rozmowie (użytkownik
+    wysyła je sam), folder wymaga zgody użytkownika w aplikacji. Format według dokumentacji Anthropic (30.06.2026, przekazane
+    przez GPT 27.10.2026; niesprawdzone na tym komputerze - w razie błędu polecenie zostaje w schowku)."""
+    import urllib.parse
+    q = urllib.parse.quote(polecenie or "", safe="")
+    if rodzaj == "chat":
+        return "claude://claude.ai/new?q=" + q
+    return "claude://%s/new?q=%s&folder=%s" % (rodzaj, q, urllib.parse.quote(folder or "", safe=""))
+
+
+def uruchom_claude_code(folder, polecenie=POLECENIE_CLAUDE_CODE):
+    """Nowe okno terminala w folderze prezentacji z `claude` i krótkim poleceniem. Windows Terminal (wt), a gdy go nie ma - zwykła
+    konsola. Lista argumentów, jedna powłoka, bez zagnieżdżonych cudzysłowów. False, gdy `claude` nie jest w PATH."""
+    claude = shutil.which("claude")
+    if not claude or not os.path.isdir(folder):
+        return False
+    wt = shutil.which("wt")
+    if wt:
+        subprocess.Popen([wt, "-d", folder, claude, polecenie])
+    else:
+        subprocess.Popen(["cmd.exe", "/k", "claude", polecenie], cwd=folder, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    return True
+
+
+# --- budowa: folder prezentacji ---------------------------------------------------------------------------------------
+def _polacz_zrodla(folder, pliki, tytul):
+    """Kilka dokumentów ze Źródeł -> jeden plik Markdown <folder>\\_robocze\\zrodla-polaczone.md (kolejność nazw plików): tytuł
+    prezentacji, każdy dokument jako rozdział (##), jego nagłówki poziom niżej. Obrazy kopiowane do _robocze\\obrazy-zrodel."""
+    rob = os.path.join(folder, "_robocze")
+    os.makedirs(rob, exist_ok=True)
+    obr_dir, n = os.path.join(rob, "obrazy-zrodel"), [0]
+
+    def kopiuj(src):
+        if not src or not os.path.isfile(src):
+            return None
+        os.makedirs(obr_dir, exist_ok=True)
+        n[0] += 1
+        nazwa = "z%02d_%s" % (n[0], re.sub(r"[^A-Za-z0-9_.-]", "_", os.path.basename(src)))
+        shutil.copy2(src, os.path.join(obr_dir, nazwa))
+        return "obrazy-zrodel/" + nazwa
+
+    czesci = ["# " + tytul]
+    for p in pliki:
+        m = _dok_model(p)
+        czesci.append("## %s\n\n%s" % (m.get("tytul") or os.path.splitext(os.path.basename(p))[0], _model_na_md(m, 2, kopiuj, True)))
+    plik = os.path.join(rob, "zrodla-polaczone.md")
+    with open(plik, "w", encoding="utf8", newline="\n") as f:
+        f.write("\n\n".join(czesci) + "\n")
+    return plik
+
+
+def _build_pakiet(folder, opts, t0, emit, finish_step, check, say, progress):
+    """Folder prezentacji bez scenariusza, budowa BEZ AI: jeden dokument ze Źródeł = jak `_build_dokument`; kilka = połączone w
+    kolejności nazw w jeden dokument. Zrzuty, zdjęcia i prezentacje bez AI są pomijane (czyta je czat). Wynik i _robocze: w folderze prezentacji."""
+    if dokument is None:
+        raise ValueError(KOMUNIKAT_BEZ_DOKUMENTOW)
+    dok = dok_ext()
+    zrodla = folder_prez.pliki_zrodel(folder)
+    dokumenty = [p for p in zrodla if folder_prez.typ_pliku(p, dok) == "dokument"]
+    if not dokumenty:
+        raise ValueError(KOMUNIKAT_ZRZUTY_BEZ_AI)
+    pominiete = [os.path.basename(p) for p in zrodla if p not in dokumenty]
+    wstep = []
+    if pominiete:
+        wstep.append("Bez AI program nie czyta tych plików: %s - czyta je czat (»Przygotuj z AI«)." % ", ".join(pominiete[:6]) +
+                     (" i %d innych" % (len(pominiete) - 6) if len(pominiete) > 6 else ""))
+    tytul = folder_prez.tytul_z_folderu(folder)
+    if len(dokumenty) == 1:
+        plik = dokumenty[0]
+    else:
+        plik = _polacz_zrodla(folder, dokumenty, tytul)
+        wstep.insert(0, "Połączyłem %d dokumentów w kolejności nazw plików; każdy jest teraz rozdziałem prezentacji." % len(dokumenty))
+    opts = dict(opts, wyjscie=folder, wyjscie_plik=folder_prez.nazwa_wyniku(folder, tytul), folder_prezentacji=folder, uwagi_wstep=wstep)
+    wynik = _build_dokument(plik, opts, t0, emit, finish_step, check, say, progress)
+    wynik.update(wejscie="pakiet", zrodla=[os.path.basename(p) for p in zrodla], folder=folder)
+    zapisz_polecenie(folder)
+    return wynik
+
+
+def _build_scenariusz(folder, opts, t0, emit, finish_step, check, say, progress):
+    """Budowa 1:1 z najnowszego scenariusza w folderze prezentacji (albo z pliku opts["scenariusz"]): `##` = jeden slajd. Dalej ta sama
+    ścieżka jakości co dokument: zrzuty, kontrola tekstu w PowerPoint, „oko”, pokrycie treści, plansze. Wynik: <nazwa>.pptx, <nazwa> v2.pptx…
+    w folderze prezentacji (poprzednie zostają), _robocze obok."""
+    S = scenariusz_modul()
+    if dokument is None:
+        raise ValueError(KOMUNIKAT_BEZ_DOKUMENTOW)
+    rob = os.path.join(folder, "_robocze")
+    os.makedirs(rob, exist_ok=True)
+    wsk = opts.get("scenariusz")   # okno podaje True („z najnowszego”), CLI - ścieżkę pliku
+    sc, nr = (wsk, 0) if isinstance(wsk, str) and wsk else folder_prez.najnowszy_scenariusz(folder)
+    if not sc or not os.path.isfile(sc):
+        raise ValueError("W folderze nie ma scenariusza (scenariusz.md). Wklej odpowiedź czatu albo zbuduj prezentację bez AI.")
+    emit("folder", "Czytam scenariusz", 0)
+    md = _czytaj_scenariusz(sc)
+    try:
+        limit = int(opts.get("slajdy") or 0) or None
+    except (TypeError, ValueError):
+        limit = None
+    k = S.sprawdz(md, folder, limit)
+    if not k["ok"]:
+        raise ValueError("Scenariusza nie da się zbudować: " + " ".join(k["bledy"][:3]))
+    say("Scenariusz: %s, slajdów z treścią: %d, przekładek: %d" % (os.path.basename(sc), k["slajdy"], k["rozdzialy"]))
+    stem = folder_prez.oczysc_tytul(k["tytul"] or folder_prez.tytul_z_folderu(folder), 100)
+    finish_step("folder")
+    check()
+    emit("grafiki", "Przygotowuję obrazy", 0.5)
+    finish_step("grafiki")
+    check()
+    emit("slajdy", "Układam slajdy", 0.3)
+    spec = _z_postepem(lambda: S.zloz(md, {"wyjscie": folder, "folder": folder, "nazwa": stem, "limit": limit}),
+                       emit, check, "slajdy", "Układam slajdy", 1.6 * k["slajdy"])
+    spec["output"] = folder_prez.nazwa_wyniku(folder, stem)
+    uwagi = list(spec.get("uwagi", []))
+    spec["uwagi"] = []   # dokument.popraw_po_renderze dopisuje tu wpis o zmianie układu; własną linię z oka składa silnik
+    _wyjscie_krotkie(spec, uwagi, say)
+    os.makedirs(os.path.dirname(spec["output"]), exist_ok=True)
+    spec_json = os.path.join(rob, "spec_program.json")
+    json.dump(spec, open(spec_json, "w", encoding="utf8"), ensure_ascii=False, indent=1)
+    finish_step("slajdy")
+    check()
+    j = _jakosc(spec, rob, opts, uwagi, emit, finish_step, check, say, spec_json, dok=True)
+    pptx, qa, thumbs, spec, oko, oko_linie = j["pptx"], j["qa"], j["thumbs"], j["spec"], j["oko"], j["oko_linie"]
+    spec.pop("uwagi", None)
+    emit("zapis", "Sprawdzam, czy nic nie zginęło", 0.3)
+    cov = dokument.pokrycie(S.model(md, folder), pptx, spec.get("mapa_blokow"))
+    say(cov.get("tekst", ""))
+    for m in (cov.get("brakuje") or [])[:10]:
+        uwagi.append("Brakuje: %s" % (m if isinstance(m, str) else (m.get("tekst") or str(m))))
+    uwagi[0:0] = oko_linie
+    uwagi.insert(0, cov.get("tekst", ""))
+    plansze, plansze_folder = _plansze_wyniku(pptx, qa, say)
+    emit("zapis", "Zapisuję raport", 0.6)
+    wszystkie = len(spec["slides"])
+    bledy = spec.get("bledy_tekstu") or []
+    uwagi_wyniku, bledy_okno = uwagi_okno(uwagi, bledy, rodzaj="dokument")
+    _zapisz_uwagi(rob, uwagi, say)
+    result = {"ok": True, "tryb": "scenariusz", "uwagi_top": _uwagi_top(uwagi_wyniku, bledy, oko), "pptx": pptx,
+              "nazwa": os.path.basename(pptx), "folder": folder, "plik": sc, "scenariusz": sc,
+              "scenariusz_wersja": nr or folder_prez.najnowszy_scenariusz(folder)[1], "slajdy": wszystkie, "ukryte": 0, "nowe": [],
+              "cel": "scenariusz", "cel_nazwa": "Scenariusz", "suwaki": {"slajdy": k["slajdy"], "rozdzialy": k["rozdzialy"]},
+              "czas_s": int(time.time() - t0), "miniatury": thumbs, "qa": qa, "uwagi": uwagi_wyniku, "uwagi_pelne": uwagi,
+              "bledy_okno": bledy_okno, "bledy_tekstu": bledy, "oko": oko, "pokrycie": cov, "wiernosc": {"usterki": [], "tekst": ""},
+              "sprawdz": [], "wizualizacje": [], "styl": "nowy", "plansze": plansze, "plansze_folder": plansze_folder,
+              "raport": os.path.join(rob, "raport.json")}
+    result["prompt_ai"] = S.polecenie_poprawki(md, _uwagi_dla_ai(uwagi, bledy), [os.path.basename(p) for p in plansze],
+                                               limit or k["slajdy"], plansze_folder or "")
+    result["prompt_agent"] = S.polecenie_agenta(folder)
+    json.dump({kk: v for kk, v in result.items() if kk != "miniatury"}, open(result["raport"], "w", encoding="utf8"),
+              ensure_ascii=False, indent=1)
+    zapisz_polecenie(folder)
     finish_step("zapis")
     if progress:
         progress("zapis", "Gotowe", 100, 0)

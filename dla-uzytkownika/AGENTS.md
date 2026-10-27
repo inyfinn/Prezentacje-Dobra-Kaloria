@@ -67,6 +67,7 @@ programu: `skill-prezentacje\`):
 |---|---|---|
 | folder produktu (karty wprowadzenia, copy, packshoty), notatki, dane | **nowa prezentacja** | tytuł slajdu = wniosek, nie temat; jedna myśl na slajd; liczby tylko z materiału, ze źródłem |
 | dokument (.docx, .pdf, .txt, .md) | **prezentacja z dokumentu** | te same słowa, ułożone w hasła, liczby i wnioski; niczego nie dopisujesz i nie gubisz |
+| folder prezentacji (`Źródła\`, `scenariusz.md`, `POLECENIE.md`) albo kilka plików: dokumenty, zdjęcia, zrzuty ekranu | **scenariusz** | piszesz `scenariusz.md` według wzoru (`# SCENARIUSZ DK`, jeden `##` = jeden slajd), program buduje z niego 1:1; szczegóły w `POLECENIE.md` w tym folderze |
 | gotowa prezentacja .pptx w innym stylu | **przełożenie 1:1** (cel `wiernie`) | slajd N = slajd N oryginału, te same słowa, kolejność i obrazy; zmienia się wygląd i rola słów (sekcja 6.3) |
 | j.w. + „dokończ”, „rozwiń” | cel `rozwin` | slajdy oryginału jak w `wiernie` + nowe slajdy z szablonu, oznaczone w notatkach „NOWY” |
 | j.w. + „skróć”, „wersja na 15 minut” | cel `skroc` | slajdy tylko **ukrywasz**, nigdy nie kasujesz; krótsza wersja = NOWY slajd, oryginał ukryty za nim |
@@ -124,7 +125,15 @@ PowerShell (cmd: to samo bez `&`):
 & "<folder programu>\pliki programu\stworz-cli.exe" "<folder produktu>"
 & "<folder programu>\pliki programu\stworz-cli.exe" "<plik.pptx>" --cel wiernie
 & "<folder programu>\pliki programu\stworz-cli.exe" "<plik.docx>" [--slajdy N] [--rozdzialy N]
+& "<folder programu>\pliki programu\stworz-cli.exe" --scenariusz "<folder prezentacji>\scenariusz.md"
 ```
+
+**Scenariusz (od 1.3).** Najlepszy wynik z dokumentów, zdjęć i zrzutów ekranu: najpierw piszesz `scenariusz.md` według
+wzoru `skill-prezentacje\assets\scenariusz-wzor.md` (`# SCENARIUSZ DK`, `tytuł:`, potem każdy `## Hasło` = dokładnie
+jeden slajd: jedna linia dopisku, do 4 punktów, `**42%** opis` = liczba-bohater, tabela, `![podpis](Źródła/plik.jpg)`,
+`> cytat — autor`, `## Rozdział: Nazwa` = przekładka). Treść tylko ze `Źródła\`, nic nie wymyślasz. Program sprawdza
+scenariusz (linie `BŁĄD` blokują budowę, `uwaga` – nie), buduje 1:1 do folderu prezentacji (`<tytuł>.pptx`, kolejne
+budowy: `v2`, `v3`…) i robi `plansze\`. Poprawki robisz w scenariuszu (nowa wersja `scenariusz-2.md`), nie w pliku pptx.
 
 Program pracuje 30–60 s, drukuje postęp i raport. Nie używaj `Stwórz prezentację.exe` — to okno dla ludzi.
 Folder bez kart wprowadzenia program odrzuca — powiedz użytkownikowi, czego brakuje (albo przejdź na Drogę B).

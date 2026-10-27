@@ -57,9 +57,9 @@
   <section class="screen" id="screen-start" aria-labelledby="h-start">
     <div class="wrap">
       <h1 class="display h-done" id="h-start" tabindex="-1" data-focus>Nowa prezentacja</h1>
-      <p class="start-lead">Wybierz, z czego ją zrobić.</p>
+      <p class="start-lead">Wrzuć wszystko, co masz o&nbsp;temacie: Word, PDF, zdjęcia, zrzuty ekranu albo gotową&nbsp;prezentację. Najlepszy wynik: dokument z&nbsp;nagłówkami i&nbsp;liczbami.</p>
 
-      <!-- #dropzone: Python rejestruje na nim upuszczenie pliku (gui.py), dlatego obejmuje oba kafle i pasek upuszczania -->
+      <!-- #dropzone: Python rejestruje na nim upuszczenie plików (gui.py, woła App.analyzeMany), dlatego obejmuje oba kafle i pasek upuszczania -->
       <div id="dropzone" class="choices">
         <div class="choice" id="choice-folder">
           <span class="choice-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span>
@@ -71,19 +71,20 @@
         </div>
         <div class="choice" id="choice-pptx">
           <span class="choice-ic" aria-hidden="true"><svg class="ic"><use href="#i-doc"/></svg></span>
-          <h2 class="choice-title">Z pliku</h2>
-          <p class="choice-text">Prezentację (.pptx) przełożę na styl Dobra Kaloria, a&nbsp;dokument (Word, PDF, .txt) zamienię na slajdy.</p>
+          <h2 class="choice-title">Z plików</h2>
+          <p class="choice-text">Jeden plik albo kilka naraz: dokument, zdjęcia i&nbsp;zrzuty ekranu, prezentacja (.pptx).</p>
           <button type="button" class="btn btn-secondary" id="btn-pick-pptx">
-            <svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg>Wybierz plik
+            <svg class="ic" aria-hidden="true"><use href="#i-doc"/></svg>Wybierz pliki
           </button>
         </div>
-        <p class="drop-strip"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span class="when-idle">Możesz też upuścić tutaj folder, prezentację albo dokument</span><span class="when-over">Puść teraz, wczytam to</span></p>
+        <p class="drop-strip"><svg class="ic" aria-hidden="true"><use href="#i-upload"/></svg><span class="when-idle">Możesz też upuścić tutaj folder albo kilka plików naraz</span><span class="when-over">Puść teraz, wczytam to</span></p>
       </div>
 
       <details class="start-help" id="start-help">
         <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Co mogę przeczytać?</summary>
         <ul class="hint-list">
-          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-doc"/></svg></span><span><strong>Dokument</strong><span class="hint-sub">Word (.docx, .doc), PDF z tekstem, .rtf, .odt, .txt, .md - liczbę slajdów ustawisz suwakiem</span></span></li>
+          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-doc"/></svg></span><span><strong>Dokument</strong><span class="hint-sub">Word (.docx, .doc), PDF z tekstem, .rtf, .odt, .txt, .md</span></span></li>
+          <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-image"/></svg></span><span><strong>Zdjęcia i zrzuty ekranu</strong><span class="hint-sub">.jpg, .png - czyta je czat (AI). Na zrzutach pokaż całe tabele, nagłówki i jednostki</span></span></li>
           <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-present"/></svg></span><span><strong>Prezentacja .pptx</strong><span class="hint-sub">przełożę ją na nasz styl; gotowych szablonów i wyników programu nie przekładam</span></span></li>
           <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-folder-open"/></svg></span><span><strong>Folder produktu</strong><span class="hint-sub">a w nim:</span></span></li>
           <li><span class="hint-ic" aria-hidden="true"><svg class="ic"><use href="#i-sheet"/></svg></span><span><strong>Karty wprowadzenia</strong><span class="hint-sub">Excel, nazwa zaczyna się od „Karta wprowadzenia”</span></span></li>
@@ -285,6 +286,85 @@
           </div>
         </section>
 
+        <!-- Pakiet plików (1.3): krok „Folder” (lista plików + nazwa i miejsce folderu prezentacji) i krok „Treść” (czat układa scenariusz).
+             Poprzedza je krok „Materiały” = czytanie plików. Obsługa: app.js (renderPakiet, createFolder, prepareTresc). -->
+        <section class="pane" data-pane="folder" aria-labelledby="h-folder">
+          <header class="pane-head">
+            <p class="eyebrow" id="l-pk-files">Wczytałem pliki</p>
+            <h1 class="display h-pane" id="h-folder" tabindex="-1" data-focus>Folder prezentacji</h1>
+            <p class="pane-lead">Zbiorę wszystko w jednym miejscu. Pliki skopiuję, a&nbsp;oryginały zostaną tam, gdzie leżą.</p>
+          </header>
+          <!-- nazwa i miejsce folderu na górze (to jedyne, co user może tu zmienić), uwagi (np. M: niedostępny) tuż pod nimi, lista plików niżej -->
+          <div class="block" id="blk-pk-folder">
+            <div class="field pk-field">
+              <label for="in-pk-nazwa">Zapiszę wszystko w folderze:</label>
+              <input type="text" id="in-pk-nazwa" name="nazwa_folderu" spellcheck="false" autocomplete="off" aria-describedby="pk-where">
+              <div class="pk-where" id="pk-where">
+                <svg class="ic" aria-hidden="true"><use href="#i-folder"/></svg>
+                <span class="pk-base"><span class="sr-only">Miejsce: </span><span id="pk-baza"></span></span>
+                <button type="button" class="btn btn-secondary btn-small" id="btn-pk-baza">Zmień…</button>
+              </div>
+            </div>
+            <div class="notes" id="pk-notes" hidden>
+              <p class="eyebrow">Uwagi</p>
+              <ul id="pk-notes-list"></ul>
+            </div>
+          </div>
+          <div class="block">
+            <div class="found pk-found">
+              <ul class="files" id="pk-files"></ul>
+              <p class="stat-none pk-more" id="pk-more" hidden></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="pane" data-pane="tresc" aria-labelledby="h-tresc">
+          <header class="pane-head">
+            <p class="eyebrow pane-ctx"></p>
+            <h1 class="display h-pane" id="h-tresc" tabindex="-1" data-focus>Najpierw niech czat ułoży treść</h1>
+            <p class="pane-lead">Program skopiuje polecenie i&nbsp;otworzy czat oraz folder ze źródłami. Przeciągnij do czatu zdjęcia i&nbsp;PDF-y, wklej polecenie (Ctrl+V). Gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj” - wstawię ją tutaj sam.</p>
+          </header>
+          <div class="sc-cols">
+            <div class="sc-left">
+              <div class="slider" id="sl-sc">
+                <div class="slider-head">
+                  <label class="slider-name" for="in-sc-slajdy">Ile slajdów (najwyżej)</label>
+                  <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
+                </div>
+                <div class="slider-body">
+                  <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:100%"></i></div>
+                  <input type="range" id="in-sc-slajdy" name="sc_slajdy" min="5" max="30" step="1" value="12">
+                </div>
+                <div class="stops free" aria-hidden="true"><button type="button" tabindex="-1" data-k="min">Krótko</button><button type="button" tabindex="-1" data-k="max">Szczegółowo</button></div>
+                <p class="slider-effect" id="sc-slajdy-effect">Czat dostanie ten limit. Okładkę i zakończenie dołożę sam.</p>
+              </div>
+              <div class="sc-open">
+                <button type="button" class="btn btn-primary" id="btn-sc-open"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Otwórz <span id="open-name">Claude</span></span></button>
+                <details class="pick-ai" id="pick-ai-sc">
+                  <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Użyj innego czatu</summary>
+                  <div class="pills" id="pills-sc" role="radiogroup" aria-label="Który czat otworzyć"></div>
+                </details>
+              </div>
+              <p class="sc-msg" id="sc-open-msg" role="status" aria-live="polite" hidden></p>
+            </div>
+            <div class="sc-right">
+              <div class="field">
+                <label for="in-sc">Wklej tutaj odpowiedź czatu</label>
+                <textarea id="in-sc" name="scenariusz" aria-describedby="sc-hint" rows="9" spellcheck="false" placeholder="Tu pojawi się odpowiedź czatu. Zaczyna się od „# SCENARIUSZ DK”."></textarea>
+              </div>
+              <div class="notes" id="sc-notes" hidden>
+                <p class="eyebrow">Tej odpowiedzi jeszcze nie zbuduję</p>
+                <ul id="sc-notes-list"></ul>
+              </div>
+              <p class="field-hint hint-line" id="sc-hint" aria-live="polite"></p>
+            </div>
+          </div>
+          <div class="sc-noai" id="sc-noai">
+            <button type="button" class="link-btn" id="btn-sc-noai"><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>Zrób bez AI</button>
+            <span id="sc-noai-note">Bez czatu program ułoży slajdy tylko z dokumentów. Zdjęcia i zrzuty ekranu pominie - czyta je wyłącznie czat.</span>
+          </div>
+        </section>
+
       </div>
     </section>
 
@@ -296,7 +376,7 @@
         </button>
         <p class="bar-note"><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg><strong id="bar-count"></strong><span class="bar-sep" aria-hidden="true">·</span><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg><span id="bar-eta">zwykle ok. 30 sekund</span></p>
         <button type="button" class="btn btn-primary btn-brand" id="btn-next">
-          Dalej<svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+          <span id="next-lbl">Dalej</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>
         </button>
         <button type="submit" class="btn btn-primary btn-brand" id="btn-build" hidden>
           <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Stwórz prezentację
@@ -379,6 +459,8 @@
 
         <aside class="ai-card" role="group" aria-labelledby="l-ai">
           <p class="eyebrow" id="l-ai">Dokończ teksty z AI</p>
+          <!-- Stare tryby (folder produktu, konwersja pptx, dopracowanie): karta jak dotąd -->
+          <div id="ai-old">
           <p class="ai-text">Program skopiuje polecenie z treścią slajdów i otworzy czat. Tam wystarczy wkleić. Masz Claude na komputerze? Otwórz plik w PowerPoincie i użyj wtyczki Claude (Claude for Microsoft 365) - wklej to samo polecenie, poprawi slajdy od razu w pliku.</p>
           <div class="ai-btns">
             <button type="button" class="btn btn-secondary" data-ai="claude" title="Otwiera Claude. Polecenie z całą treścią prezentacji jest już skopiowane - wystarczy wkleić."><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Claude</button>
@@ -388,6 +470,30 @@
           <button type="button" class="link-btn" id="btn-copy-ai" title="Tylko kopiuje polecenie - do wklejenia w dowolnym innym czacie.">
             <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Tylko skopiuj polecenie
           </button>
+          </div>
+          <!-- Pakiet plików (1.3): „Popraw z AI” - polecenie z bieżącym scenariuszem, po kliknięciu pole wklejania i nasłuch schowka -->
+          <div id="ai-pakiet" hidden>
+            <p class="ai-text">Program skopiuje polecenie ze scenariuszem i&nbsp;uwagami oraz otworzy czat. Wklej je (Ctrl+V), a&nbsp;gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj”.<span id="imp-plansze"> Przeciągnij też obrazy z&nbsp;folderu „plansze” (przycisk „Pokaż folder”) - czat oceni wygląd.</span></p>
+            <div class="ai-btns">
+              <button type="button" class="btn btn-secondary" id="btn-improve"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Popraw w <span id="improve-name">Claude</span></span></button>
+            </div>
+            <details class="pick-ai" id="pick-ai-imp">
+              <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Użyj innego czatu</summary>
+              <div class="pills" id="pills-imp" role="radiogroup" aria-label="Który czat otworzyć"></div>
+            </details>
+            <div class="imp-paste" id="imp-paste" hidden>
+              <div class="field">
+                <label for="in-imp">Wklej tutaj odpowiedź czatu</label>
+                <textarea id="in-imp" name="poprawka" aria-describedby="imp-hint" rows="6" spellcheck="false" placeholder="Zaczyna się od „# SCENARIUSZ DK”."></textarea>
+              </div>
+              <div class="notes" id="imp-notes" hidden>
+                <p class="eyebrow">Tej odpowiedzi jeszcze nie zbuduję</p>
+                <ul id="imp-notes-list"></ul>
+              </div>
+              <p class="field-hint hint-line" id="imp-hint" aria-live="polite"></p>
+              <button type="button" class="btn btn-primary btn-brand" id="btn-imp-build" disabled>Zbuduj ponownie</button>
+            </div>
+          </div>
           <button type="button" class="link-btn" id="btn-copy-agent" title="Dla agenta z dostępem do plików (Claude w trybie Cowork albo Code, Codex, Gemini CLI, Cursor): sam otworzy pliki, poprawi prezentację i zgłosi, co zostawił do decyzji.">
             <svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Polecenie dla agenta z plikami
           </button>

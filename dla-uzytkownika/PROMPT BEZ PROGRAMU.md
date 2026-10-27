@@ -60,6 +60,7 @@ Pracujesz z dwoma skillami. Leżą w paczce `DK - paczka prezentacji dla AI.zip`
 |---|---|---|
 | folder produktu (karty wprowadzenia, copy, packshoty), notatki, dane | **nowa prezentacja** | tytuł slajdu = wniosek, nie temat; jedna myśl na slajd; liczby tylko z materiału, ze źródłem |
 | dokument (.docx, .pdf, .txt, .md) | **prezentacja z dokumentu** | te same słowa, ułożone w hasła, liczby i wnioski; niczego nie dopisujesz i nie gubisz |
+| folder prezentacji (`Źródła\`, `scenariusz.md`, `POLECENIE.md`) albo kilka plików: dokumenty, zdjęcia, zrzuty ekranu | **scenariusz** | piszesz `scenariusz.md` według wzoru (`# SCENARIUSZ DK`, jeden `##` = jeden slajd), program buduje z niego 1:1; szczegóły w `POLECENIE.md` w tym folderze |
 | gotowa prezentacja .pptx w innym stylu | **przełożenie 1:1** (cel `wiernie`) | slajd N = slajd N oryginału, te same słowa, kolejność i obrazy; zmienia się wygląd i rola słów (sekcja 6.3) |
 | j.w. + „dokończ”, „rozwiń” | cel `rozwin` | slajdy oryginału jak w `wiernie` + nowe slajdy z szablonu, oznaczone w notatkach „NOWY” |
 | j.w. + „skróć”, „wersja na 15 minut” | cel `skroc` | slajdy tylko **ukrywasz**, nigdy nie kasujesz; krótsza wersja = NOWY slajd, oryginał ukryty za nim |

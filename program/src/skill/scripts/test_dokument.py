@@ -237,13 +237,13 @@ def test_skrypt_worda_zamyka_wlasna_instancje():
 
 
 # --- struktura, zakresy suwaków, składanie ---------------------------------------------------------------------------------
-def _doc_tekstowy(tmp_path, n_sekcji=6, zdan=6):
+def _doc_tekstowy(tmp_path, n_sekcji=6, zdan=6, punkty=3):
     czesci = ["# Dokument testowy\n\nKrótki opis dokumentu testowego dla programu.\n"]
     for i in range(n_sekcji):
         czesci.append("## Sekcja %d\n" % (i + 1))
         czesci.append(" ".join("To jest zdanie numer %d w sekcji %d i ma kilkanaście słów, żeby plakat miał z czego robić hasła." % (j, i + 1)
                                for j in range(zdan)) + "\n")
-        czesci.append("- punkt %d jeden\n- punkt %d dwa\n- punkt %d trzy\n" % (i, i, i))
+        czesci.append("".join("- punkt %d %s\n" % (i, s) for s in ("jeden", "dwa", "trzy", "cztery", "pięć", "sześć")[:punkty]))
     p = tmp_path / "dok.md"
     p.write_text("\n".join(czesci), encoding="utf-8")
     return dokument.wczytaj(str(p), str(tmp_path / "rob"))
@@ -288,9 +288,8 @@ def test_pokrycie_100_procent_na_trzech_wartosciach_suwaka(tmp_path, monkeypatch
     pok = dokument.pokrycie(m, pptx, spec["mapa_blokow"])
     assert pok["tekst"].startswith("Treść: 100%") and not pok["brakuje"], pok["brakuje"]
     assert dokument.pokrycie(m, pptx)["tekst"].startswith("Treść: 100%")                           # także bez mapy
-    if ktora != "min":
-        assert spec["ustawienia"]["slajdy"] >= n - 0                                                 # suwak daje nie mniej niż żądane
-    assert spec["ustawienia"]["slajdy"] <= n + 3                                                     # a nadwyżka jest mała i opisana w uwagach
+    assert spec["ustawienia"]["slajdy"] <= n                                                         # twarda bramka: nigdy więcej niż suwak
+    assert all(sl.get("notes") for sl in spec["slides"] if sl["type"] not in ("end", "agenda", "section"))   # pełny tekst w notatkach
 
 
 def test_kontrakt_specu_agenda_przekladki_wzory(tmp_path, monkeypatch):
@@ -330,21 +329,27 @@ def test_pusty_i_jednoakapitowy_dokument_bez_wyjatku(tmp_path, monkeypatch):
 
 
 def test_tabela_krotka_to_slajd_table_dluga_dzieli_sie(tmp_path):
-    body = _p("Dane", "Heading1") + _tab([["Produkt", "Cena"]] + [["Produkt %d" % i, "%d zł" % i] for i in range(20)])
+    body = _p("Dane", "Heading1") + _tab([["Produkt", "Cena", "Uwagi"]] + [["Produkt %d" % i, "%d zł" % i, "uwaga %d" % i] for i in range(20)])
     m = dokument.wczytaj(zrob_docx(str(tmp_path / "t.docx"), body), str(tmp_path / "r"))
+    s = dokument.statystyka(m)
     spec = dokument.zloz(m, {"wyjscie": str(tmp_path)})
     tabele = [sl for sl in spec["slides"] if sl["type"] == "table"]
-    assert len(tabele) == 3 and all(len(t["rows"]) <= 8 and t["head"] == ["Produkt", "Cena"] for t in tabele)     # 20 wierszy / 8
+    assert len(tabele) == 1 and len(tabele[0]["rows"]) == 6 and tabele[0]["head"] == ["Produkt", "Cena", "Uwagi"]   # Standardowo: 6 wierszy, reszta w notatkach
+    assert "Produkt 19" in tabele[0]["notes"] and any("skrócone" in u for u in spec["uwagi"])
+    spec = dokument.zloz(m, {"slajdy": s["slajdy_max"], "wyjscie": str(tmp_path)})
+    tabele = [sl for sl in spec["slides"] if sl["type"] == "table"]
+    assert len(tabele) == 3 and all(len(t["rows"]) <= 8 for t in tabele)                                          # Szczegółowo: 20 wierszy / 8
     assert [t["title"] for t in tabele] == ["Dane", "Dane (2)", "Dane (3)"]
 
 
-def test_tabela_z_dlugimi_komorkami_staje_sie_kartami(tmp_path):
+def test_tabela_z_dlugimi_komorkami_na_slajdzie_pierwsza_fraza_reszta_w_notatkach(tmp_path):
     dlugi = "To jest bardzo długi opis w komórce tabeli, który nie zmieściłby się w jednej linii wiersza tabeli. " * 2
-    body = _p("Brief", "Heading1") + _tab([["Marka", dlugi], ["Cel", dlugi]])
+    body = _p("Brief", "Heading1") + _tab([["Marka", "Opis", "Cel"], ["Kubara", dlugi, "sprzedaż"], ["Dobra Kaloria", dlugi, "marka"]])
     m = dokument.wczytaj(zrob_docx(str(tmp_path / "t.docx"), body), str(tmp_path / "r"))
     spec = dokument.zloz(m, {"wyjscie": str(tmp_path)})
-    assert not [sl for sl in spec["slides"] if sl["type"] == "table"]
-    assert any("długimi komórkami" in u for u in spec["uwagi"])
+    t = next(sl for sl in spec["slides"] if sl["type"] == "table")
+    assert t["head"] == ["Marka", "Cel"]                       # kolumna bez pełnej frazy do 7 słów w komórkach znika ze slajdu
+    assert dlugi.strip() in t["notes"]                         # ...a jej treść jest w notatkach
 
 
 def test_obraz_z_podpisem_i_zapowiedzia_jest_zrzutem_w_calosci(tmp_path):
@@ -401,13 +406,14 @@ def test_cli_wersja_bez_qa(tmp_path):
     assert "Treść: 100%" in out and os.path.isfile(str(tmp_path / "wyj" / "k - nowy styl.pptx"))
 
 
-def test_domyslna_liczba_slajdow_wyraznie_luzniej_niz_minimum(tmp_path):
+def test_zakresy_planu_min_dom_max_i_udzial_na_slajdach(tmp_path):
     m = _doc_tekstowy(tmp_path, n_sekcji=8, zdan=9)
     s = dokument.statystyka(m)
-    assert s["slajdy_min"] < s["slajdy_domyslnie"] < s["slajdy_max"]
-    razem = s["slowa"]
-    assert razem / float(s["slajdy_domyslnie"]) <= 55      # ok. 1 slajd na 35-45 słów treści, nie bloki tekstu
-    assert razem / float(s["slajdy_min"]) > razem / float(s["slajdy_domyslnie"])
+    assert s["slajdy_min"] <= s["slajdy_domyslnie"] < s["slajdy_max"] <= 80
+    assert s["slajdy_min"] == 8                                               # jeden nośnik (lista) na rozdział
+    assert s["slajdy_max"] >= 16                                              # Szczegółowo: także wstępy sekcji jako karty hasło + dopisek
+    pct = s["na_slajdach"]
+    assert 0 < pct["min"] <= pct["domyslnie"] <= pct["max"] <= 100
 
 
 def test_statystyka_jest_natychmiastowa(tmp_path):
@@ -429,15 +435,20 @@ def test_zloz_dwa_tysiace_slow_w_kilkanascie_sekund(tmp_path):
 
 def test_dluga_etykieta_i_dluga_agenda_nie_psuja_slajdow(tmp_path):
     dlugi = "Bardzo długi nagłówek nadrzędny, który nie zmieści się w jednej linii etykiety nad tytułem"
-    body = (_p("Tytuł dokumentu", "Title") + _p(dlugi, "Heading1") + _p("Podrozdział", "Heading2") + _p("Treść podrozdziału, krótka.") +
-            "".join(_p("Rozdział numer %d, którego nazwa jest długa i nie zmieści się w kolumnie agendy" % i, "Heading1") + _p("Treść %d." % i)
+    body = (_p("Tytuł dokumentu", "Title") + _p(dlugi, "Heading1") + _p("Podrozdział", "Heading2") +
+            _p("Treść podrozdziału, krótka. Drugie zdanie podrozdziału jest dłuższe i ma kilka słów więcej niż pierwsze.") +
+            _p("Punkt pierwszy", num=1) + _p("Punkt drugi", num=1) + _p("Punkt trzeci", num=1) +
+            "".join(_p("Rozdział numer %d, którego nazwa jest długa i nie zmieści się w kolumnie agendy" % i, "Heading1") +
+                    _p("Treść rozdziału %d ma kilka zdań i sporo słów, żeby rozdział był osobnym rozdziałem planu. Drugie zdanie rozdziału "
+                       "też jest długie i dokłada słów do sumy. Trzecie zdanie rozdziału, które kończy akapit, ma jeszcze kilka słów." % i) +
+                    _p("Punkt %d a" % i, num=1) + _p("Punkt %d b" % i, num=1) + _p("Punkt %d c" % i, num=1)
                     for i in range(4)))
     m = dokument.wczytaj(zrob_docx(str(tmp_path / "d.docx"), body), str(tmp_path / "r"))
     spec = dokument.zloz(m, {"rozdzialy": 5, "wyjscie": str(tmp_path)})
     pod = next(sl for sl in spec["slides"] if sl.get("title", "").endswith("Podrozdział"))
     assert pod["title"].startswith("Bardzo długi") and "kicker" not in pod          # za długa etykieta idzie do tytułu
-    assert not [sl for sl in spec["slides"] if sl["type"] == "agenda"]               # 5 długich punktów: bez agendy
-    assert any("Agendy nie dodałem" in u for u in spec["uwagi"])
+    assert not [sl for sl in spec["slides"] if sl["type"] == "agenda"]               # 5 długich punktów: bez spisu treści
+    assert any("nie dodałem" in u for u in spec["uwagi"])
 
 
 def test_xml_bez_rozwijania_encji(tmp_path):
@@ -451,8 +462,8 @@ def test_xml_bez_rozwijania_encji(tmp_path):
 
 
 def test_usterki_z_verify_i_zamiana_wariantu_zachowuje_tytul(tmp_path):
-    m = _doc_tekstowy(tmp_path, n_sekcji=4, zdan=5)
-    spec = dokument.zloz(m, {"slajdy": 12, "rozdzialy": 0, "wyjscie": str(tmp_path)})
+    m = _doc_tekstowy(tmp_path, n_sekcji=4, zdan=5, punkty=4)      # 4 kafle: warianty rząd / siatka 2 x 2 = kandydaci układu
+    spec = dokument.zloz(m, {"slajdy": 4, "rozdzialy": 0, "wyjscie": str(tmp_path)})
     v = "Tekst - problemy: 2\n   s5 PRZEPELNIENIE pola +2pt: 'abc'\n   s7 SIEROTA w naglowku: 'wody'\n"
     assert dokument.usterki_po_renderze(str(tmp_path / "brak"), spec, v) == {5: ["PRZEPELNIENIE"], 7: ["SIEROTA"]}
     z_kand = [i for i, sl in enumerate(spec["slides"], 1) if any(r["zrodlo"] == sl.get("zrodlo") and len(r["kandydaci"]) > 1
@@ -467,8 +478,8 @@ def test_usterki_z_verify_i_zamiana_wariantu_zachowuje_tytul(tmp_path):
 
 
 def test_petla_poprawek_cofa_zmiane_bez_poprawy(tmp_path):
-    m = _doc_tekstowy(tmp_path, n_sekcji=3, zdan=5)
-    spec = dokument.zloz(m, {"slajdy": 9, "rozdzialy": 0, "wyjscie": str(tmp_path)})
+    m = _doc_tekstowy(tmp_path, n_sekcji=3, zdan=5, punkty=4)
+    spec = dokument.zloz(m, {"slajdy": 3, "rozdzialy": 0, "wyjscie": str(tmp_path)})
     nr = next(i for i, sl in enumerate(spec["slides"], 1)
               if any(r["zrodlo"] == sl.get("zrodlo") and len(r["kandydaci"]) > 1 for r in spec["warianty"]["slajdy"]))
     przed = dokument.json.dumps(spec["slides"][nr - 1], sort_keys=True)
@@ -506,14 +517,17 @@ def _karty_slajdu(sl):
     return sum(len(r["items"]) for r in sl.get("rows", []) if r["k"] == "cols")
 
 
-def test_domyslnie_proza_to_kilka_kart_na_slajd_nie_jedna(tmp_path):
+def test_proza_bez_list_pokazuje_akapity_standardowo(tmp_path):
     m = _doc_prozy(tmp_path, sekcje=(("Pierwsza", 8), ("Druga", 8), ("Trzecia", 8)))
     s = dokument.statystyka(m)
-    assert 35 <= s["slowa"] / float(s["slajdy_domyslnie"]) <= 60              # ok. 1 slajd na 45 słów, nie 23 (jedna karta na slajd)
+    assert s["slajdy_min"] == 3 and s["slajdy_domyslnie"] == 3 and s["slajdy_max"] == 12       # 3 sekcje x 4 akapity: Szczegółowo = akapit na slajd
     spec = dokument.zloz(m, {"wyjscie": str(tmp_path), "rozdzialy": 0})
     tresc = [sl for sl in spec["slides"] if sl["type"] == "uklad"]
-    assert sum(_karty_slajdu(sl) for sl in tresc) / float(len(tresc)) >= 1.8            # średnio 2-3 karty (hasło + dopisek) na slajd
-    assert sum(1 for sl in tresc if _karty_slajdu(sl) <= 1) <= len(tresc) // 3
+    assert [sl["title"] for sl in tresc] == ["Pierwsza", "Druga", "Trzecia"]
+    for sl in tresc:                                                                   # karta: hasło Mindset + dopisek Lato, cały tekst w notatkach
+        bl = sl["rows"][0]["items"][0]["blocks"]
+        assert bl[0]["k"] == "lead" and bl[0]["t"].startswith("Zdanie") and any(b["k"] == "p" for b in bl)
+        assert sl["notes"].count("Zdanie") == 8
 
 
 def test_na_karty_dzieli_zdania_po_slowach_i_ile_kart():
@@ -525,19 +539,17 @@ def test_na_karty_dzieli_zdania_po_slowach_i_ile_kart():
     assert dokument._ile_kart(["x " * 14, "y " * 14]) == 2 and dokument._ile_kart(["x " * 17, "y " * 17, "z " * 17]) == 3
 
 
-def test_sekcja_na_wiecej_niz_dwa_slajdy_ma_tytul_z_hasla_i_nazwe_nad_nim(tmp_path, monkeypatch):
+def test_szczegolowo_kazdy_akapit_na_slajdzie_z_numerem_czesci(tmp_path, monkeypatch):
     m = _doc_prozy(tmp_path)
-    spec = dokument.zloz(m, {"slajdy": 5, "rozdzialy": 0, "wyjscie": str(tmp_path)})
+    s = dokument.statystyka(m)
+    spec = dokument.zloz(m, {"slajdy": s["slajdy_max"], "rozdzialy": 0, "wyjscie": str(tmp_path)})
     tresc = [sl for sl in spec["slides"] if sl["type"] == "uklad"]
-    assert len(tresc) >= 5 and tresc[0]["title"] == "Długa sekcja"                 # pierwszy slajd sekcji zostaje z nagłówkiem
-    for sl in tresc[1:]:
-        assert sl.get("kicker") == "Długa sekcja"                                  # nazwa sekcji nad tytułem
-        assert not re.search(r"\(\d+\)$", sl["title"]) and sl["title"].startswith("Zdanie ")      # tytuł = hasło z pierwszego zdania slajdu
-    assert any("numerków" in u for u in spec["uwagi"])
+    assert len(tresc) == 7 and tresc[0]["title"] == "Długa sekcja"                 # 14 zdań po 2 = 7 akapitów
+    assert [sl["title"] for sl in tresc[1:]] == ["Długa sekcja (%d)" % i for i in range(2, 8)]
+    assert spec["ustawienia"]["slajdy"] <= s["slajdy_max"]
     pptx = _zbuduj(spec, tmp_path, monkeypatch)
     assert dokument.pokrycie(m, pptx, spec["mapa_blokow"])["tekst"].startswith("Treść: 100%")
     assert dokument.pokrycie(m, pptx)["tekst"].startswith("Treść: 100%")
-    assert all(not any(i for i in ("kicker", "title") if "…" in (sl.get(i) or "")) for sl in tresc)      # krótka nazwa nie jest skracana
 
 
 def test_dwa_slajdy_sekcji_zostaja_z_numerkiem(tmp_path):
@@ -547,12 +559,13 @@ def test_dwa_slajdy_sekcji_zostaja_z_numerkiem(tmp_path):
     assert [sl["title"] for sl in tresc] == ["Krótka sekcja", "Krótka sekcja (2)"]
 
 
-def test_dokument_plaski_ma_tytul_dokumentu_w_nadtytule(tmp_path):
+def test_dokument_plaski_ma_tytul_dokumentu_jako_tytul_slajdu(tmp_path):
     m = _doc_prozy(tmp_path, nazwa="plaski.md", sekcje=(("-", 14),), nagl=False)
+    s = dokument.statystyka(m)
     spec = dokument.zloz(m, {"slajdy": 4, "wyjscie": str(tmp_path)})
     tresc = [sl for sl in spec["slides"] if sl["type"] == "uklad"]
-    assert len(tresc) >= 4 and all(sl.get("kicker") == m["tytul"] for sl in tresc)
-    assert all(not re.search(r"\(\d+\)$", sl["title"]) for sl in tresc)
+    assert len(tresc) == 4 and tresc[0]["title"] == m["tytul"] and all("kicker" not in sl for sl in tresc)
+    assert s["slajdy_min"] == 1 and s["rozdzialy_max"] == 0
 
 
 def test_etykieta_sekcji_skraca_do_pelnych_slow_i_wielokropka():
@@ -576,17 +589,218 @@ def test_wybrany_kandydat_zachowuje_etykiete_nad_tytulem(tmp_path):
             assert k["slajd"].get("kicker") == sl.get("kicker") and k["slajd"].get("title") == sl.get("title")
 
 
-def test_max_jedno_zdanie_w_dlugiej_sekcji_to_zdanie_na_srodku_z_nazwa_sekcji(tmp_path, monkeypatch):
+def test_max_jednozdaniowe_akapity_to_zielone_karty_albo_haslo_z_dopiskiem(tmp_path, monkeypatch):
     p = tmp_path / "krotkie.md"
     p.write_text("# Tytuł\n\nOpis.\n\n## Sekcja jednozdaniowych myśli\n\n" + "\n\n".join(
-        "Myśl numer %s jest krótka i samodzielna oraz ma pełne zdanie." % w for w in
+        "Myśl numer %s jest krótka i ma pełne zdanie." % w for w in
         ("alfa", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "teta")) + "\n", encoding="utf-8")
     m = dokument.wczytaj(str(p), str(tmp_path / "r"))
     s = dokument.statystyka(m)
     spec = dokument.zloz(m, {"slajdy": s["slajdy_max"], "rozdzialy": 0, "wyjscie": str(tmp_path)})
-    st = [sl for sl in spec["slides"] if sl["type"] == "statement" and sl.get("kicker")]
-    assert len(st) >= 5 and all(sl["kicker"] == "Sekcja jednozdaniowych myśli" and sl["text"] == sl["title"] for sl in st)
-    assert not any(re.search(r"\(\d+\)$", sl.get("title") or "") for sl in spec["slides"] if sl["type"] not in ("cover_text", "end"))
+    tresc = [sl for sl in spec["slides"] if sl["type"] == "uklad"]
+    assert len(tresc) == 8 and all(sl.get("kicker") in (None, "Tytuł") for sl in tresc)
+    for sl in tresc:
+        it = sl["rows"][0]["items"][0]
+        assert it.get("fill") == "brand" and dokument._slow(it["blocks"][0]["t"]) <= dokument.ZIELONA_MAX      # zdanie <= 10 słów = zielona karta
     pptx = _zbuduj(spec, tmp_path, monkeypatch)
     assert dokument.pokrycie(m, pptx, spec["mapa_blokow"])["tekst"].startswith("Treść: 100%")
     assert dokument.pokrycie(m, pptx)["tekst"].startswith("Treść: 100%")
+
+
+# --- 21.10.2026: streszczenie strukturalne + notatki, pdf z pojemnikami, cięcie fraz, bramki ----------------------------------------
+def _pdf_dk(tmp_path, fitz):
+    """PDF jak z HTML (Chrome): strona tytułowa z logo w rogu, strona z kaflami liczb, kartą z tabelą (linie pod komórkami), listą z kropkami,
+    kartą programu z parami etykieta: wartość, strona FAQ w dwóch szpaltach. Pismo ozdobne = Helvetica-Bold, podstawowe = Helvetica."""
+    doc = fitz.open()
+    W, H = 595, 842
+    B, D = "helv", "tibo"       # podstawowe / ozdobne (druga rodzina pisma: Times-Bold)
+    # strona 1: okładka
+    pg = doc.new_page(width=W, height=H)
+    pg.insert_image(fitz.Rect(40, 37, 137, 108), pixmap=fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 400, 295), 0))   # logo w pasie góry, 16% szerokości
+    pg.insert_text((400, 60), "Pazdziernik 2026", fontsize=9, fontname=B)
+    pg.insert_text((40, 300), "PRZEGLAD DLA ZARZADU", fontsize=11, fontname=D)
+    pg.insert_text((40, 340), "NARZEDZIA CYFROWE DZIALU", fontsize=29, fontname=D)
+    pg.insert_text((40, 400), "Oprogramowanie, ktore wspiera codzienna prace marketingu: do czego sluzy, na jakiej", fontsize=12, fontname=B)
+    pg.insert_text((40, 416), "technologii dziala, jak powstaje, jak chronimy dane oraz jakie dzialania planujemy.", fontsize=12, fontname=B)
+    for x, lab, val in ((40, "AUTOR", "Jan Kowalski"), (174, "STAN NA", "21 pazdziernika 2026"), (308, "ZAKRES", "DAM, Photo Resizer")):
+        pg.draw_rect(fitz.Rect(x, 720, x + 124, 796), color=None, fill=(0.97, 0.97, 0.96))
+        pg.insert_text((x + 10, 740), lab, fontsize=8, fontname=D)
+        pg.insert_text((x + 10, 760), val, fontsize=9, fontname=B)
+    # strona 2: nagłówek strony, kafle liczb, karta z tabelą, karta z listą
+    pg = doc.new_page(width=W, height=H)
+    pg.insert_text((40, 60), "PODSUMOWANIE", fontsize=16, fontname=D)
+    pg.insert_text((40, 78), "Narzedzia powstaja od marca 2026 jako odpowiedz na potrzeby zespolu.", fontsize=9, fontname=B)
+    for i, (v, lab) in enumerate((("7", "obszarow, lacznie 11 narzedzi"), ("Python", "glowny jezyk programow"), ("ok. 2 800", "testow automatycznych"), ("03.2026", "poczatek prac"))):
+        x = 40 + i * 131
+        pg.draw_rect(fitz.Rect(x, 88, x + 122, 174), color=None, fill=(0.97, 0.97, 0.96))
+        pg.insert_text((x + 10, 115), v, fontsize=22, fontname=D)
+        pg.insert_text((x + 10, 135), lab, fontsize=8, fontname=B)
+    pg.draw_rect(fitz.Rect(40, 182, 556, 420), color=None, fill=(0.97, 0.97, 0.96))      # karta
+    pg.insert_text((52, 200), "PROGRAMY", fontsize=11, fontname=D)
+    pg.draw_rect(fitz.Rect(52, 214, 543, 410), color=None, fill=(1, 1, 1))                # biała tabela
+    kol = [(52, 146), (146, 319), (319, 402), (402, 490), (490, 543)]
+    head = ["PROGRAM", "PRZEZNACZENIE", "PLATFORMA", "OD", "STATUS"]
+    for (x0, _x1), h in zip(kol, head):
+        pg.insert_text((x0 + 4, 228), h, fontsize=8, fontname=D)
+    rows = [["DAM", "Katalog materialow marki z dysku firmowego M: wyszukiwanie, powiazania", "Windows, macOS", "03.2026", "beta"],
+            ["Photo Resizer", "Masowa zmiana rozmiaru, konwersja i kompresja zdjec", "Windows", "07.2026", "w uzyciu"],
+            ["Panel Ankiet", "Anonimowe ankiety i glosowania pracownikow", "przegladarka", "09.2026", "beta"],
+            ["Skrypty Adobe", "Automatyzacja Photoshopa i Illustratora: eksport wizualizacji", "Photoshop", "06.2026", "w uzyciu"]]
+    y = 233
+    for r in rows:
+        for (x0, x1) in kol:
+            pg.draw_rect(fitz.Rect(x0, y, x1, y + 0.8), color=None, fill=(0.9, 0.9, 0.9))   # linia pod komórką
+        for (x0, _x1), c in zip(kol, r):
+            if len(c) > 30:
+                pg.insert_text((x0 + 4, y + 16), c[:28], fontsize=8, fontname=B)
+                pg.insert_text((x0 + 4, y + 27), c[28:], fontsize=8, fontname=B)
+            else:
+                pg.insert_text((x0 + 4, y + 16), c, fontsize=8, fontname=B)
+        y += 40
+    pg.draw_rect(fitz.Rect(40, 440, 293, 600), color=None, fill=(0.97, 0.97, 0.96))
+    pg.insert_text((52, 458), "KORZYSCI DLA FIRMY", fontsize=11, fontname=D)
+    for i, t in enumerate(("Powtarzalne zadania w minutach zamiast godzin: zdjecia, prezentacje.", "Jedno miejsce na materialy marki, widoczne na kazdym komputerze.",
+                           "Spojny wyglad materialow zgodny z identyfikacja marki.", "Dodatkowa kontrola opakowan przed drukiem.")):
+        yy = 480 + i * 24
+        pg.draw_rect(fitz.Rect(54, yy - 6, 57, yy - 3), color=None, fill=(0, 0.5, 0.2))          # kropka punktora
+        pg.insert_text((65, yy), t[:48], fontsize=8, fontname=B)
+        pg.insert_text((65, yy + 10), t[48:], fontsize=8, fontname=B)
+    pg.draw_rect(fitz.Rect(303, 440, 556, 600), color=None, fill=(0.97, 0.97, 0.96))
+    pg.insert_text((315, 458), "DAM DOBRA KALORIA", fontsize=11, fontname=D)
+    pg.draw_rect(fitz.Rect(315, 470, 543, 590), color=None, fill=(1, 1, 1))
+    y = 470
+    for lab, val in (("JEZYK", "Python JavaScript SQL"), ("DANE", "PostgreSQL na NAS (SSL), lokalnie SQLite"), ("TESTY", "ponad 1 900 automatycznych"), ("ROZWOJ", "od 03.2026, ok. 430 zmian")):
+        for (x0, x1) in ((315, 391), (392, 543)):
+            pg.draw_rect(fitz.Rect(x0, y + 28, x1, y + 28.8), color=None, fill=(0.9, 0.9, 0.9))
+        pg.insert_text((321, y + 18), lab, fontsize=7, fontname=D)
+        pg.insert_text((398, y + 18), val, fontsize=8, fontname=B)
+        y += 29
+    # strona 3: FAQ w dwóch szpaltach
+    pg = doc.new_page(width=W, height=H)
+    pg.insert_text((40, 60), "NAJCZESTSZE PYTANIA", fontsize=16, fontname=D)
+    for col, x in ((0, 40), (1, 303)):
+        for i in range(3):
+            yy = 100 + i * 60
+            pg.insert_text((x, yy), "Czy pytanie numer %d jest proste?" % (col * 3 + i + 1), fontsize=9, fontname=D)
+            pg.insert_text((x, yy + 14), "Odpowiedz na pytanie %d jest krotka, ale ma dwa zdania." % (col * 3 + i + 1), fontsize=9, fontname=B)
+            pg.insert_text((x, yy + 26), "Drugie zdanie odpowiedzi dopowiada szczegoly sprawy.", fontsize=9, fontname=B)
+    p = str(tmp_path / "dk.pdf")
+    doc.save(p)
+    return p
+
+
+def test_pdf_z_pojemnikami_tabele_kafle_logo_okladka(tmp_path):
+    fitz = pytest.importorskip("fitz")
+    m = dokument.wczytaj(_pdf_dk(tmp_path, fitz), str(tmp_path / "rob"))
+    typy = _typy(m)
+    assert m["tytul"] == "NARZEDZIA CYFROWE DZIALU" and m["bloki"][0].get("kicker") == "PRZEGLAD DLA ZARZADU"
+    assert "obraz" not in typy                                                              # logo w pasie góry strony pominięte
+    assert typy.count("kpi") == 1 and [it["value"] for it in next(b for b in m["bloki"] if b["typ"] == "kpi")["items"]] == ["7", "Python", "ok. 2 800", "03.2026"]
+    tab = [b for b in m["bloki"] if b["typ"] == "tabela"]
+    assert len(tab) == 1 and tab[0]["wiersze"][0] == ["PROGRAM", "PRZEZNACZENIE", "PLATFORMA", "OD", "STATUS"] and len(tab[0]["wiersze"]) == 5
+    assert tab[0]["wiersze"][1][0] == "DAM" and tab[0]["wiersze"][1][4] == "beta"
+    kv = [b for b in m["bloki"] if b["typ"] == "kv" and not b.get("meta")]
+    assert len(kv) == 1 and [p[0] for p in kv[0]["pary"]] == ["JEZYK", "DANE", "TESTY", "ROZWOJ"]
+    assert typy.count("li") == 4                                                             # kropki = punkty
+    nagl = [(b["typ"], b["t"]) for b in m["bloki"] if b["typ"] in ("h2", "h3")]
+    assert ("h2", "PODSUMOWANIE") in nagl and ("h3", "PROGRAMY") in nagl and ("h3", "KORZYSCI DLA FIRMY") in nagl
+    assert not any(t in ("beta", "w uzyciu", "JEZYK", "DANE") for _k, t in nagl)            # metki i etykiety to nie nagłówki
+    pyt = [b for b in m["bloki"] if b.get("pytanie")]
+    assert len(pyt) == 6 and [re.search(r"\d", b["t"]).group() for b in pyt] == ["1", "2", "3", "4", "5", "6"]       # dwie szpalty czytane kolumnami
+    s = dokument.statystyka(m)
+    assert s["tabele"] == 1 and s["obrazy"] == 0 and s["naglowki"][2] == 2
+
+
+def test_plan_rangi_i_budzet(tmp_path):
+    fitz = pytest.importorskip("fitz")
+    m = dokument.wczytaj(_pdf_dk(tmp_path, fitz), str(tmp_path / "rob"))
+    pl = dokument.plan(m)
+    rodz = [n["k"] for n in pl["nosniki"]]
+    assert rodz == ["kpi", "tab", "lista", "kv", "faq"]
+    assert [n["ranga"] for n in pl["nosniki"]] == [0, 0, 0, 0, 4]                              # rozdział „Podsumowanie” = ranga 0 (cały); FAQ 4
+    assert pl["min"] == 4 and pl["dom"] == 4 and pl["max"] >= 6
+    assert [n["wybrany"] for n in pl["nosniki"]] == [1, 1, 1, 1, 0]
+    assert pl["nosniki"][3]["pominiete"][0]["k"] == "faq"                                   # pominięty nośnik idzie do notatek poprzedniego
+    s = dokument.statystyka(m)
+    assert s["slajdy_min"] == 4 and s["na_slajdach"]["min"] < s["na_slajdach"]["max"]
+
+
+def test_zloz_notatki_bramki_i_pojemniki(tmp_path, monkeypatch):
+    fitz = pytest.importorskip("fitz")
+    m = dokument.wczytaj(_pdf_dk(tmp_path, fitz), str(tmp_path / "rob"))
+    s = dokument.statystyka(m)
+    spec = dokument.zloz(m, {"slajdy": s["slajdy_max"], "rozdzialy": 0, "wyjscie": str(tmp_path)})
+    typy = [sl["type"] for sl in spec["slides"]]
+    assert typy[0] == "cover_text" and typy[-1] == "end" and spec["slides"][0]["kicker"] == "PRZEGLAD DLA ZARZADU"
+    assert spec["slides"][0]["subtitle"].startswith("Oprogramowanie, ktore wspiera") and "21 pazdziernika 2026" in spec["slides"][0]["meta"]
+    assert spec["ustawienia"]["slajdy"] <= s["slajdy_max"]
+    tab = next(sl for sl in spec["slides"] if sl["type"] == "table")
+    assert len(tab["head"]) == 4 and tab["head"][:2] == ["PROGRAM", "PRZEZNACZENIE"]
+    for r in tab["rows"]:
+        for c in r:
+            assert dokument._konc_ok(c.split()) or not c, c                                  # bez zawieszki na końcu komórki
+    assert len({r[0] for r in tab["rows"]}) == len(tab["rows"])                              # nazwy wierszy nie powtarzają się
+    for sl in spec["slides"]:
+        if sl["type"] == "uklad":
+            for r in sl["rows"]:
+                if r.get("k") == "band":
+                    assert dokument._slow(r["t"]) <= dokument.PAS_MAX
+                for it in (r.get("items") or []):
+                    if it.get("fill") == "brand":
+                        assert dokument._slow(it["blocks"][0]["t"]) <= dokument.ZIELONA_MAX
+    assert all(sl.get("notes") for sl in spec["slides"] if sl["type"] in ("uklad", "table", "cover_text"))
+    pptx = _zbuduj(spec, tmp_path, monkeypatch)
+    pok = dokument.pokrycie(m, pptx, spec["mapa_blokow"])
+    assert pok["tekst"].startswith("Treść: 100%") and 0 < pok["na_slajdach"] < 100
+
+
+def test_fraza_i_czlon_nie_koncza_sie_zawieszka():
+    assert dokument._fraza("Katalog materialow marki z dysku firmowego M: wyszukiwanie, powiazania", 7) == "Katalog materialow marki z dysku firmowego M"
+    assert dokument._fraza("zrzuty ekranow porownywane z projektem i design systemem marki", 7) == "zrzuty ekranow porownywane z projektem i design systemem marki"   # cały tekst do 9 słów
+    assert dokument._fraza("zrzuty ekranow porownywane z projektem i design systemem marki na stronie", 7) is None            # pierwsza fraza > 7 słów
+    assert dokument._czlon("zrzuty ekranow porownywane z projektem i design systemem marki na stronie", 7) == "zrzuty ekranow porownywane z projektem"
+    assert dokument._czlon("interfejs programow (okno aplikacji z silnikiem przegladarki Windows) i reszta zdania tutaj", 7) == "interfejs programow"
+    assert dokument._fraza("K. Wieczorek, IOD / prawnik", 7, min_sl=2) == "K. Wieczorek"
+    assert dokument._fraza("Oprogramowanie, ktore wspiera prace marketingu: do czego sluzy", 14, min_sl=4) == "Oprogramowanie, ktore wspiera prace marketingu"
+    for t in ("Powtarzalne zadania w minutach zamiast godzin: zdjecia, prezentacje.", "Dodatkowa kontrola opakowan przed drukiem."):
+        h, d = dokument._haslo_poz(t)
+        assert dokument._slow(h) <= 7 and dokument._konc_ok(h.split())
+    assert dokument._haslo_poz("Dodatkowa kontrola opakowan przed drukiem.") == ("Dodatkowa kontrola opakowan przed drukiem", None)
+
+
+def test_ksztalt_tabeli_dobiera_pojemnik():
+    assert dokument._ksztalt_tabeli([["PROGRAM", "TESTY"], ["DAM", "ponad 1 900"], ["Photo Resizer", "534"], ["Stworz", "360"]]) == ("kpi", 1)
+    assert dokument._ksztalt_tabeli([["ZAGROZENIE", "CHRONI?"], ["podsluch", "tak"], ["podszycie", "czesciowo"], ["haslo", "nie"]]) == ("taknie", 1)
+    assert dokument._ksztalt_tabeli([["PROGRAM", "OKRES"], ["DAM", "od marca 2026, ok. 7 miesiecy"], ["Resizer", "od lipca 2026, ok. 3 miesiace"], ["Ankiety", "od wrzesnia 2026"]]) == ("czas", 1)
+    assert dokument._ksztalt_tabeli([["A", "B"], ["x", "krotka wartosc"], ["y", "inna wartosc"]]) == ("kv", 1)
+    assert dokument._ksztalt_tabeli([["A", "B", "C"], ["x", "opis dluzszy niz cztery slowa w komorce", "z"], ["y", "inny opis dluzszy niz cztery slowa", "w"]]) == ("tab", None)
+
+
+RAPORT = r"C:\Users\krzysztof.wieczorek\AppData\Local\Temp\claude-tmp\2026-10-21-prezentacje-test\wejscie.pdf"
+
+
+@pytest.mark.skipif(not os.path.isfile(RAPORT), reason="lokalny raport dla zarządu (dane firmy) - test tylko na komputerze autora")
+def test_raport_dla_zarzadu_lokalnie(tmp_path):
+    """Raport z 21.10.2026 (11 stron, 146 slajdów w wersji 1.2.3): dziś 13 / 16 / ok. 48 slajdów, bez logo z PDF, decyzje zarządu zawsze."""
+    pytest.importorskip("fitz")
+    m = dokument.wczytaj(RAPORT, str(tmp_path / "rob"))
+    s = dokument.statystyka(m)
+    assert m["tytul"].upper().startswith("NARZĘDZIA CYFROWE") and s["obrazy"] == 0 and s["tabele"] >= 9
+    assert 10 <= s["slajdy_min"] <= 14 and 14 <= s["slajdy_domyslnie"] <= 18 and s["slajdy_max"] <= 60
+    pl = dokument.plan(m)
+    tyt = [n["tytul"] for n in pl["nosniki"] if n["wybrany"]]
+    assert any("DECYZJE" in (t or "").upper() for t in tyt) and any("PLAN DZIAŁAŃ" in (t or "").upper() for t in tyt)
+    pl_min = dokument.plan(m, s["slajdy_min"])
+    assert any("DECYZJE" in (n["tytul"] or "").upper() for n in pl_min["nosniki"] if n["wybrany"])
+    spec = dokument.zloz(m, {"wyjscie": str(tmp_path)})
+    assert spec["ustawienia"]["slajdy"] == s["slajdy_domyslnie"] and spec["slides"][0]["type"] == "cover_text"
+    for sl in spec["slides"]:
+        txt = dokument._tekst_pokazany(sl)
+        if sl["type"] == "table":
+            for r in sl["rows"]:
+                assert all(dokument._konc_ok(c.split()) for c in r if c), r
+            assert len({r[0] for r in sl["rows"]}) == len(sl["rows"]), sl["title"]
+        if sl["type"] == "uklad":
+            for r in sl["rows"]:
+                if r.get("k") == "band":
+                    assert dokument._slow(r["t"]) <= dokument.PAS_MAX

@@ -453,3 +453,42 @@ nadpisz, czy zapisz z dopiskiem. usuń z opisów w aplikacji ten dopisek jakiś 
   naprawdę ktoś się nie zgubi, bo zaczyna od PUSTEJ ANKIETY i nie ma chaosu”. Na liście obszarów pierwsza karta „Pusty obszar”
   wyróżniona zielonym tłem (jak zaznaczenie, nie krzykliwie); tematy z banku dalej obok. Przewodnik prowadzi od pustego obszaru:
   dodaj pytanie, wpisz treść, wybierz typ.
+
+## 26.10.2026 — Panel Ankiet, kreator: zwinięte obszary, czytelne pytania, wygaszanie, podgląd = formularz (S97–S104)
+
+> „po kliknięciu szablonu OD RAZU pojawia się coś takiego, a nie ma ZWINIĘTYCH obszarów. Obszary wszystkie powinny być zwinięte.
+> usuń to głupie »Zachowania tego obszaru są teraz przy pierwszym pytaniu…«. zostaw »3 pytania · zachowania: 24 · komentarz«.
+> Pytania też można zwinąć, a jak są zwinięte, to pokazuj jako Pytanie 1, Pytanie 2. To słowo PYTANIE 1 jest tak nieczytelne, że
+> człowiek się gubi. »Współpraca zadaniowa« o co najmniej 5 px większe. Tytuł obszaru o 10 px większy. Niezaznaczone pytania
+> wygaszaj; wywal tę brzydką zieloną ramkę dookoła. Jak edytujemy pytanie, WYGASIĆ rzeczy dookoła; jak klikam pytanie, to
+> oprócz biblioteki po prawej wszystko wygaszone, żeby nie rozpraszać. Lekki, mocno rozmazany cień pod całym obszarem.
+> W kreatorze żółty przycisk. PODGLĄD ma być tak samo ładnie skondensowany i pokazany jak widok wykonującego ankietę; te rzeczy
+> nie mogą się różnić w żaden sposób. Opisy pod tytułem obszaru: w jakichś delikatnych bubble albo wcale.”
+
+- **S97 obszary w kreatorze startują zwinięte** (także zaraz po utworzeniu ankiety z szablonu). Zwinięty obszar: tytuł, jedna
+  linia „3 pytania · zachowania: 24 · komentarz”, bez objaśnień technicznych. Zdanie „Zachowania tego obszaru są teraz przy
+  pierwszym pytaniu…” usunięte.
+- **S98 pytania też się zwijają; zwinięte = „Pytanie 1”, „Pytanie 2”** czytelnie (nie drobny kapitalik), z nazwą pytania obok.
+- **S99 typografia kreatora:** nazwa pytania (np. „Współpraca zadaniowa”) ≥ +5 px, tytuł obszaru ≥ +10 px względem stanu
+  z 26.10.2026; etykieta „Pytanie N” wyraźna (rozmiar i kontrast), nie ledwo widoczna.
+- **S100 wygaszanie zamiast ramki:** niezaznaczone pytania wygaszone; zielona ramka wokół aktywnego pytania usunięta. Gdy edytuje
+  się pytanie, wszystko poza biblioteką po prawej jest wygaszone (nie rozprasza). Aktywne pytanie wyróżnia się tylko pełnym
+  kontrastem, bez obrysu.
+- **S101 cień pod obszarem:** lekki, mocno rozmazany cień pod całym otwartym obszarem (nie ramka).
+- **S102 żółty przycisk „Następne pytanie →”** pod edytowanym pytaniem (przy ostatnim pytaniu obszaru: „Następny obszar →”).
+- **S103 podgląd w kreatorze = widok wypełniającego, bez żadnej różnicy:** ta sama składnia, ten sam kod i ten sam wygląd
+  (nie osobna kopia). Zmiana wyglądu formularza zmienia podgląd automatycznie.
+- **S104 opisy obszaru w delikatnej bańce:** podtytuł i objaśnienie („Zrozumienie intencji…”, „Oceń styl komunikacji…”) w jednej
+  delikatnej bańce (ecru), drobniejszy spokojniejszy druk, nie jako chaos luźnych linii; zwinięty obszar jej nie pokazuje.
+- **Dashboard (S105):** tytuł ankiety w „Co dziś zrobić” (i na kaflach) jest linkiem do ankiety.
+- **S106 maksymalna szerokość kreatora 1600 px (26.10.2026, zmiana z 2540):** „maksymalna szerokość tam była 2540 px, to na pewno za dużo. Nie dawaj więcej niż 1600 px. Jak wszystko jest takie szerokie i wielkie, to staje się nieczytelne.” Uchyla szerokość do 2540 z wcześniejszej rundy kreatora.
+- **S103a suwak w kreatorze = suwak z formularza (26.10.2026):** „o ten suwak, że w kreatorze musi wyglądać tak samo” (zrzut formularza: znacznik wartości w polu nad suwakiem, żółty pasek do wartości, kolorowe pasma poziomów z podpisami „Znaczne trudności / Wymaga poprawy / Zgodne z oczekiwaniami / Bardzo dobrze i wyżej”, pole opisu poziomu, „Nie mam wystarczających obserwacji”, „Co zauważyłeś?”). Kreator używa tego samego komponentu `DkSlider` i tych samych stylów co formularz, nie osobnego uproszczonego suwaka.
+- **S107 karty „Sposoby rozsyłania”: opis wyśrodkowany (27.10.2026):** „Wyjaśnij mi jak teraz każda z tych trzech opcji działa. Dopracuj opis pod spodem, ma być wyśrodkowany.” Opis pod tytułem karty (obok wyśrodkowanego tytułu, ikony i statusu) jest wyśrodkowany i równo łamany (`text-wrap: balance`); treść mówi dokładnie, jak sposób działa.
+- **S108 jeden link = jeden przycisk kopiowania (27.10.2026):** „link i tak jest globalny, więc brakuje JEDNEGO przycisku po prostu” (zrzut listy „Wysłane, czekamy” z przyciskami Przypomnij/Cofnij przy każdej osobie). Gdy link jest wspólny, jest jeden przycisk „Kopiuj zaproszenie” dla całej grupy, nie przycisk przy każdej osobie. Liczy się miejsca, nie linki: „generujemy miejsca, a nie linki”.
+- **S109 karty „Sposoby rozsyłania” to PRZYCISKI, bez zielonego obrysu (27.10.2026):** „te kafelki z linki osobiste, to powinny być przyciski, kafelki nie powinny mieć zielonego obrysku, okropnie to wygląda.” Karta sposobu jest przyciskiem wyboru (bez pola wyboru w środku): wybrana ma jasnoszare tło, włączony sposób ma zieloną kropkę i słowo „Włączony”. Pod kartami widać panel TYLKO wybranego sposobu, a włączanie i wyłączanie jest w nagłówku panelu („Włącz ten sposób” żółty, „Wyłącz ten sposób” cichy). Powód: „mam zaznaczone wszystkie trzy opcje, skąd mam wiedzieć, jaki link jest generowany, nawet nie wiem, jak mam generować link otwarty i link z kodami”.
+- **S110 lista osób w starszych linkach imiennych przewija się (27.10.2026):** „brakuje w ankietowanych SCROLL ten sam co w bazie użytkowników, musi być rozwinięty i scroll.” Listy „Wysłane, czekamy” i „Wypełnione” mają maksymalną wysokość 518 px z przewijaniem jak lista kont (`.ka-list-scroll`).
+- **S111 prostota i czytelność: mniej tekstu, podpowiedzi tylko na żądanie (27.10.2026):** „Widzę, że zaczyna nam się cały design rozjeżdżać i już jest nieintuicyjne… wszystko się miesza ze sobą kompletnie, a dodatkowo jest dużo dziwnych niepotrzebnych tekstów. Podpowiedzi powinny pojawiać się tylko wtedy, kiedy ktoś na coś najedzie (tooltip), albo w prawym górnym rogu (Pokaż mi). Trzeba to uprościć i uczynić bardziej czytelnym pod kątem tego, co ktoś klika i na co patrzy.” Reguła: objaśnienia akcji i pól nie stoją jako akapity na ekranie, tylko w podpowiedzi po najechaniu (`HintTooltip`) albo w przewodniku „Pokaż mi”; na ekranie zostaje tytuł, krótka etykieta i przyciski.
+- **S112 żadnych pustych przestrzeni i długich rozwijanych list, które spychają resztę (27.10.2026):** „Nie może być tak, że są puste przestrzenie albo że gdzieś lista rozwijana jest tak długa, że wszystkie inne elementy też ściąga w dół.” Długa lista = ograniczona wysokość z przewijaniem (jak lista kont); rozwijana lista nie przesuwa układu (nakładka); układ bez dziur.
+- **S113 jasne akcje przy każdym elemencie (27.10.2026):** „Jak nie ma przycisków «dodaj kolejne pytanie» czy «usuń to pytanie», to wszystko zaczyna wyglądać tak samo i się miesza.” Każdy powtarzalny element (pytanie, obszar, pole) ma widoczne przyciski „Dodaj następne”, „Usuń”; główna akcja widoku to ŻÓŁTY przycisk.
+- **S114 wybór szablonu i kafle (27.10.2026):** „Wybór szablonów, jak ktoś tworzy nową ankietę, nie jest intuicyjny, bo kafelki nie są intuicyjne, brakuje żółtych przycisków. Staram się nie stosować zielonych obrysów, raczej szare tło i kafelki białe.” Kafle wyboru: BIAŁE kafle na szarym panelu (L1), bez zielonego obrysu, z żółtym przyciskiem akcji („Wybierz”/„Utwórz”). Po wybraniu szablonu pierwszy obszar i pierwsze pytanie są od razu rozwinięte.
+- **S115 linki osobiste: trzy panele, licznik i żółte akcje (27.10.2026):** „Jest licznik, i to +5, +3, +1 dodaje się w liczniku liczba osób, a później robisz żółty przycisk DODAJ. Panel wysłane, wypełnione podziel na trzy panele, jak było wcześniej: po lewej panel dodawania, później panel wysłane. Wcześniej było mocno standoutowe, z wielkim żółtym przyciskiem wyślij zaproszenie. Przywróć to, tylko z nowymi założeniami. Tworzysz to dla ludzi.” Reguła: przyciski „+1/+3/+5” zwiększają liczbę w polu „Liczba osób”, dopiero żółty „Dodaj” wykonuje; lewy panel z dużym żółtym „Kopiuj zaproszenie” zawsze widoczny; listy zwarte w osobnych panelach.

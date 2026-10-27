@@ -13,6 +13,7 @@ T0 = time.time()  # start procesu (przed importem ciężkich bibliotek) - do pom
 import webview  # noqa: E402
 
 import engine  # noqa: E402
+import folder_prez  # noqa: E402
 import update  # noqa: E402
 import paths  # noqa: E402
 
@@ -59,6 +60,42 @@ def set_clipboard(text):
         u32.CloseClipboard()
 
 
+def get_clipboard():
+    """Tekst ze schowka (CF_UNICODETEXT) albo None. Tylko odczyt: niczego nie zmienia ani nie czyści. Gdy schowek jest chwilowo
+    zajęty przez inny program - None (okno zapyta za sekundę); tekst ponad 1 MB pomijamy."""
+    CF_UNICODETEXT = 13
+    k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
+    k32.GlobalLock.restype = ctypes.c_void_p
+    k32.GlobalLock.argtypes = [ctypes.c_void_p]
+    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+    k32.GlobalSize.restype = ctypes.c_size_t
+    k32.GlobalSize.argtypes = [ctypes.c_void_p]
+    u32.OpenClipboard.argtypes = [ctypes.c_void_p]
+    u32.GetClipboardData.restype = ctypes.c_void_p
+    u32.GetClipboardData.argtypes = [ctypes.c_uint]
+    if not u32.IsClipboardFormatAvailable(CF_UNICODETEXT):   # bez otwierania schowka: zwykle nie ma tekstu
+        return None
+    for _ in range(3):
+        if u32.OpenClipboard(None):
+            break
+        time.sleep(0.03)
+    else:
+        return None
+    try:
+        h = u32.GetClipboardData(CF_UNICODETEXT)
+        if not h or k32.GlobalSize(h) > (1 << 20):
+            return None
+        p = k32.GlobalLock(h)
+        if not p:
+            return None
+        try:
+            return ctypes.wstring_at(p)
+        finally:
+            k32.GlobalUnlock(h)
+    finally:
+        u32.CloseClipboard()
+
+
 def _korzen_dysku(d):
     """Korzeń dysku (np. cały dysk D:) nie jest „folderem, w którym był plik” - nie otwieramy go."""
     d = os.path.abspath(d)
@@ -69,6 +106,8 @@ class Api:
     def __init__(self):
         self._window = None
         self.folder = None
+        self._pliki = []        # pełne ścieżki plików z ostatniej analizy pakietu (kopiowane do Źródeł w create_folder)
+        self._limit = None      # limit slajdów z ostatniego polecenia dla AI (suwak) - do kontroli scenariusza
         self._cancel = threading.Event()
 
     # --- wywołania z JS ---------------------------------------------------------------------------------------
@@ -96,6 +135,19 @@ class Api:
 
     pick_pptx = pick_file   # stara nazwa (mock, testy)
 
+    def pick_files(self):
+        """Wybór JEDNEGO ALBO WIELU plików do nowej prezentacji: dokumenty, prezentacje, obrazy i zrzuty. Lista ścieżek albo None."""
+        wzorce = ["*.pptx", "*.ppsx"] + ["*" + e for e in engine.dok_ext()] + ["*" + e for e in folder_prez.OBRAZ_EXT]
+        r = self._window.create_file_dialog(webview.FileDialog.OPEN, directory=self._start_dir(), allow_multiple=True,
+                                            file_types=("Dokumenty, prezentacje i obrazy (%s)" % ";".join(wzorce), "Wszystkie pliki (*.*)"))
+        return list(r) if r else None
+
+    def pick_parent(self):
+        """Wybór folderu, w którym powstanie folder prezentacji (baza). Ścieżka albo None."""
+        baza = folder_prez.baza_domyslna()[0]
+        r = self._window.create_file_dialog(webview.FileDialog.FOLDER, directory=baza if os.path.isdir(baza) else "")
+        return r[0] if r else None
+
     def analyze(self, path):
         try:
             t = time.time()
@@ -108,9 +160,56 @@ class Api:
             engine._log_file(traceback.format_exc())
             return {"ok": False, "blad": engine.komunikat_bledu(e, engine.BLAD_PLIKU)}   # nigdy surowy wyjątek w oknie
 
+    def analyze_many(self, paths):
+        """Analiza listy ścieżek (upuszczonych albo wybranych): jeden folder produktu / .pptx / folder prezentacji = jak `analyze` (+ "tryb");
+        inne pliki = "tryb": "pakiet" z propozycją folderu prezentacji (folder powstaje dopiero w create_folder)."""
+        try:
+            t = time.time()
+            res = engine.analyze_many(paths)
+            engine._log_file("analiza (%d): %.1f s (%s)" % (len(paths or []), time.time() - t, res.get("tryb")))
+            self._pliki = [x["sciezka"] for x in res.get("pliki") or [] if x.get("sciezka")] if res.get("tryb") == "pakiet" else []
+            if res.get("tryb") == "pakiet" and not res.get("istnieje"):
+                self.folder = None     # folderu jeszcze nie ma: budowa wymaga create_folder
+            else:
+                self.folder = res.get("plik") or res["folder"]    # konwersja i dokument: ścieżką jest plik; folder prezentacji: folder
+            self._last_est = res["szacowany_czas_s"]
+            return res
+        except Exception as e:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "blad": engine.komunikat_bledu(e, engine.BLAD_PLIKU)}   # nigdy surowy wyjątek w oknie
+
+    def create_folder(self, opts):
+        """Tworzy folder prezentacji i KOPIUJE do niego pliki (Źródła). opts: {"baza", "nazwa", "pliki" (ścieżki albo wiersze z analizy;
+        domyślnie pliki z ostatniej analizy)}. Zajęta nazwa dostaje „ (2)”. Zapamiętuje bazę. {"ok", "folder", "zrodla", "skopiowano", "blad"}."""
+        opts = opts or {}
+        try:
+            baza = str(opts.get("baza") or folder_prez.baza_domyslna()[0])
+            nazwa = folder_prez.oczysc_tytul(opts.get("nazwa") or "", 80)
+            pliki = [x.get("sciezka") if isinstance(x, dict) else x for x in (opts.get("pliki") or self._pliki)]
+            pliki = [p for p in pliki if p]
+            if not os.path.isabs(baza):
+                return {"ok": False, "folder": None, "zrodla": None, "blad": "Wskaż folder, w którym ma powstać prezentacja."}
+            if not pliki:
+                return {"ok": False, "folder": None, "zrodla": None, "blad": "Nie ma plików do skopiowania - wybierz je jeszcze raz."}
+            folder, kopie = folder_prez.utworz_folder(baza, nazwa, pliki)
+        except FileNotFoundError as e:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "folder": None, "zrodla": None,
+                    "blad": "Nie znajduję pliku „%s” - został przeniesiony albo usunięty. Wybierz pliki jeszcze raz." % os.path.basename(str(e.filename or e))}
+        except OSError:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "folder": None, "zrodla": None,
+                    "blad": "Nie mogę utworzyć folderu w tym miejscu (brak dostępu albo dysk niedostępny). Wybierz inną lokalizację przez »Zmień…«."}
+        folder_prez.zapisz_ustawienie("baza_prezentacji", baza)
+        engine.zapisz_polecenie(folder)
+        self.folder = folder
+        engine._log_file("folder prezentacji: %s (skopiowano %d plików)" % (folder, len(kopie)))
+        return {"ok": True, "folder": folder, "zrodla": os.path.join(folder, folder_prez.ZRODLA),
+                "skopiowano": [os.path.basename(p) for p in kopie], "blad": ""}
+
     def build(self, opts):
         if not self.folder:
-            return {"started": False, "blad": "Najpierw wskaż folder."}
+            return {"started": False, "blad": "Najpierw utwórz folder prezentacji." if self._pliki else "Najpierw wskaż folder."}
         self._cancel.clear()
         opts = dict(opts or {})
         opts.setdefault("szacowany_czas_s", getattr(self, "_last_est", 40))
@@ -206,6 +305,9 @@ class Api:
         """Kopiuje polecenie do schowka i otwiera wybrany czat w przeglądarce. Adres tylko z listy AI_CHATS."""
         if ktory not in engine.AI_CHATS:
             return {"ok": False, "blad": "Nieznany czat."}
+        return self._otworz_czat(ktory, t)
+
+    def _otworz_czat(self, ktory, t):
         nazwa, url, app = engine.AI_CHATS[ktory]
         skopiowano = bool(set_clipboard(t or ""))
         appid = engine.find_app(app)
@@ -213,7 +315,7 @@ class Api:
             if appid:  # aplikacja na komputerze ma dostęp do plików, przeglądarka nie
                 subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + appid])
             else:
-                os.startfile(url)
+                os.startfile(engine.adres_czatu(ktory, url, t))
         except OSError:
             engine._log_file(traceback.format_exc())
             return {"ok": False, "blad": "Nie udało się otworzyć czatu %s. Otwórz go ręcznie%s." % (
@@ -221,6 +323,102 @@ class Api:
         gdzie = "aplikacja" if appid else "przegladarka"
         engine._log_file("otwieram %s (%s, schowek: %s, %d znaków)" % (nazwa, gdzie, skopiowano, len(t or "")))
         return {"ok": True, "nazwa": nazwa, "klucz": ktory, "skopiowano": skopiowano, "gdzie": gdzie}
+
+    # --- folder prezentacji: polecenia dla AI i scenariusz ---------------------------------------------------------
+    def ai_targets(self):
+        """[{"id", "nazwa", "dostepny", "ostatni"}]: Claude, ChatGPT, Gemini i (gdy `claude` jest w PATH) Claude Code; "ostatni" = zapamiętany wybór."""
+        return engine.ai_cele()
+
+    def prepare_ai(self, ktory, opts=None):
+        """Polecenie „źródła -> scenariusz” do schowka + otwarcie czatu (albo Claude Code w folderze). opts: {"slajdy": N}.
+        {"ok", "nazwa", "gdzie", "skopiowano", "blad", ...}."""
+        return self._ai(ktory, opts, False)
+
+    def improve_ai(self, ktory, opts=None):
+        """Jak prepare_ai, ale polecenie poprawki scenariusza po budowie (uwagi i plansze z ostatniego raportu); bez scenariusza - jak prepare_ai."""
+        return self._ai(ktory, opts, True)
+
+    def _ai(self, ktory, opts, poprawka):
+        try:
+            opts = opts or {}
+            folder = self.folder
+            if not folder or not folder_prez.czy_folder_prezentacji(folder):
+                return {"ok": False, "blad": "Najpierw utwórz folder prezentacji."}
+            cele = {c["id"]: c for c in engine.ai_cele()}
+            if ktory not in cele:
+                return {"ok": False, "blad": "Nieznany czat."}
+            p = (engine.polecenie_poprawki_ai(folder, opts.get("slajdy")) if poprawka else None) or \
+                engine.polecenie_przygotowania_ai(folder, opts.get("slajdy"))
+            self._limit = p["slajdy"]
+            folder_prez.zapisz_ustawienie("ostatni_ai", ktory)
+            engine.zapisz_polecenie(folder)    # POLECENIE.md w folderze: Claude Code i inni agenci czytają je z dysku
+            self._prep_t = time.time()   # od tej chwili nowy scenariusz zapisany w folderze przez agenta = odpowiedź (peek_clipboard)
+            if ktory in ("claude_cowork", "claude_code") and not (ktory == "claude_code" and engine.uruchom_claude_code(folder)):
+                # aplikacja Claude Desktop: nowa sesja Cowork / Code z krótkim poleceniem i folderem; pełne polecenie zostaje w schowku
+                skopiowano = bool(set_clipboard(p["tekst"]))
+                rodzaj = "cowork" if ktory == "claude_cowork" else "code"
+                try:
+                    os.startfile(engine.adres_claude(rodzaj, engine.POLECENIE_CLAUDE_CODE, folder))
+                except OSError:
+                    engine._log_file(traceback.format_exc())
+                    return {"ok": False, "blad": "Nie udało się otworzyć aplikacji Claude. Otwórz ją ręcznie%s." % (
+                        " - polecenie jest w schowku, wystarczy wkleić" if skopiowano else "")}
+                res = {"ok": True, "nazwa": "Claude " + ("Cowork" if rodzaj == "cowork" else "Code"), "klucz": ktory,
+                       "skopiowano": skopiowano, "gdzie": "aplikacja"}
+                engine.zapisz_polecenie(folder)
+                return dict(res, blad="", zalaczniki=[], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"], folder=True)
+            if ktory == "claude_code":
+                res = {"ok": True, "nazwa": "Claude Code", "klucz": ktory, "skopiowano": False, "gdzie": "terminal"}
+            else:
+                res = self._otworz_czat(ktory, p["tekst"])
+                if not res.get("ok"):
+                    return res
+            if p["do_zalaczenia"] and os.path.isdir(p["katalog"]):    # obrazy, zrzuty i PDF-y czat dostaje od użytkownika
+                try:
+                    os.startfile(p["katalog"])
+                except OSError:
+                    engine._log_file(traceback.format_exc())
+            res.update(blad="", zalaczniki=p["do_zalaczenia"], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"])
+            return res
+        except Exception as e:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "blad": engine.komunikat_bledu(e, engine.BLAD_TWORZENIA)}
+
+    def peek_clipboard(self):
+        """Scenariusz ze schowka albo None: tylko tekst, który po białych znakach (i ewentualnym ```markdown) zaczyna się od „# SCENARIUSZ DK”.
+        Niczego nie zapisuje do schowka (polecenie, które sam tam wstawiłem, tak się nie zaczyna)."""
+        try:
+            t = get_clipboard()
+            if folder_prez.wyglada_na_scenariusz(t):
+                return engine.scenariusz_modul().wyciagnij(t)
+            # agent z dostępem do folderu (Claude Cowork / Code) zapisał scenariusz sam: plik nowszy niż otwarcie czatu, nie ruszany od 3 s
+            od = getattr(self, "_prep_t", None)
+            if od and self.folder and os.path.isdir(self.folder):
+                sc, _nr = folder_prez.najnowszy_scenariusz(self.folder)
+                if sc and od < os.path.getmtime(sc) < time.time() - 3:
+                    with open(sc, encoding="utf-8-sig") as f:
+                        md = engine.scenariusz_modul().wyciagnij(f.read())
+                    if md:
+                        self._prep_t = None    # raz; kolejny zapis agenta wykryje się po kolejnym otwarciu czatu
+                        return md
+            return None
+        except Exception:
+            engine._log_file(traceback.format_exc())
+            return None
+
+    def save_scenario(self, text):
+        """Odpowiedź czatu -> sprawdzenie -> nowa wersja scenariusza w folderze prezentacji. {"ok", "plik", "slajdy", "uwagi", "blad"}."""
+        if not self.folder or not folder_prez.czy_folder_prezentacji(self.folder):
+            return {"ok": False, "plik": None, "slajdy": 0, "uwagi": [], "blad": "Najpierw utwórz folder prezentacji."}
+        try:
+            res = engine.zapisz_scenariusz(self.folder, text or "", self._limit)
+        except Exception as e:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "plik": None, "slajdy": 0, "uwagi": [], "blad": engine.komunikat_bledu(e, engine.BLAD_TWORZENIA)}
+        if res.get("ok"):
+            self._last_est = res["szacowany_czas_s"]
+            engine._log_file("scenariusz zapisany: %s (%d slajdów)" % (res["plik"], res["slajdy"]))
+        return res
 
     # --- z Pythona do JS ------------------------------------------------------------------------------------------
     def _js(self, fn, arg):
@@ -234,9 +432,9 @@ class Api:
 
     def on_drop(self, e):
         files = (e.get("dataTransfer") or {}).get("files") or []
-        path = next((f.get("pywebviewFullPath") for f in files if f.get("pywebviewFullPath")), None)
-        if path:
-            self._js("App.analyze", path)
+        sciezki = [f.get("pywebviewFullPath") for f in files if f.get("pywebviewFullPath")]
+        if sciezki:
+            self._js("App.analyzeMany", sciezki)    # zawsze lista (jeden plik = lista z jednym elementem)
         else:
             self._js("App.onError", "Nie udało się odczytać upuszczonego pliku - użyj przycisku „Wybierz folder”.")
 

@@ -9,6 +9,11 @@
           ?delay=6000           -> analiza folderu trwa 6 s zamiast 1,8 s
           ?wynik=ostrzezenia    -> ekran Gotowe z ostrzeżeniami (problemy z tekstem, treść < 100%, różnice układu)
           ?wynik=bezpp          -> ekran Gotowe bez kontroli w PowerPoint (brak miniatur, tekst niesprawdzony)
+          ?clip=0               -> schowek nigdy nie zwraca odpowiedzi czatu (zrzut pustego kroku Treść)
+          ?cc=0                 -> Claude Code niedostępny na liście czatów
+   Pakiet plików (1.3): App.analyzeMany(['a.docx', 'zrzut.png', 'b.pdf']) albo „Wybierz pliki” -> Folder -> Treść. Odpowiedź czatu pojawia się
+   w schowku po kliknięciu „Otwórz …” / „Popraw w …” (po 2 pustych sprawdzeniach). Nazwa pliku ze słowem "bezm" -> dysk M: niedostępny,
+   "istnieje" -> folder prezentacji już jest (bez kroku Folder, ze scenariuszem v2; dodatkowo "zly" = scenariusz z błędami); ?ostatni=chatgpt -> zapamiętany czat; odpowiedź ze słowem BLAD -> save_scenario odmawia, ze słowem UWAGA -> uwagi.
    Nazwa "upuszczonego" pliku ze słowem "blad" -> analiza kończy się błędem,
    ze słowem "brak" -> folder z brakami (bez copy, badania i jednego packshotu),
    ze słowem "duzy" -> dane skrajne: 8 smaków i 5 uwag; plik .pptx ze słowem "dlugi" -> 15 rozdziałów. */
@@ -26,6 +31,9 @@
   var timer = null;
   var lastFolder = null;
   var lastOpts = null;
+  var pakiet = null;      /* pakiet plików: { res, folder, tytul, ver } */
+  var clipN = -1;         /* -1 = schowek pusty; po „Otwórz czat” liczy sprawdzenia, odpowiedź po dwóch pustych */
+  var clipText = '';
 
   function log() { try { console.info.apply(console, ['[mock]'].concat([].slice.call(arguments))); } catch (e) { /* nic */ } }
 
@@ -304,6 +312,7 @@
       if (pct >= 100) {
         clearInterval(timer);
         window.App.onProgress({ krok: 'zapis', opis: 'Zapisuję plik', procent: 100, eta_s: 0 });
+        if (pakiet) { var pd = pakietDone(opts); window.App.onLog('Gotowe: ' + pd.nazwa); window.App.onDone(pd); return; }
         if (jestDopr(lastFolder)) { window.App.onLog('Sprawdzone: ' + String(lastFolder).split(/[\\/]/).pop()); window.App.onDone(doprDone(lastFolder)); return; }
         var dk = /\.(docx?|rtf|odt|pdf|txt|md)$/i.test(String(lastFolder));   /* dokument: wynik jak z silnika (tryb dokument) */
         var pp = dk || /\.(pptx|ppsx)$/i.test(String(lastFolder));
@@ -352,14 +361,115 @@
     }, 250);
   }
 
+  /* ---- pakiet plików (1.3) ---- */
+  function typOf(n) {
+    return /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i.test(n) ? 'obraz' : (/\.(docx?|rtf|odt|pdf|txt|md)$/i.test(n) ? 'dokument' : (/\.(pptx|ppsx)$/i.test(n) ? 'pptx' : 'inny'));
+  }
+  function pakietResult(paths) {
+    var names = paths.map(function (p) { return String(p).split(/[\\/]/).pop(); });
+    var sizes = [184320, 912384, 2411724, 58212, 340100, 1048576, 77824, 640000];
+    var txtSize = ['180 KB', '891 KB', '2,3 MB', '57 KB', '332 KB', '1,0 MB', '76 KB', '625 KB'];
+    var first = names.filter(function (n) { return typOf(n) === 'dokument'; })[0] || names[0];
+    var tytul = first.replace(/\.[^.]+$/, '');
+    var m = !/bezm/i.test(paths.join('|'));
+    var uw = m ? [{ typ: 'info', tekst: 'Zdjęcia i zrzuty ekranu przeczyta czat, nie program - skopiuję je do folderu „Źródła”.' }]
+      : [{ typ: 'ostrzezenie', tekst: 'Dysk M: jest teraz niedostępny, więc zapiszę folder w Dokumentach. Możesz to zmienić przyciskiem „Zmień…”.' }];
+    var baza = m ? 'M:\\- POLSKA\\02 - FIRMOWE MATERIAŁY\\PREZENTACJE' : 'C:\\Users\\Marta\\Documents';
+    var nazwa = '2026-10-27 - ' + tytul;
+    var ist = /istnieje/i.test(paths.join('|'));
+    return { res: Object.assign({ ok: true, tryb: 'pakiet', istnieje: ist },
+      ist ? { scenariusz: true, scenariusz_wersja: 2, scenariusz_ok: !/zly/i.test(paths.join('|')), wyniki: ['Strategia produktowa 2027.pptx'],
+        scenariusz_bledy: /zly/i.test(paths.join('|')) ? ['Slajd 2: brak hasła slajdu.', 'Slajd 5: tabela ma różną liczbę kolumn w wierszach.'] : [] } : {}, {
+      pliki: names.map(function (n, i) { return { nazwa: n, sciezka: String(paths[i]), typ: typOf(n), rozmiar: sizes[i % sizes.length], rozmiar_tekst: txtSize[i % txtSize.length] }; }),
+      tytul: tytul, baza: baza, nazwa_folderu: nazwa, folder: baza + '\\' + nazwa, m_dostepny: m, uwagi: uw,
+      suwaki: { slajdy: { min: 4, max: 40, domyslnie: 12 }, rozdzialy: { max: 5, domyslnie: 2 } }, czas: { stale: 12, na_slajd: 1.2 } }),
+      folder: baza + '\\' + nazwa, tytul: tytul, ver: 0 };
+  }
+  var SCEN = '# SCENARIUSZ DK\ntytuł: Strategia produktowa 2027\npodtytuł: Priorytety portfolio i plan wdrożeń\n\n' +
+    '## Rynek rośnie szybciej niż zakładaliśmy\nTrzy trendy napędzają sprzedaż przekąsek białkowych w sklepach i online.\n- Dwucyfrowy wzrost kategorii białkowej\n- Coraz większy udział e-commerce\n- Konsumenci szukają krótkiego składu\n\n' +
+    '## Liczba, która robi różnicę\n**42%** konsumentów czyta skład przed zakupem\n\n' +
+    '## Co wyróżnia nasze portfolio\nPięć linii, jeden standard jakości.\n- Bez dodatku cukru\n- Źródło białka\n- Krótki skład\n\n' +
+    '## Plan wdrożeń 2027\n| Kwartał | Premiera |\n| --- | --- |\n| Q1 | Kulki z kreatyną |\n| Q2 | Baton wanilia |\n\n' +
+    '> Smak i skład idą u nas w parze - Dział R&D\n';
+  var SCEN2 = SCEN.replace('Strategia produktowa 2027\npodtytuł: Priorytety', 'Strategia produktowa 2027 (wersja po uwagach)\npodtytuł: Priorytety') + '\n## Następne kroki\nTrzy decyzje na najbliższy miesiąc.\n- Zatwierdzić budżet premier\n- Wybrać kanały\n';
+  var CZATY = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', claude_code: 'Claude Code' };
+  function pakietDone(opts) {
+    var v = ++pakiet.ver, noai = !!(opts && opts.bez_ai);
+    var sl = noai ? Math.min((opts.slajdy || 12) + 2, 12) : (v > 1 ? 11 : 10);
+    var name = pakiet.tytul + (v > 1 ? ' v' + v : '') + '.pptx';
+    return {
+      ok: true, tryb: noai ? 'dokument' : 'pakiet', wejscie: 'pakiet', pptx: pakiet.folder + '\\' + name, nazwa: name, slajdy: sl, ukryte: 0, nowe: [], sprawdz: [], wizualizacje: [],
+      wiernosc: { usterki: [] }, czas_s: 28, miniatury: thumbs(sl), qa: { problemy: 0, szczegoly: [], wykonano: true },
+      uwagi: [], bledy_okno: [], folder_pokaz: pakiet.folder, plansze_folder: pakiet.folder + '\\plansze',
+      prompt_agent: 'Przeczytaj POLECENIE.md w folderze „' + pakiet.folder + '” i popraw scenariusz.',
+      prompt_ai: 'Mam prezentację PowerPoint „' + name + '” zrobioną z dokumentów (bez AI). Pomóż mi ją dopracować: skróć teksty, popraw literówki.'
+    };
+  }
+
   /* ---- API ---- */
   var api = {
     get_info: function () { return sleep(80).then(function () { return { wersja: '1.0.0', powerpoint: true, szablony: ['nowy', 'stary'] }; }); },
     pick_file: function () { log('pick_file'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\02 - FIRMOWE MATERIAŁY\\Strategia produktowa 2027.docx'; }); },
     pick_pptx: function () { log('pick_pptx'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\02 - FIRMOWE MATERIAŁY\\PREZENTACJE\\06.10.2026 - strategia\\DK_co_dalej_update.pptx'; }); },
     pick_folder: function () { log('pick_folder'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\09 - PREZENTACJE\\Kulki z kreatyną'; }); },
+    pick_files: function () {
+      log('pick_files');
+      return sleep(400).then(function () { return ['D:\\Marketing\\Strategia produktowa 2027.docx', 'D:\\Marketing\\Zrzut ekranu 2026-10-20 123456.png', 'D:\\Marketing\\Badanie konsumenckie Q3.pdf']; });
+    },
+    pick_parent: function () { log('pick_parent'); return sleep(400).then(function () { return 'D:\\Marketing\\- POLSKA\\02 - FIRMOWE MATERIAŁY\\PREZENTACJE'; }); },
+    analyze_many: function (paths) {
+      paths = [].concat(paths || []);
+      log('analyze_many', paths.length);
+      if (paths.length === 1 && typOf(String(paths[0])) !== 'obraz') return api.analyze(paths[0]);   /* jedno wejście: jak dawniej */
+      lastFolder = paths[0];
+      return sleep(analyzeMs).then(function () {
+        if (paths.some(function (p) { return /blad/i.test(p); })) return { ok: false, blad: 'Nie mogę odczytać tych plików. Sprawdź, czy nie są otwarte w innym programie.' };
+        pakiet = pakietResult(paths);
+        return pakiet.res;
+      });
+    },
+    create_folder: function (o) {
+      log('create_folder', JSON.stringify(o));
+      return sleep(700).then(function () {
+        if (/blad/i.test(o.nazwa)) return { ok: false, blad: 'Nie mogę zapisać w tym miejscu. Wybierz inne przyciskiem „Zmień…”.' };
+        pakiet.folder = String(o.baza).replace(/[\\/]+$/, '') + '\\' + o.nazwa;
+        return { ok: true, folder: pakiet.folder, zrodla: pakiet.folder + '\\Źródła', blad: '' };
+      });
+    },
+    ai_targets: function () {
+      return sleep(100).then(function () {
+        var last = q.get('ostatni') || 'claude';
+        return [{ id: 'claude', nazwa: 'Claude', dostepny: true }, { id: 'chatgpt', nazwa: 'ChatGPT', dostepny: true },
+          { id: 'gemini', nazwa: 'Gemini', dostepny: true }, { id: 'claude_code', nazwa: 'Claude Code', dostepny: q.get('cc') !== '0' }]
+          .map(function (t) { return Object.assign(t, { ostatni: t.id === last }); });
+      });
+    },
+    prepare_ai: function (ktory, o) {
+      log('prepare_ai', ktory, JSON.stringify(o));
+      clipN = 0; clipText = SCEN;
+      return sleep(300).then(function () { return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '' }; });
+    },
+    improve_ai: function (ktory) {
+      log('improve_ai', ktory);
+      clipN = 0; clipText = SCEN2;
+      return sleep(300).then(function () { return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '' }; });
+    },
+    peek_clipboard: function () {
+      var on = clipN >= 0 && q.get('clip') !== '0';
+      if (on) clipN++;
+      return sleep(10).then(function () { return on && clipN > 2 ? clipText : null; });
+    },
+    save_scenario: function (text) {
+      log('save_scenario', String(text).length + ' znaków');
+      return sleep(400).then(function () {
+        if (/BLAD/.test(text)) return { ok: false, plik: '', slajdy: 0, blad: 'W odpowiedzi brakuje nagłówka „# SCENARIUSZ DK” w pierwszej linii.', uwagi: ['Slajd 3: pusta linia „##” - brak hasła slajdu.'] };
+        return { ok: true, plik: ((pakiet && pakiet.folder) || '') + '\\scenariusz.md', slajdy: 8, blad: '',
+          uwagi: /UWAGA/.test(text) ? ['Slajd 4 miał 6 punktów - zostawiłem pierwsze 4.'] : [] };
+      });
+    },
     analyze: function (path) {
       log('analyze', path);
+      pakiet = null;
       lastFolder = path;
       var name = String(path);
       return sleep(analyzeMs).then(function () {

@@ -1,8 +1,13 @@
-# Prezentacja z dokumentu (docx, doc, rtf, odt, pdf, txt, md) - `scripts/dokument.py` (13.10.2026)
+# Prezentacja z dokumentu (docx, doc, rtf, odt, pdf, txt, md) - `scripts/dokument.py` (13.10.2026, przebudowa 21.10.2026)
 
-Dla ludzi i dla AI. Program robi z dokumentu tekstowego prezentację w stylu Dobra Kaloria **bez LLM, bez gubienia i bez wymyślania
-treści**: slajdy z pełnego szablonu (`katalog-szablonu.md`), plakat zamiast kartki (hasło Mindset + dopisek Lato, liczba-bohater, pas-wniosek,
-kafle z ikonami - reguły S1-S15 z `szablonuj.py`, metoda: `dopracowanie.md`). Człowiek wybiera dwa suwaki: **liczbę slajdów** i **liczbę rozdziałów**.
+Dla ludzi i dla AI. Program robi z dokumentu tekstowego prezentację w stylu Dobra Kaloria **bez LLM**: slajdy to **streszczenie
+strukturalne** dokumentu (liczby, tabele skrócone, listy jako hasła z dopiskiem, pary etykieta: wartość, karty, pytania), a **pełny tekst
+dokumentu stoi w notatkach prelegenta** każdego slajdu (słowo w słowo, w kolejności dokumentu). Niczego nie wymyślamy i niczego nie gubimy:
+pokrycie 100% liczy slajdy + notatki. Człowiek wybiera dwa suwaki: **ile slajdów** i **podział na rozdziały**.
+
+Dlaczego tak (21.10.2026): raport dla zarządu (11 stron, 2 800 słów) dał w wersji 1.2.3 146 slajdów pociętego tekstu, bo program czytał PDF
+bez tabel (0 z 10), brał etykiety i metki za nagłówki (109 fałszywych) i kładł każdy akapit na slajd. Wzorce (kreatynki, strategia) mają
+30-36 słów na slajd; 12-18 slajdów z takiego dokumentu mieści ok. 20-30% tekstu - reszta musi być w notatkach.
 
 ```powershell
 python "$env:USERPROFILE\.claude\skills\prezentacje\scripts\dokument.py" "<plik>" [--slajdy N] [--rozdzialy N] [--wyjscie K] [--robocze K] [--bez-qa]
@@ -12,70 +17,74 @@ W kodzie (kontrakt stały, okno programu stoi na nim):
 
 ```python
 import dokument
-m    = dokument.wczytaj(plik, rob)          # {"nazwa", "tytul", "bloki": [{"typ": h1|h2|h3|p|li|tabela|obraz|cytat, "t", "poziom", ...}], "ostrzezenia"}
-s    = dokument.statystyka(m)               # zakresy suwaków Z DOKUMENTU: slajdy_min / slajdy_domyslnie / slajdy_max, rozdzialy_max (+ słowa, nagłówki...)
-spec = dokument.zloz(m, {"slajdy": N, "rozdzialy": R, "wyjscie": katalog, "styl": "nowy"})   # spec dla build_dk.build
-pok  = dokument.pokrycie(m, pptx)           # "Treść: 100% akapitów (N/N) przeniesionych" (opcjonalnie mapa_blokow ze specu)
-# po renderze (okno i CLI): pętla „oko” - inny wariant układu tam, gdzie kontrole widzą usterkę
-(us, v), poprawione = dokument.petla_poprawek(spec, pomiar, buduj)   # pomiar() -> (usterki_po_renderze(png, spec, verify_tekst), verify_tekst); buduj() = build_dk.build(spec, ...)
+m    = dokument.wczytaj(plik, rob)          # {"nazwa", "tytul", "bloki": [{"typ": h1|h2|h3|p|li|tabela|obraz|cytat|kpi|kv, ...}], "ostrzezenia"}
+s    = dokument.statystyka(m)               # zakresy suwaków Z DOKUMENTU: slajdy_min / slajdy_domyslnie / slajdy_max, rozdzialy_max, na_slajdach {min, domyslnie, max} (%)
+pl   = dokument.plan(m, N)                  # rozdziały, nośniki, wybór N (do diagnozy; zloz woła go sam)
+spec = dokument.zloz(m, {"slajdy": N, "rozdzialy": R, "wyjscie": katalog, "styl": "nowy"})   # spec dla build_dk.build; każdy slajd ma `notes`
+pok  = dokument.pokrycie(m, pptx)           # "Treść: 100% akapitów (N/N) w pliku (slajdy i notatki prelegenta); na slajdach ok. X% słów"
+(us, v), poprawione = dokument.petla_poprawek(spec, pomiar, buduj)   # pętla „oko” po renderze (bez zmian)
 ```
-
-Pętla (`petla_poprawek`, do 2 rund) bierze usterki wagi >= 2 z `oko.py` (PUSTY_DOL, KARTA_PUSTA...) i z `verify.ps1` (PRZEPELNIENIE, SIEROTA, ZAWIESZKA...), podmienia slajd na
-następnego kandydata układu (`szablonuj.inny_wariant`, kandydaci w `spec["warianty"]`), buduje plik jeszcze raz i zostawia zmianę tylko tam, gdzie slajd ma mniej usterek (inaczej cofa).
-CLI robi to samo (`dokument.py <plik>` bez `--bez-qa`: render, pętla, „Kontrola układu (oko)”, „Tekst - problemy: N”).
 
 ## Formaty
 
 | Format | Jak czytamy | Uwagi |
 |---|---|---|
-| docx | OOXML bezpośrednio (zipfile + lxml, bez python-docx): style nagłówków (Nagłówek 1-3, Tytuł, Podtytuł), poziom konspektu, listy (punktowane / numerowane), tabele, obrazy z relacji, cytaty (styl Cytat) | Dokument **bez stylów**: krótki akapit pogrubiony, większy albo WERSALIKAMI, bez kropki = nagłówek. Spis treści pomijamy (jest agenda programu) |
-| doc, rtf, odt | Microsoft Word przez COM, w **własnej** instancji bez okna (`New-Object -ComObject Word.Application` z PowerShella; Word użytkownika zostaje, zamykamy tylko własny) -> kopia docx w katalogu roboczym | Bez Worda: czytelny komunikat. Bez pywin32 |
-| pdf | PyMuPDF (`fitz`): rozmiar pisma -> poziom nagłówka, sklejanie linii w akapity, dzielenie wyrazów, punktory, tabele (`find_tables`), obrazy > 200 px, usuwanie powtarzalnych nagłówków i stopek stron oraz numerów stron. Zapas: `pypdf` (sam tekst), potem Word | W paczce programu `fitz` / `pypdf` na razie nie ma - patrz „Ograniczenia” |
-| txt, md | md: `#`, listy, tabele `\|`, cytaty `>`, obrazy; txt: WERSALIKI, numeracja `1.2`, krótki wiersz bez kropki przed dłuższym akapitem = nagłówek; puste linie dzielą akapity; kilka krótkich linii bez kropek pod sobą = lista | Kodowanie UTF-8 albo cp1250 |
+| docx | OOXML bezpośrednio (zipfile + lxml): style nagłówków, poziom konspektu, listy, tabele, obrazy, cytaty | Bez stylów: krótki akapit pogrubiony / większy / WERSALIKAMI bez kropki = nagłówek; spis treści pomijamy |
+| doc, rtf, odt | Word przez COM we własnej instancji -> kopia docx w katalogu roboczym | Bez Worda: czytelny komunikat |
+| pdf | PyMuPDF (`fitz`). **Pojemniki z wypełnień** (`get_drawings`): karta = sekcja (pierwsza linia pismem ozdobnym = nagłówek), rząd >= 3 równych kafli = blok `kpi` (liczba + opis) albo `kv`, biały prostokąt z liniami pod komórkami = **tabela** (kolumny z segmentów linii, nagłówek = wiersz w całości ozdobny / pogrubiony; 2 kolumny z etykietą WERSALIKAMI = `kv`), wąski prostokąt z 1-2 słowami = metka (nigdy nagłówek), kropka przed linią = punkt; dwie szpalty tekstu bez pojemników = kolumny. **Pismo ozdobne** (druga rodzina pisma, np. Mindset jako Type3) = nagłówki: największe na stronie 1 = tytuł, >= 1,4 x podstawowe na stronie = rozdział (h2), pierwsza linia karty = podrozdział (h3); pogrubione pytanie „…?” = h3 FAQ. **Strona tytułowa** (<= 90 słów, największe pismo, bez innych nagłówków) = okładka: etykieta nad tytułem, tytuł, podtytuł, meta (kafle AUTOR / STAN NA, data). **Logo** = obraz w pasie 15% góry / dołu strony węższy niż 1/4 strony - pomijany. PDF bez wypełnień i bez drugiego pisma (eksport z Worda): rozmiar pisma >= 1,35 x podstawowe = nagłówek, tabele przez `find_tables` z liniami. Zapas: `pypdf` (sam tekst), potem Word |
+| txt, md | md: `#`, listy, tabele `\|`, cytaty `>`, obrazy; txt: WERSALIKI, numeracja, krótki wiersz bez kropki przed akapitem = nagłówek | UTF-8 albo cp1250 |
 
-Skan bez tekstu (pdf z samymi obrazami) = „To skan bez tekstu - program nie czyta obrazów…”. Dokument > 60 000 słów = rada podziału. Pusty dokument = okładka i zakończenie, bez wyjątku.
+Skan bez tekstu = „To skan bez tekstu…”. Dokument > 60 000 słów = rada podziału. Pusty dokument = okładka i zakończenie.
 
-## Reguły składania (1-6)
+## Plan: rozdziały, nośniki, budżet (sekcja 3 w `dokument.py`)
 
-1. **Szkielet**: okładka (tytuł dokumentu = akapit „Tytuł” albo jedyny / pierwszy nagłówek 1 będący stroną tytułową, inaczej nazwa pliku bez podkreślników; podtytuł =
-   pierwszy krótki akapit pod tytułem; tytuł dłuższy niż 44 znaki dostaje okładkę z jednym zdaniem na środku - `statement` t14, bo `cover_text` nie mieści długiego tytułu),
-   agenda (gdy rozdziałów >= 3, do 8), przekładki rozdziałów (`section`, numer 01, 02…), slajdy treści, zakończenie
-   (`end`, #zawszedobra). Rozdział = nagłówek: najwyższy poziomem, przy równym - najdłuższy.
-2. **Slajd treści**: tytuł = nagłówek sekcji (nadrzędny nagłówek jako etykieta nad nim). **Sekcja na 1-2 slajdy**: kolejny slajd = „Nagłówek (2)”. **Sekcja rozciągnięta
-   na więcej niż 2 slajdy** (i dokument płaski) nie dostaje numerków „(3)…(9)”: pierwszy slajd sekcji zostaje z nagłówkiem, na kolejnych **nazwa sekcji stoi nad tytułem**
-   (etykieta, za długa skracana do pełnych słów i „…”; w dokumencie płaskim - tytuł dokumentu), a **tytułem jest hasło z pierwszego zdania slajdu** (`szablonuj.haslo_cut`, słowa
-   dokumentu; reszta tego zdania jest dopiskiem w karcie). Hasło nie zostaje tytułem, gdy ma liczbę-bohatera (fakt zostaje kartą z liczbą), zaczyna się od liczby i małej litery
-   („1 łyżeczka…”), jest ucięte po „:” albo dłuższe niż 15 słów / 100 znaków, a także gdy slajd zaczyna się od listy - wtedy zostaje „Nagłówek (n)”. Sekcja bez nagłówka
-   = tytuł dokumentu. Tytułów nie wymyślamy. Wiersze `uklad` składa `szablonuj.stosuj` (hasła, liczby-bohaterowie, pasy, kafle,
-   punkty z ikoną) z wyborem wariantu z pomiaru (`szablonuj.ocena`); gdy nie ma reguły - układ ręczny z tych samych klocków.
-   Tabela -> `table` (t42, do 6 kolumn i 8 wierszy na slajd, dłuższa dzieli się z powtórzonym nagłówkiem; komórki dłuższe niż linia -> karty
-   „nagłówek - treść”), cytat -> `quote` (t20), obrazy -> `pics` (t26 / t63 / t28; akapit pod obrazem do 15 słów = podpis, zapowiedź z „:” nad
-   obrazem dołącza do podpisu), numerowana lista 2-5 pozycji -> kroki (t19, numer-bohater), 2-6 krótkich haseł (do 6 słów; z liczbą do 4, np. „300 g wody”; kilka krótkich akapitów bez kropki pod rząd to też lista) -> kafle z ikonami (t56), lista +
-   zdanie na końcu -> kafle + pas, zdanie wprowadzające + lista -> karta z punktami (t17), jedna teza -> zielona karta (t14), fakt z liczbą -> karta z liczbą (t37 / t62).
-3. **Suwak „slajdy”** = slajdy **z treścią** (okładka, agenda, przekładki i zakończenie dochodzą: razem w pliku = wartość + ramka, wynik w `spec["ustawienia"]`).
-   `statystyka`: min = najgęściej bez łamania progów (max 110 słów i 4 kart na slajd, hasło od 16 pt, dopisek od 13 pt; sekcje się nie łączą), max = jedna
-   myśl (zdanie) na slajd, najwyżej 80, **domyślnie** ok. 1 slajd na 45 słów treści i nie rzadziej niż na 5 zdań (`max(słowa/45, zdania/5)`, w granicach min-max): slajd
-   niesie 2-3 myśli jako 2-3 karty obok siebie (hasło + dopisek w każdej; wniosek idzie w pas), nie jedną kartę z pustą połową. „Najkrócej” to świadomy wybór min, „jedna myśl na slajd”
-   - max. Zdania jednego akapitu dzielą się na karty wg słów (do 26 słów jedna karta, do 48 dwie, dalej trzy; `_ile_kart`), kolejne akapity to kolejne karty. Przekładki rozdziałów
-   domyślnie tylko od 9 slajdów treści i średnio >= 3 slajdy na rozdział.
-   Cięcie tylko między zdaniami, najchętniej między akapitami. Gdy czytelność wymusi więcej slajdów, wychodzi N+k i `uwagi` to mówią.
-4. **Zawsze 100 %**: żadna wartość suwaka nie gubi treści (`pokrycie` na min, domyślnej i max); jedyne powtórzenia to liczba-bohater i numery kroków.
-5. **Typografia i błędy tekstu**: `lint_tekst.sprawdz` -> `spec["bledy_tekstu"]` i linie w `uwagi`. Program **nie poprawia** tekstu dokumentu (poprawia AI według
-   `dopracowanie.md` pkt 4 albo autor w pliku). Zawieszki / sieroty łamie builder.
-6. **Niczego nie wymyślamy**: żadnych własnych tytułów, wniosków, liczb; podpowiedzi w [nawiasach] nie dodajemy.
+1. **Rozdziały** = sekcje najwyższego poziomu z nagłówkiem (w pdf DK: strony); krótsze niż 40 słów doklejają się (sam wstęp do następnego,
+   inne do poprzedniego). Tytułów nie wymyślamy.
+2. **Nośniki** (jednostki, z których każda daje jeden slajd z katalogu szablonu), ranga = kolejność ważności:
 
-## Ograniczenia (czego reguły nie pokonują)
+   | Nośnik | Ranga | Slajd | Na slajdzie | W notatkach |
+   |---|---|---|---|---|
+   | `kpi` (rząd kafli z liczbą) | 1 | t62 karty liczba-bohater + hasło (+ pas) | do 4 kafli | reszta |
+   | tabela o kształcie **tabeli** (>= 3 sensowne kolumny) | 2 | t42 `table`: pierwsza kolumna + druga + najkrótsze do 3 (Szczegółowo 4) kolumn, do 6 (8) wierszy, komórka = pierwsza pełna fraza do 7 słów; kolumna, w której > 1/3 komórek nie ma pełnej frazy, znika | skrót | pełna tabela wiersz po wierszu |
+   | tabela z **kolumną liczb** (<= 6 wierszy) | 2 | t62 karty: liczba + nazwa (3 + 3) | nazwa + liczba | reszta komórek |
+   | tabela z **kolumną dat** (2 kolumny) | 2 | t43 oś czasu: data, nazwa, reszta | | pełne komórki |
+   | tabela z **kolumną tak / nie / częściowo** | 2 | karty: jedna na wartość, pozycje z ikoną ✓ – ✗ | | reszta |
+   | tabela 2 kolumny krótkich wartości | 2 | t45 kafle etykieta: wartość | do 8 | reszta |
+   | **siatka** (>= 3 sąsiednie karty z `kv` o wspólnych etykietach, np. karty programów, także przez nagłówek „(cd.)”) | 2 | karty: nazwa + do 3 wspólnych par | | wszystkie pary |
+   | lista z liczbami (>= 2 pozycje z liczbą) | 2 | kafle: hasło (pierwsza fraza do 6 słów) + dopisek Lato do 16 słów; ikona na wszystkich kaflach albo na żadnym; 1-4 w rzędzie, 5 = 3 + 2, 6 = 3 + 3 | do 6 pozycji | reszta |
+   | lista, lista numerowana (kroki z numerem), `kv` >= 3 par, karty (>= 2 podsekcje po 1-2 akapity), cytat | 3 | jw. / t19 / t45 / karty z hasłem i dopiskiem / t20 | | |
+   | FAQ (>= 2 podsekcje-pytania „…?”) | 4 | karty: pytanie + pierwsza fraza odpowiedzi, 5 na slajd (3 + 2) | | pełne odpowiedzi |
+   | akapity (`tekst`) | 5 (2, gdy rozdział ma sam tekst) | t61 karta: hasło (`haslo_cut`) + dopisek do 25 słów; jedno zdanie <= 10 słów = zielona karta | pierwszy akapit | reszta |
 
-- **Źródło bez struktury** (tekst z wyeksportowanych slajdów, strony WWW wklejone do Worda): setki mikro-akapitów dają dużo małych slajdów (`slajdy_min` bywa większe
-  niż 80); to jest wierne odwzorowanie, nie błąd. Dodaj nagłówki w dokumencie.
-- **Tytuły bez nagłówków**: dokument płaski ma tytuł dokumentu nad tytułem slajdu (tytuł slajdu = hasło z jego pierwszego zdania); gdy hasła nie da się wyciąć (zdanie > 15 słów
-  bez przecinka, liczba-bohater, lista na początku slajdu), zostaje „Raport (3)”. Slajdy niebędące tekstem (tabela, cytat, obraz) w sekcji > 2 slajdy też mają „Nagłówek (n)”.
-- **Pola tekstowe i przypisy dolne** w docx nie są czytane (program ostrzega); spis treści pomijamy.
-- **Tabele**: wielokolumnowa tabela tekstowa staje się kartami „kolumna = karta” (kolejność komórek: kolumnami); obraz tabeli w pdf-ie (skan) nie jest czytany.
-- **PDF w paczce programu**: dopisz `pymupdf` (najlepiej) albo `pypdf` do `HIDDEN` w `stworz_cli.spec` i `stworz_gui.spec`; bez nich pdf czyta Word (może się zawiesić na
-  oknie konwersji - limit 60 s, zabijamy tylko własną instancję).
-- **Po pętli poprawek zostają pojedyncze usterki kontroli tekstu**, których zmiana wariantu nie naprawia: sierota w ostatnim słowie hasła w wąskiej karcie („300 G / WODY”,
-  pojedyncze długie słowo), przepełnienie pola o 2-3 pt (szacunek buildera vs PowerPoint) i słowa sklejone w źródle („energiijako”, `lint_tekst` je zgłasza). Raport pokazuje je z numerem slajdu.
-- **Etykieta nad tytułem** (nagłówek nadrzędny) ma jedną linię (do 52 znaków): dłuższa trafia do tytułu („Nadrzędny - Nagłówek”). **Agenda** tylko gdy nazwy rozdziałów mieszczą się w punkcie
-  (do 70 znaków przy 3-4 rozdziałach, do 34 przy 5-8); inaczej bez agendy, przekładki zostają.
-- Czas (zmierzony): `statystyka` < 10 ms; `zloz` 1-2 s dla 500-1100 słów, ok. 10 s dla 3500 słów (pamięć podręczna pomiaru tekstu); zimny start +3 s (import).
+   Akapit przed pierwszym nośnikiem sekcji = **wstęp**, po nim = **komentarz**: pierwsze zdanie (albo jego pierwsza fraza) <= 12 słów idzie jako
+   **pas-wniosek** pod treść nośnika; dłuższe tylko do notatek (na zieleń nigdy nie trafia tekst > 12 słów, zielona karta > 10 słów - twarda bramka).
+   Wstęp / komentarz >= 12 słów jest też osobną częścią „Szczegółowo” (karta hasło + dopisek).
+3. **Ranga 0 (zawsze na slajdzie, także „Krótko”)**: nośniki sekcji i rozdziałów o nagłówku z „decyz”, „wniosk”, „rekomend”, „podsumow”, „plan”,
+   „następne kroki” oraz najlepszy nośnik ostatniego rozdziału (poza FAQ).
+4. **Budżet = suwak „Ile slajdów”** (slajdy z treścią; okładka, spis treści, slajdy tytułowe rozdziałów i zakończenie dochodzą):
+   - min („Krótko”) = najlepszy nośnik każdego rozdziału + nośniki rangi 0;
+   - domyślnie („Standardowo”) = min + nośniki rangi 1-2 (liczby, tabele, siatki, listy z liczbami);
+   - max („Szczegółowo”) = wszystkie nośniki + dalsze części (kolejne 8 wierszy tabeli, kolejne pytania FAQ, kolejne akapity, wstępy), najwyżej 80.
+   Nośniki wchodzą według rangi, przy równej w kolejności dokumentu; nośnik niewybrany idzie w całości do notatek poprzedniego wybranego slajdu
+   (uwaga „W notatkach prelegenta (nie na slajdach): …”). `statystyka["na_slajdach"]` = procent słów na slajdach dla min / domyślnie / max.
+   **Twarda bramka**: slajdów treści nigdy więcej niż ustawienie (`RuntimeError` zamiast nadwyżki; nośnik, który się nie mieści, dostaje mniej
+   pozycji / bez dopisków, w ostateczności `flow`, nigdy dodatkowy slajd).
+5. **Cięcie tekstu** (`_fraza`, `_czlon`): tylko na granicy pełnej frazy (przecinek, średnik, dwukropek, „ – ”, koniec zdania); tekst na slajdzie
+   nigdy nie kończy się spójnikiem, przyimkiem ani otwartym nawiasem; bez granicy - cięcie przed ostatnim przyimkiem w zasięgu; dwa wiersze
+   tabeli o tej samej nazwie dostają dłuższy człon. Słowa zawsze z dokumentu, w jego kolejności.
+6. **Suwak „Podział na rozdziały”**: 0 = slajdy jeden za drugim; N = N rozdziałów (największe, w kolejności dokumentu) dostaje zielony slajd z samym
+   tytułem, od 3 także spis treści (gdy nazwy mieszczą się w punkcie). Domyślnie 0, chyba że rozdział ma średnio >= 3 slajdy.
+7. **Tytuły**: slajd = nagłówek sekcji nośnika, nad nim nazwa rozdziału (<= 52 znaki; dłuższa dopisana do tytułu); dalsze części „Tytuł (2)”.
+   Okładka t09 (jasna): etykieta nad tytułem, tytuł, podtytuł = pierwsza fraza pierwszego akapitu (do 14 słów), autor i data w stopce.
+8. **Typografia i błędy tekstu**: `lint_tekst.sprawdz` -> `spec["bledy_tekstu"]`; program nie poprawia tekstu (robi to AI według `dopracowanie.md`).
+
+## Ograniczenia
+
+- Wagę treści poza typem nośnika program ocenia tylko regułą rangi 0 (słowa w nagłówku) - akapit ważny dla zarządu bez takiego nagłówka pokaże się
+  dopiero przy „Szczegółowo”; sterowanie: suwak, a dopracowanie przez polecenie dla AI.
+- Tabela t42 ma pismo 13 pt przy 6 wierszach i zostawia pusty dół (`build_dk.s_table` powiększa pismo tylko do 7 wierszy łącznie) - zmiana wymaga
+  edycji `build_dk.py`.
+- PDF: pojemniki wymagają wypełnień (eksport z HTML / DK); PDF z Worda czyta się rozmiarem pisma i `find_tables` z liniami. Pismo ozdobne
+  rozpoznajemy po rodzinie innej niż podstawowa (>= 2% znaków). Kolumny tekstu: do 4 szpalt bez pojemników.
+- Etykieta nad tytułem ma jedną linię (do 52 znaków); spis treści tylko, gdy nazwy rozdziałów mieszczą się w punkcie (70 / 34 znaki).
+- Czas: `statystyka` liczy trzy plany bez pomiaru układu (< 0,1 s); `zloz` mierzy układ każdego slajdu (1-2 s na slajd).

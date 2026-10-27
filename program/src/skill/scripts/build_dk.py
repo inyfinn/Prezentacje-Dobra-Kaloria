@@ -1372,15 +1372,27 @@ def s_table(deck, sp):
     xs = [MX]
     for wd in widths:
         xs.append(xs[-1] + tw * wd / tot)
-    rh = min(cm(1.3), (H - cm(7)) / (len(rows) + 1))
-    y = CT
-    tpt = 13
+    n = len(rows) + 1
     pole = CB - CT
-    if len(rows) + 1 <= 7 and rh * (len(rows) + 1) < 0.65 * pole:
-        # 13.10 (K4): krótka tabela nie zostawia pustego dołu: wiersze do 1,9 cm (pismo 15-16 pt), blok w pionie na środku pola
-        rh = min(cm(1.9), 0.65 * pole / (len(rows) + 1))
-        tpt = 13 if rh <= cm(1.3) else (15 if rh < cm(1.7) else 16)
-        y = CT + max(0, (pole - rh * (len(rows) + 1)) / 2)
+    # 21.10 (dokument -> prezentacja): tabela wypełnia pole treści - wiersz rośnie do 1,9 cm, pismo 13 -> 16 pt, blok na środku pola;
+    # nigdy niżej niż dawniej (min(1,3 cm, (H - 7 cm) / n)) i tylko tak duże pismo, przy którym żadna komórka nie łamie się w więcej
+    # linii niż mieści wiersz (ciasna tabela nie może się przepełnić)
+    rh = min(cm(1.9), max((H - cm(7)) / n, pole / n))
+    tpt = 13 if rh <= cm(1.3) else (14 if rh < cm(1.5) else (15 if rh < cm(1.7) else 16))
+    while tpt > 13:
+        za_duzo = False
+        for c, hd in enumerate(head):
+            cw = xs[c + 1] - xs[c] - cm(1)
+            for val in [hd] + [str(r[c]) for r in rows]:
+                if len(lines_for(val, tpt, cw, "body")) * tpt * 1.2 * 12700 > rh:
+                    za_duzo = True
+                    break
+            if za_duzo:
+                break
+        if not za_duzo:
+            break
+        tpt -= 1
+    y = CT + max(0, (pole - rh * n) / 2)
     num = [all(re.match(r"^[\d\s,.%zł-]+$", str(r[c])) for r in rows) for c in range(len(head))]
     for c, hd in enumerate(head):  # nagłówek bez tła, pogrubiony (jak tabela wartości w sklepie)
         txt(s, xs[c] + cm(0.5), y, xs[c + 1] - xs[c] - cm(1), rh, hd, tpt, font="bold", anchor="m",

@@ -5,7 +5,7 @@ description: Tworzenie prezentacji PPTX marki Dobra Kaloria (Kubara) z folderu p
 
 # /prezentacje - prezentacje Dobra Kaloria
 
-**Zawsze razem z tym skillem wywołaj `ui-ux-pro-max:ui-ux-pro-max` i `uidesigner`** (polecenie usera). Bierzesz z
+**Zawsze razem z tym skillem wywołaj `ui-ux-pro-max`** (w paczce: `skille/ui-ux-pro-max`; w pluginie `ui-ux-pro-max:ui-ux-pro-max`) **i, jeśli go masz, `uidesigner`** (polecenie usera). Bierzesz z
 nich METODĘ: hierarchia, jedna myśl na slajd, liczba-bohater, kontrast AA, światło, pętla zrzut -> ocena -> poprawka.
 Nie bierzesz ich wyglądu ani HTML - wynik to zawsze PPTX w stylu marki. Przy dopracowywaniu wyglądu: `ui-taste-reflect`.
 
@@ -28,7 +28,7 @@ Zmiana w skrypcie skilla = po `build.ps1` trafia do programu. Program NIC nie za
 sieciowy): cache blokady/placeholderów w `%LOCALAPPDATA%\Dobra Kaloria\Stworz prezentacje` (env `DK_GUARD_CACHE`,
 `DK_CACHE_DIR`). Pułapka: kopia skilla w programie ≠ ten katalog - po ręcznej zmianie skilla odśwież (`build.ps1`).
 **Tryb pptx: upuszczony / podany plik .pptx = konwersja gotowej prezentacji** (`scripts/pptx_convert.py`: `extract` -> `compose` -> `build_dk` -> `coverage`; `stworz-cli.exe "<plik.pptx>"` albo `python pptx_convert.py <plik.pptx>`): cała treść zostaje (długi tekst dzieli „(1/2)” tylko gdy się nie mieści), wynik `<nazwa> - nowy styl.pptx`, raport „Treść: 100% akapitów (N/N)”. Po konwersji program ostrzega o ewidentnych błędach tekstu źródła (`lint_tekst.py`), robi pętlę „oko” (pomiar zrzutów i inny wariant układu; `stworz-cli.exe --bez-oka` ją wyłącza; `konwersja-pptx.md` 2d), zapisuje plansze slajdów dla czatu w `<folder wyniku>\plansze` i daje DWA polecenia dla AI (teksty: `scripts/polecenia.py` - `POLECENIA`, `polecenie_ai(cel, dane, pliki)`, `tabela_ksztaltow`): dla czatu bez plików (przyciski Claude / ChatGPT / Gemini kopiują je do schowka i otwierają czat) i dla agenta z plikami (jedyny nowy element okna: link „Polecenie dla agenta z plikami”). To szkic, który AI dopracowuje według `references/dopracowanie.md`.
-**Tryb dokument: plik .docx / .doc / .rtf / .odt / .pdf / .txt / .md = prezentacja z dokumentu** (`scripts/dokument.py`: `wczytaj` -> `statystyka` -> `zloz(m, {"slajdy": N, "rozdzialy": R})` -> `build_dk` -> `pokrycie`; CLI `python dokument.py <plik> [--slajdy N] [--rozdzialy N] [--wyjscie K] [--robocze K]`). Te same reguły haseł co konwersja (`szablonuj.stosuj`), niczego nie wymyśla, pokrycie 100% dla każdej wartości suwaka. Opis i ograniczenia: `references/z-dokumentu.md`.
+**Tryb dokument: plik .docx / .doc / .rtf / .odt / .pdf / .txt / .md = prezentacja z dokumentu** (`scripts/dokument.py`: `wczytaj` -> `statystyka` -> `zloz(m, {"slajdy": N, "rozdzialy": R})` -> `build_dk` -> `pokrycie`; CLI `python dokument.py <plik> [--slajdy N] [--rozdzialy N] [--wyjscie K] [--robocze K]`). Slajdy = streszczenie strukturalne (liczby, tabele skrócone, listy jako hasła), pełny tekst w notatkach prelegenta; pokrycie 100% w pliku (slajdy + notatki) dla każdej wartości suwaka; niczego nie wymyśla. Opis i ograniczenia: `references/z-dokumentu.md`.
 **Tryb dopracowanie: plik już w stylu DK (szablon, wynik programu, deck z szablonu) nie jest konwertowany** - `pptx_convert.rozpoznaj(plik)` zwraca `tryb: "dopracowanie"`, `pptx_convert.przeglad(plik, rob)` daje listę błędów tekstu, podpowiedzi w [nawiasach] i uwagi; plik usera zostaje bez zmian. CLI bez `--mimo-to` wypisuje przegląd (kod 0); `--mimo-to` wymusza konwersję. Dopracowanie robi AI według `references/dopracowanie.md`.
 **Zasada usera 13.10: program „funkcjonalny, ale nie przeładowany”** - żadnych nowych kroków, ekranów ani przełączników; nowe możliwości idą w automat i w polecenia dla AI (`lekcje.md` A53). Samoaktualizacja kopiuje też `skill-prezentacje` i `skill-ds-dobra-kaloria` obok programu i podmienia `DK - szablon prezentacji.pptx` tylko wtedy, gdy to niezmieniona stara wersja.
 
@@ -98,6 +98,15 @@ python "$env:USERPROFILE\.claude\skills\prezentacje\scripts\pptx_convert.py" "<p
 - Wyjątek od 1:1 tylko na życzenie: wstawki ze źródłem z researchu (`references/wstawki-z-researchu.md`).
 Odrzucone przez usera: 07.10 wersja 57-slajdowa z przebudowaną treścią i wersje 1:1 z gołym tekstem; 13.10 sam tekst
 Mindset na całą szerokość oraz zdania jako akapity Lato w kartach („za dużo czcionki Lato, za mało haseł”) - `lekcje.md` A33-A52.
+
+## 1c. Bez programu: Mac, czat, Cowork (Droga B, 21.10.2026)
+
+Brak `stworz-cli.exe` albo PowerPointa (Mac, claude.ai, Cowork - kod w maszynie z Linuksem, bez dysków sieciowych):
+składasz prezentację ze slajdów `DK - szablon prezentacji - pełen.pptx` funkcjami `scripts/dk_szablon.py`
+(`zloz`, `wpisz`, `pola`, `obraz`, `twarde`). **Przed oddaniem `sprawdz(prs, "assets/fonts")` musi być pusta** - pomiar
+czcionkami Mindset i Lato; podgląd z LibreOffice kłamie (czcionka zastępcza + LibreOffice sam zmniejsza pismo w polach
+z autodopasowaniem, PowerPoint nie). Render: PowerPoint, gdy jest; inaczej LibreOffice na kopii z `podglad()`.
+Całość: `references/bez-programu.md`, lekcja A55. Model: Fable (Claude), Astra albo SOL (inne), wysokie myślenie.
 
 ## 2. Wejście: folder produktu
 
@@ -171,6 +180,7 @@ scripts/polecenia.py       teksty poleceń dla AI (agent z plikami / czat bez pl
 scripts/test_*.py          pytest bez PowerPointa: test_konwersja (R0-R12, S1-S15, tabela regresji `-k tabela -s`), test_ikony, test_lint, test_katalog, test_oko, test_polecenia
 scripts/wizki.py           wizualizacje produktów z biblioteki 01 - PRODUKTY\- DK (dopasowanie linii, packshot, złożenie 2-3 paczek)
 scripts/pary_slajdow.py    plansze par stary | nowy slajd - bramka oddania konwersji 1:1
+scripts/dk_szablon.py      Droga B bez programu: zloz / wpisz / pola / obraz / twarde / sprawdz (pomiar Mindset+Lato) / podglad
 scripts/build_deck.py      A: styl klasyczny DK_WZÓR
 scripts/make_template.py   szablon: KRÓTKI 7 slajdów (`spec_krotki`) i PEŁNY 65 (`spec`; wpisy add(); wzory dla konwersji: t14 Jedno zdanie – teza, t17 Punkty, t20 Cytat, t36 Zalety w kaflach, t62 Trzy fakty w kartach; katalog: references/katalog-szablonu.md)
 scripts/prep_images.py     cutout / cutout_dark / trim / tif / xlsx
@@ -184,6 +194,7 @@ assets/ikony-slowa.json    słownik słowo -> ikona (S13); katalog-szablonu.json
 assets/linie-aliasy.json   słownik: nazwa linii na slajdzie -> linia w bibliotece (ZAŁOŻENIE z 07.10, do potwierdzenia)
 references/lekcje.md       CZYTAJ NAJPIERW                 references/styl-dk.md     tokeny i zasady B/C
 references/dopracowanie.md metoda dopracowania po konwersji (WYGRYWA)  references/katalog-szablonu.md  kształt treści -> slajd
+references/bez-programu.md Droga B (Mac, czat, Cowork): szablon + dk_szablon.py, pomiar zamiast podglądu
 references/wstawki-z-researchu.md  research / audyt -> stopki źródeł, korekty i małe wstawki (paczka wstawki.json)
 references/spec-dk.md      format spec B/C                 references/checklist.md   QA
 references/design-system.md, spec-format.md                styl A
