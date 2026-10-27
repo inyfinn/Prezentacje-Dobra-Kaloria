@@ -33,6 +33,9 @@ datas = (pliki(os.path.join(SRC, "ui"), "app/ui")
          + pliki(os.path.join(SRC, "skill", "assets"), "app/skill/assets")
          + pliki(os.path.join(SRC, "skill", "references"), "app/skill/references")
          + [(os.path.join(PROG, "wersja.txt"), ".")])
+# python-pptx: szablony XML (notes.xml, default.pptx…) – bez nich budowa pada na notatkach (smoke Actions 27.10.2026)
+from PyInstaller.utils.hooks import collect_data_files
+datas += collect_data_files("pptx") + collect_data_files("openpyxl") + collect_data_files("webview")
 # SKILL.md obok skryptów (agent AI instaluje skill z tego folderu) i instrukcja AGENTS.md, gdy leży w repo (dla-uzytkownika) / w WORK
 for p, cel in ((os.path.join(SRC, "skill", "SKILL.md"), "app/skill"),
                (os.path.join(os.path.dirname(PROG), "dla-uzytkownika", "AGENTS.md"), "."),
