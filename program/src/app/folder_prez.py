@@ -69,8 +69,11 @@ def dokumenty_baza():
 
 
 def baza_domyslna():
-    """(baza, m_dostepny): ostatnio użyta (jeśli nadal istnieje) -> M:\\…\\PREZENTACJE -> Dokumenty\\Prezentacje Dobra Kaloria."""
+    """(baza, m_dostepny): ostatnio użyta (jeśli nadal istnieje) -> M:\\…\\PREZENTACJE -> Dokumenty\\Prezentacje Dobra Kaloria.
+    Ustawiona zmienna DK_PREZ_BAZA ma pierwszeństwo przed wszystkim (zapamiętana baza jest wtedy ignorowana)."""
     m = zapisywalny(baza_m())
+    if os.environ.get("DK_PREZ_BAZA"):     # podmiana z otoczenia (testy) jest pierwsza: zapamiętana baza, np. na M:, jej nie przesłania
+        return (baza_m() if m else dokumenty_baza()), m
     ost = ustawienia().get("baza_prezentacji")
     if isinstance(ost, str) and zapisywalny(ost):
         return ost, m

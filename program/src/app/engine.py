@@ -1040,7 +1040,7 @@ def _ai_prompt_pptx(nazwa, plik, model, spec, uwagi, cov, qa, pptx, max_chars, c
     if bledy:
         L += ["", "MOŻLIWE BŁĘDY W TEKŚCIE %s (program ich nie poprawia)" % ("DOKUMENTU" if dok else "ORYGINAŁU")] + _blok_bledow(bledy)
     if qa and qa.get("szczegoly"):
-        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in qa["szczegoly"][:12]]
+        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in _qa_linie(qa)[:12]]
     return "\n".join(L)
 
 
@@ -1136,7 +1136,7 @@ def _ai_prompt_dopracowanie(plik, rozp, pr, uwagi, bledy, qa, plansze, limit_zro
     if bledy:
         L += ["", "MOŻLIWE BŁĘDY W TEKŚCIE ORYGINAŁU (program ich nie poprawia)"] + _blok_bledow(bledy)
     if qa and qa.get("szczegoly"):
-        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in qa["szczegoly"][:12]]
+        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in _qa_linie(qa)[:12]]
     return "\n".join(L)
 
 
@@ -1506,14 +1506,32 @@ def _ps(script, *args, timeout=900):
     return (r.stdout + r.stderr).decode("utf-8", "replace")
 
 
+def _jpeg_data(f, width):
+    im = Image.open(f).convert("RGB")
+    im.thumbnail((width, width))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=82)
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
 def _thumbs(png_dir, width=480):
+    return [_jpeg_data(f, width) for f in sorted(glob.glob(os.path.join(png_dir, "s*.png")))]
+
+
+def plansze_info(plansze_pliki, width=240):
+    """Plansze (pełne ścieżki wynik_01-06.png…) -> [{"plik", "opis": "Slajdy 1-6", "miniatura": data URI}] do karty „Dopracuj z AI”:
+    człowiek widzi, jakie to obrazy ma przeciągnąć do czatu. Plik, którego nie da się odczytać, jest pomijany."""
     out = []
-    for f in sorted(glob.glob(os.path.join(png_dir, "s*.png"))):
-        im = Image.open(f).convert("RGB")
-        im.thumbnail((width, width))
-        buf = io.BytesIO()
-        im.save(buf, "JPEG", quality=82)
-        out.append("data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii"))
+    for p in plansze_pliki or []:
+        m = re.search(r"wynik_(\d+)-(\d+)\.png$", p, re.I)
+        a, b = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+        try:
+            mini = _jpeg_data(p, width)
+        except Exception:
+            _log_file(traceback.format_exc())
+            continue
+        out.append({"plik": os.path.basename(p), "opis": ("Slajd %d" % a if a == b else "Slajdy %d-%d" % (a, b)) if a else os.path.basename(p),
+                    "miniatura": mini})
     return out
 
 
@@ -1662,7 +1680,7 @@ def ai_prompt_chat(nazwa, inv, spec, uwagi, qa=None, max_copy=7000, pptx=None, f
     if uwagi:
         L += ["", "UWAGI PROGRAMU (braki do uzupełnienia)"] + [" - " + u for u in uwagi]
     if qa and qa.get("szczegoly"):
-        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in qa["szczegoly"][:12]]
+        L += ["", "KONTROLA TEKSTU WYKRYŁA"] + [" - " + x for x in _qa_linie(qa)[:12]]
     return "\n".join(L)
 
 
@@ -1695,7 +1713,7 @@ def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), suf
     kopia pliku użytkownika): render_app.ps1 -NoEmbed - PowerPoint otwiera plik tylko do odczytu i niczego nie zapisuje."""
     def f(x):
         return zakres[0] + (zakres[1] - zakres[0]) * x
-    qa = {"problemy": None, "szczegoly": [], "wykonano": False, "png": None}
+    qa = {"problemy": None, "szczegoly": [], "opisy": [], "wykonano": False, "png": None}
     thumbs = []
     if powerpoint_available() and not opts.get("bez_qa"):
         name = os.path.splitext(os.path.basename(pptx))[0]
@@ -1718,8 +1736,8 @@ def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), suf
         say(r.strip()[-300:])
         if osadzaj:
             guard.record(pptx)  # PowerPoint zapisał plik od nowa - odśwież sumę (inaczej następna budowa uzna go za ręczny)
-        emit("qa", "Sprawdzam tekst (sieroty, kolizje, krawędzie)" + sufiks, f(0.6))
-        opis_v = "Sprawdzam tekst (sieroty, kolizje, krawędzie)" + sufiks
+        emit("qa", "Sprawdzam, czy tekst mieści się na slajdach" + sufiks, f(0.6))
+        opis_v = "Sprawdzam, czy tekst mieści się na slajdach" + sufiks
         rep = _ps_z_biciem(emit, "qa", opis_v, f(0.6), f(0.88), 40, paths.VERIFY_PS, "-Src", pptx)
         if _COM_ERR.search(rep):
             time.sleep(5)
@@ -1732,6 +1750,7 @@ def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), suf
                          "tekstu się nie wykonała. Zamknij okna dialogowe PowerPointa i stwórz prezentację jeszcze raz.")
         qa["problemy"] = int(m.group(1)) if m else None
         qa["szczegoly"] = [l.strip() for l in rep.splitlines() if re.match(r"\s{3}s\d+ ", l)]
+        qa["opisy"] = [qa_po_ludzku(l) for l in qa["szczegoly"]]   # to samo po ludzku: okno i polecenia dla AI; surowe zostają w "szczegoly"
         qa["png"] = png
         emit("qa", "Przygotowuję podgląd" + sufiks, f(0.9))
         thumbs = _thumbs(png)
@@ -1808,6 +1827,60 @@ OKO_MIN_WAGA = 2        # do pętli przebudowy idą usterki o wadze >= 2; waga 1
 OKO_RUNDY = 2
 OKO_LIMIT_S = 240       # gdy pierwsza budowa + kontrola trwała dłużej - tylko 1 runda
 OKO_LINII = 10          # najwyżej tyle linii „Sprawdź najpierw: slajd N - …” z oka w uwagach
+
+
+def _fragm(t, lim):
+    """Tekst z linii verify.ps1 (przycięty tam do `lim` znaków) do zdania: „…” na końcu, gdy był przycięty."""
+    t = (t or "").strip()
+    return t + ("…" if len(t) >= lim else "")
+
+
+# linia verify.ps1 (bez „sN ”) -> zdanie po ludzku; (wzorzec, funkcja z dopasowania)
+_VERIFY_LUDZKO = (
+    (re.compile(r"PRZEPELNIENIE pola \+(\d+)pt: '?(.*?)'?$"),
+     lambda m: "tekst „%s” nie mieści się w polu (wystaje o %s pt) - skróć go" % (_fragm(m.group(2), 28), m.group(1))),
+    (re.compile(r"przy krawedzi poziomej: '?(.*?)'?$"),
+     lambda m: "tekst „%s” dotyka bocznej krawędzi slajdu - skróć go albo zmniejsz" % _fragm(m.group(1), 28)),
+    (re.compile(r"przy dolnej krawedzi: '?(.*?)'?$"),
+     lambda m: "tekst „%s” dotyka dolnej krawędzi slajdu - skróć go" % _fragm(m.group(1), 28)),
+    (re.compile(r"przy gornej krawedzi: '?(.*?)'?$"),
+     lambda m: "tekst „%s” dotyka górnej krawędzi slajdu - przesuń go albo skróć" % _fragm(m.group(1), 28)),
+    (re.compile(r"TEKST NA GRAFICE \((\d+)%\): '(.*)' x (.*)$"),
+     lambda m: "tekst „%s” zachodzi na obraz „%s” (%s%% tekstu) - skróć tekst albo przesuń obraz" % (_fragm(m.group(2), 24), m.group(3), m.group(1))),
+    (re.compile(r"TEKST NA GRAFICE \((\d+)%\): '?(.*?)'?$"),     # linia ucięta w tekście (koniec akapitu): bez nazwy obrazu
+     lambda m: "tekst „%s” zachodzi na obraz (%s%% tekstu) - skróć tekst albo przesuń obraz" % (_fragm(m.group(2), 24), m.group(1))),
+    (re.compile(r"GRAFIKA NA LOGO \((\d+)%\): (.*)$"),
+     lambda m: "obraz „%s” zasłania logo (%s%% logo) - przesuń obraz" % (m.group(2), m.group(1))),
+    (re.compile(r"ZAWIESZKA na koncu linii: '?(?:\.\.\.)?(.*?)'?$"),
+     lambda m: "linia kończy się krótkim wyrazem („…%s”), który powinien przejść do następnej linii - przeredaguj zdanie" % m.group(1)),
+    (re.compile(r"MYSLNIK na poczatku linii: '?(.*?)'?$"),
+     lambda m: "linia zaczyna się od myślnika („%s”) - przeredaguj, żeby myślnik nie stał na początku linii" % _fragm(m.group(1), 24)),
+    (re.compile(r"SIEROTA w naglowku: '?(.*?)'?$"),
+     lambda m: "w nagłówku w ostatniej linii zostało jedno słowo („%s”) - skróć tekst albo przeredaguj" % m.group(1)),
+    (re.compile(r"SIEROTA \(1 slowo w ostatniej linii\): '?(.*?)'?$"),
+     lambda m: "w ostatniej linii zostało jedno słowo („%s”) - skróć tekst albo przeredaguj" % m.group(1)),
+)
+
+
+def _qa_linie(qa):
+    """Linie kontroli PowerPointa do polecenia dla AI: po ludzku (qa["opisy"]); bez nich (starszy wynik) surowe."""
+    return (qa or {}).get("opisy") or (qa or {}).get("szczegoly") or []
+
+
+def qa_po_ludzku(linia):
+    """Linia kontroli PowerPointa (verify.ps1, np. "s7 PRZEPELNIENIE pola +5pt: 'Badanie wykonała Chilli insi'") -> zdanie dla człowieka:
+    „Slajd 7: tekst „Badanie wykonała Chilli insi…” nie mieści się w polu (wystaje o 5 pt) - skróć go.” Nieznany kod: „Slajd N: <surowy tekst>”.
+    Surowe linie zostają w qa["szczegoly"] (pod „Pokaż wszystkie” i w raport.json)."""
+    t = " ".join(str(linia or "").split())
+    m = re.match(r"s(\d+)\s+(.*)$", t)
+    if not m:
+        return t
+    nr, reszta = int(m.group(1)), m.group(2)
+    for rx, zdanie in _VERIFY_LUDZKO:
+        k = rx.match(reszta)
+        if k:
+            return "Slajd %d: %s." % (nr, zdanie(k))
+    return "Slajd %d: %s" % (nr, reszta)
 
 
 def usterki_verify(qa):
@@ -2525,6 +2598,7 @@ KOMUNIKAT_ZRZUTY_BEZ_AI = ("Zrzuty i zdjęcia czyta czat - użyj »Przygotuj z A
 AI_Q_PARAM = {}   # klucz czatu -> nazwa parametru adresu (np. {"chatgpt": "q"}): wstępnie wpisane polecenie. NIESPRAWDZONE - puste, włączyć po teście
 AI_Q_MAX = 1500   # parametr ?q= tylko dla krótkiego polecenia (adres ma limit długości)
 POLECENIE_CLAUDE_CODE = "Przeczytaj POLECENIE.md i wykonaj"
+POLECENIE_POPRAWKA = "Przeczytaj POLECENIE-POPRAWKA.md i wykonaj"   # agent z plikami (Cowork / Code) poprawia scenariusz po budowie
 SLAJDY_BEZ_DOKUMENTU = {"min": 3, "max": 30, "domyslnie": 8}   # suwak, gdy w folderze nie ma dokumentu (same zrzuty): czat wybiera treść
 
 
@@ -2777,10 +2851,12 @@ def polecenie_przygotowania_ai(folder, slajdy=None):
             "slajdy": n}
 
 
-def polecenie_poprawki_ai(folder, slajdy=None):
-    """Polecenie dla czatu: popraw najnowszy scenariusz po budowie (uwagi i plansze z ostatniego raportu). None, gdy nie ma scenariusza."""
+def polecenie_poprawki_ai(folder, slajdy=None, agent=False):
+    """Polecenie dla czatu: popraw najnowszy scenariusz po budowie (uwagi, problemy z kontroli PowerPointa po ludzku i plansze z ostatniego
+    raportu). agent=True: wersja dla agenta z plikami (Cowork / Code) - czyta pliki z dysku i zapisuje poprawkę jako kolejny scenariusz-N.md.
+    None, gdy nie ma scenariusza. Zwraca też "plansze_info" (miniatury do karty w oknie) i "zapisz_jako"."""
     S = scenariusz_modul()
-    sc, _nr = folder_prez.najnowszy_scenariusz(folder)
+    sc, nr = folder_prez.najnowszy_scenariusz(folder)
     if not sc:
         return None
     md = _czytaj_scenariusz(sc)
@@ -2791,15 +2867,58 @@ def polecenie_poprawki_ai(folder, slajdy=None):
     except (OSError, ValueError):
         pass
     uwagi = _uwagi_dla_ai(raport.get("uwagi_pelne") or raport.get("uwagi") or [], raport.get("bledy_tekstu") or [])
+    problemy = list((raport.get("qa") or {}).get("opisy") or [])
     plansze_folder = raport.get("plansze_folder") or os.path.join(folder, "plansze")
-    plansze = [os.path.basename(p) for p in raport.get("plansze") or [] if os.path.isfile(p)]
+    pliki = [p for p in raport.get("plansze") or [] if os.path.isfile(p)]
+    plansze = [os.path.basename(p) for p in pliki]
     try:
         n = int(slajdy or 0) or S.sprawdz(md, folder, None)["slajdy"]
     except (TypeError, ValueError):
         n = S.sprawdz(md, folder, None)["slajdy"]
-    tekst = S.polecenie_poprawki(md, uwagi, plansze, n, plansze_folder if plansze else "")
+    zapisz_jako = os.path.join(folder, "scenariusz-%d.md" % (nr + 1))
+    if agent:
+        tekst = S.polecenie_poprawki_agenta(folder, sc, zapisz_jako, uwagi, plansze, n, plansze_folder if plansze else "", problemy)
+    else:
+        tekst = S.polecenie_poprawki(md, uwagi, plansze, n, plansze_folder if plansze else "", problemy)
     return {"tekst": tekst, "do_zalaczenia": plansze, "uwagi": [], "katalog": plansze_folder if plansze else os.path.dirname(sc),
-            "slajdy": n}
+            "slajdy": n, "poprawka": True, "zapisz_jako": zapisz_jako, "plansze_info": plansze_info(pliki)}
+
+
+def polecenie_naprawy_ai(folder, tekst, bledy, slajdy=None, agent=False):
+    """Polecenie „Poproś czat o poprawkę”: odrzucona odpowiedź + powody (po polsku) -> poprawiony scenariusz. agent=True: wersja dla agenta z plikami
+    (Cowork / Code): czyta pliki ze Źródeł, zapisuje wynik jako kolejny scenariusz-N.md. tekst = odrzucona odpowiedź czatu; pusty = bierze najnowszy
+    scenariusz z folderu. bledy = powody z save_scenario (puste: liczone z samego scenariusza). {"tekst", "do_zalaczenia": [], "uwagi", "katalog",
+    "slajdy", "poprawka", "naprawa", "zapisz_jako", "plansze_info"} jak polecenie_poprawki_ai."""
+    S = scenariusz_modul()
+    try:
+        n = int(slajdy or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n <= 0:
+        n = _suwaki_pakietu(zrodla_folderu(folder)["suwaki"])["slajdy"]["domyslnie"]
+    sc, nr = folder_prez.najnowszy_scenariusz(folder)
+    zapisz_jako = os.path.join(folder, "scenariusz.md" if nr == 0 else "scenariusz-%d.md" % (nr + 1))
+    zly = S.wyciagnij(tekst) or (tekst or "").strip()
+    if not zly and sc:      # okno wysyła pusty tekst, gdy odrzucony scenariusz już leży w folderze (agent zapisał go sam)
+        zly = _czytaj_scenariusz(sc)
+    bl = [str(b) for b in (bledy or [])][:6]
+    if not bl and zly and S.wyciagnij(zly):
+        bl = [str(b) for b in S.sprawdz(S.wyciagnij(zly), folder)["bledy"]][:6]    # brak powodów od okna: policz je z samego scenariusza
+    txt = S.polecenie_naprawy(zly, bl, folder, agent, n)
+    return {"tekst": txt, "do_zalaczenia": [], "uwagi": [], "katalog": os.path.join(folder, folder_prez.ZRODLA), "slajdy": n, "poprawka": True,
+            "naprawa": True, "zapisz_jako": zapisz_jako, "plansze_info": []}
+
+
+def zapisz_polecenie_poprawki(folder, tekst):
+    """POLECENIE-POPRAWKA.md w folderze prezentacji (czyta je agent uruchomiony z okna: Cowork / Code). Ścieżka albo None (błąd w logu)."""
+    try:
+        p = os.path.join(folder, "POLECENIE-POPRAWKA.md")
+        with open(p, "w", encoding="utf8", newline="\n") as f:
+            f.write(tekst.rstrip() + "\n")
+        return p
+    except OSError:
+        _log_file(traceback.format_exc())
+        return None
 
 
 def zapisz_polecenie(folder):
@@ -2817,39 +2936,53 @@ def zapisz_polecenie(folder):
 
 def zapisz_scenariusz(folder, tekst, limit=None):
     """Odpowiedź czatu (cała wklejka) -> walidacja -> nowa wersja scenariusza w folderze prezentacji.
-    {"ok", "plik", "wersja", "slajdy", "uwagi", "blad"}; przy błędach scenariusza nic nie zapisuje."""
+    {"ok", "plik", "wersja", "slajdy", "uwagi", "blad"}; przy błędach scenariusza nic nie zapisuje. Przy błędzie: "blad_krotko" (jedno zdanie dla
+    człowieka), "bledy" (lista powodów po polsku - do polecenia poprawki i „szczegółów”), "blad" (pełny tekst).
+    Odrzucony jest też scenariusz przepisany z przykładu (S.sprawdz: „Czat przepisał przykład zamiast Twoich materiałów”)."""
     S = scenariusz_modul()
     md = S.wyciagnij(tekst)
     if md is None:
-        return {"ok": False, "plik": None, "wersja": 0, "slajdy": 0, "uwagi": [],
+        zd = "To nie wygląda na scenariusz - brakuje pierwszej linii „# SCENARIUSZ DK”."
+        return {"ok": False, "plik": None, "wersja": 0, "slajdy": 0, "uwagi": [], "blad_krotko": zd, "bledy": [zd],
                 "blad": "To nie wygląda na scenariusz - brakuje linii „# SCENARIUSZ DK”. Wklej całą odpowiedź czatu."}
     k = S.sprawdz(md, folder, limit)
     if not k["ok"]:
-        return {"ok": False, "plik": None, "wersja": 0, "slajdy": k["slajdy"], "uwagi": k["uwagi"],
+        return {"ok": False, "plik": None, "wersja": 0, "slajdy": k["slajdy"], "uwagi": k["uwagi"], "blad_krotko": S.blad_krotko(k["bledy"]),
+                "bledy": list(k["bledy"]),
                 "blad": "Scenariusza nie da się zbudować: " + " ".join(k["bledy"][:3]) + " Popraw odpowiedź w czacie i wklej ją jeszcze raz."}
     try:
         lim = int(limit or 0)
     except (TypeError, ValueError):
         lim = 0
     if lim and k["slajdy"] > lim:   # suwak ma działać w programie, nie tylko w poleceniu: nic nie ucinamy po cichu
+        pow_ = "Scenariusz ma %d slajdów z treścią, a limit to %d. Skróć go do %d slajdów, zostaw najważniejsze, ten sam format." % (k["slajdy"], lim, lim)
         return {"ok": False, "plik": None, "wersja": 0, "slajdy": k["slajdy"], "uwagi": k["uwagi"],
+                "blad_krotko": "Scenariusz ma za dużo slajdów: %d, a limit to %d." % (k["slajdy"], lim), "bledy": [pow_],
                 "blad": "Scenariusz ma %d slajdów, a ustawiłeś najwyżej %d. Napisz w czacie: „Skróć scenariusz do %d slajdów, zostaw "
                         "najważniejsze, ten sam format.” i wklej nową odpowiedź (albo przesuń suwak)." % (k["slajdy"], lim, lim)}
-    plik, nr = folder_prez.nowa_wersja_scenariusza(folder, md)
+    ost, nr_ost = folder_prez.najnowszy_scenariusz(folder)
+    if ost and (S.wyciagnij(_czytaj_scenariusz(ost)) or "").strip() == md.strip():   # agent zapisał ten plik sam (Cowork / Code): bez kopii
+        plik, nr = ost, nr_ost
+    else:
+        plik, nr = folder_prez.nowa_wersja_scenariusza(folder, md)
     return {"ok": True, "plik": plik, "wersja": nr, "slajdy": k["slajdy"], "rozdzialy": k["rozdzialy"], "tytul": k["tytul"],
             "uwagi": k["uwagi"], "blad": "", "szacowany_czas_s": _czas_slajdow(k["slajdy"])}
 
 
 # --- czaty AI -----------------------------------------------------------------------------------------------------------
 def ai_cele():
-    """[{"id", "nazwa", "dostepny"}]: Claude, ChatGPT, Gemini oraz (gdy `claude` jest w PATH) Claude Code. Każdy ma też "ostatni"
-    (True dla zapamiętanego wyboru; bez zapamiętanego - dla pierwszego)."""
+    """[{"id", "nazwa", "dostepny", "ostatni"}, ...]. Gdy jest aplikacja Claude Desktop, PIERWSZY i domyślny jest „Claude (sam przeczyta pliki)”
+    (sesja Cowork z folderem prezentacji), dalej Claude jako zwykły czat, ChatGPT, Gemini i (gdy `claude` jest w PATH) Claude Code.
+    "krotka" = nazwa na przycisku („Dopracuj w Claude”), "opis" = jedno zdanie pod nim. "ostatni" = zapamiętany wybór (klucz ostatni_czat,
+    bez niego pierwszy; stary klucz ostatni_ai z prób sprzed 27.10.2026 jest ignorowany, żeby „claude” z dawnych prób nie przesłaniał Cowork)."""
     cele = [{"id": k, "nazwa": v[0], "dostepny": True} for k, v in AI_CHATS.items()]
     if claude_protokol():   # aplikacja Claude Desktop: sesja Cowork z dostępem do folderu prezentacji
-        cele.insert(1, {"id": "claude_cowork", "nazwa": "Claude Cowork (z folderem)", "dostepny": True})
+        cele[0].update(nazwa="Claude (zwykły czat)", krotka="Claude", opis="Wkleisz polecenie sam i przeciągniesz obrazy.")
+        cele.insert(0, {"id": "claude_cowork", "nazwa": "Claude (sam przeczyta pliki)", "krotka": "Claude", "dostepny": True,
+                        "opis": "Claude sam przeczyta pliki z folderu - nic nie przeciągasz."})
     if platforma.znajdz_claude() or claude_protokol():
-        cele.append({"id": "claude_code", "nazwa": "Claude Code", "dostepny": True})
-    ost = folder_prez.ustawienia().get("ostatni_ai")
+        cele.append({"id": "claude_code", "nazwa": "Claude Code", "dostepny": True, "opis": "Claude Code w oknie terminala, w folderze prezentacji."})
+    ost = folder_prez.ustawienia().get("ostatni_czat")
     ost = ost if ost in {c["id"] for c in cele} else cele[0]["id"]
     for c in cele:
         c["ostatni"] = c["id"] == ost
@@ -3008,7 +3141,7 @@ def _build_scenariusz(folder, opts, t0, emit, finish_step, check, say, progress)
               "sprawdz": [], "wizualizacje": [], "styl": "nowy", "plansze": plansze, "plansze_folder": plansze_folder,
               "raport": os.path.join(rob, "raport.json")}
     result["prompt_ai"] = S.polecenie_poprawki(md, _uwagi_dla_ai(uwagi, bledy), [os.path.basename(p) for p in plansze],
-                                               limit or k["slajdy"], plansze_folder or "")
+                                               limit or k["slajdy"], plansze_folder or "", qa.get("opisy"))
     result["prompt_agent"] = S.polecenie_agenta(folder)
     json.dump({kk: v for kk, v in result.items() if kk != "miniatury"}, open(result["raport"], "w", encoding="utf8"),
               ensure_ascii=False, indent=1)

@@ -503,21 +503,12 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .pk-found { padding: var(--dk-space-5); }
 .pk-found .file-row { padding: var(--dk-space-2) var(--dk-space-3); }
 
-/* Krok Treść: lewa kolumna (limit slajdów + otwarcie czatu) na bieli, prawa (odpowiedź czatu) w szarym panelu L1 z białym polem */
-.pane[data-pane="tresc"] .pane-lead { max-width: 860px; }
-.sc-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr); gap: var(--dk-space-10); align-items: start; }
-.sc-left .slider { max-width: none; }
-.sc-open { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--dk-space-3) var(--dk-space-5); margin-top: var(--dk-space-6); }
-.sc-open .pick-ai summary { min-height: 56px; }
-.sc-msg { margin-top: var(--dk-space-4); padding: var(--dk-space-3) var(--dk-space-4); border-radius: var(--dk-radius-sm); background: var(--dk-color-brand-soft); font-size: 15px; line-height: 1.4; }
-.sc-right { background: var(--l1); border-radius: var(--r-card); padding: var(--dk-space-6); }
-.sc-right .field { max-width: none; }
-.sc-right textarea { min-height: 184px; font-size: 15px; line-height: 1.45; }
-.sc-right .notes { margin: var(--dk-space-4) 0 0; scroll-margin-bottom: calc(var(--bar-h) + var(--dk-space-5)); }   /* przewinięcie do błędu nie chowa go pod paskiem kroku */
+/* Krok Treść: jedna kolumna, jedna karta (prowadzenie - .gc niżej) */
+.pane[data-pane="tresc"] .pane-head { margin-bottom: var(--dk-space-5); }
 .hint-line { display: flex; align-items: flex-start; gap: var(--dk-space-2); line-height: 1.4; }
 .hint-line .ic { width: 18px; height: 18px; margin-top: 2px; color: var(--heading-accent); }
 .hint-line.ok { color: var(--ink); }
-.sc-noai { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--dk-space-4); margin-top: var(--dk-space-5); font-size: 15px; color: var(--muted); }
+.sc-noai { display: inline-flex; }
 .sc-noai .link-btn .ic { color: var(--icon); }
 /* wybór czatu: pigułki (DS 26.1), biała pigułka na szarym panelu, zaznaczona = zielony obrys */
 .pills { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin-top: var(--dk-space-2); animation: screen-in var(--dk-motion-slow) ease-out both; }
@@ -528,12 +519,80 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .pill:has(input:focus-visible) { outline: var(--dk-control-focus-width) solid var(--focus); outline-offset: var(--dk-control-focus-offset); }
 .ai-card .pill { background: var(--l2); }
 .ai-card .pick-ai { margin-top: var(--dk-space-2); }
-.imp-paste { margin-top: var(--dk-space-5); padding-top: var(--dk-space-5); border-top: 1px solid var(--line-strong); }
-.imp-paste .field { max-width: none; }
-.imp-paste textarea { min-height: 132px; font-size: 15px; }
-.imp-paste .notes { margin: var(--dk-space-3) 0 0; padding: var(--dk-space-4); scroll-margin-bottom: calc(var(--bar-h) + var(--dk-space-5)); }
-.imp-paste .hint-line { margin-bottom: var(--dk-space-4); }
-.imp-paste .btn { width: 100%; }
+
+/* Prowadzenie: JEDEN KROK NARAZ (krok Treść i karta „Dopracuj z AI”). Duża karta pokazuje tylko bieżący krok: „Krok N z 3”, tytuł (Mindset),
+   jedno zdanie i jeden przycisk główny (żółty = jedna wyróżniona akcja). Zrobione kroki: jedna szara linia z ptaszkami. Błąd: jedno zdanie + jeden przycisk,
+   pełna treść w „Szczegóły”. Widoczność steruje app.js (data-view na .gc, data-on na elementach). Karta Treść: panel L1; w karcie Gotowe panelem jest .ai-card. */
+.gc { max-width: 720px; }
+.gc-done { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--dk-space-5); margin: 0 0 var(--dk-space-3); font-size: 15px; line-height: 1.4; color: var(--muted); }
+.gc-done .gd { display: inline-flex; align-items: center; gap: 6px; }
+.gc-done .gd .ic { width: 16px; height: 16px; stroke-width: 2.8; color: var(--dk-color-brand); }
+.gc-done .link-btn { min-height: 36px; font-size: 15px; padding: 0; font-weight: 400; text-decoration: underline; text-underline-offset: 3px; color: var(--muted); }
+.gc-card { background: var(--l1); border-radius: var(--r-card); padding: 28px var(--dk-space-8) var(--dk-space-5); }
+.gc-bar { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: var(--dk-space-4); }
+.gc[data-view="e"] .gc-bar { display: none; }
+.gc-bar i { height: 4px; border-radius: 2px; background: var(--line-strong); }
+.gc-bar i.on { background: var(--dk-color-brand); }
+.gc-eb { margin: 0 0 var(--dk-space-1); font: 700 14px/1.3 var(--font-text); letter-spacing: .08em; text-transform: uppercase; color: var(--heading-accent); }
+.gc[data-view="e"] .gc-eb { color: var(--ink); }
+.gc-title { margin: 0; font: 400 36px/1.05 var(--font-display); letter-spacing: .01em; text-transform: uppercase; color: var(--dk-color-heading); overflow-wrap: anywhere; }
+.gc[data-view="e"] .gc-title { font: 700 24px/1.3 var(--font-text); text-transform: none; letter-spacing: 0; }
+.gc-text { margin: var(--dk-space-3) 0 0; font-size: 18px; line-height: 1.45; color: var(--ink); }
+.gc-x { margin-top: var(--dk-space-5); }
+.gc-x .slider { max-width: none; }
+.gc-x .slider-head { display: flex; align-items: baseline; gap: var(--dk-space-3); margin-bottom: 0; }
+.gc-x .stops { margin-top: 0; }
+.gc-wait { display: flex; align-items: center; gap: var(--dk-space-3); margin-top: var(--dk-space-5); font-size: 16px; color: var(--muted); }
+.spin { width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--line-strong); border-top-color: var(--dk-color-brand); }
+@media (prefers-reduced-motion: no-preference) { .spin { animation: spin 1s linear infinite; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.gc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-3) var(--dk-space-5); margin-top: var(--dk-space-6); }
+.gc-actions .btn-primary { min-width: 240px; }
+.gc[data-quiet] #btn-sc-open, .gc[data-quiet] #btn-improve { background: var(--dk-color-btn2-bg); border: var(--dk-control-btn2-border-width) solid var(--dk-color-btn2-border); min-height: 48px; font-size: 15px; padding: 0 27px; text-transform: uppercase; letter-spacing: .04em; }
+.gc .pick-ai { margin-top: var(--dk-space-3); }
+.gc .pick-ai summary, .gc-det summary { min-height: 44px; font-weight: 400; color: var(--muted); }
+.gc-det { margin: 0; }
+.gc-det summary { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; font-size: 15px; }
+.gc-det summary::-webkit-details-marker { display: none; }
+.gc-det summary .ic { transition: transform .18s ease; }
+.gc-det[open] summary .ic { transform: rotate(180deg); }
+.gc[data-view="3"] .gc-done .link-btn, .gc[data-view="3"] .sc-noai { display: none; }
+.gc-det ul { display: grid; gap: var(--dk-space-2); margin: var(--dk-space-2) 0 0; padding: var(--dk-space-4) var(--dk-space-5); background: var(--l2); border-radius: var(--dk-radius-sm); }
+.gc-det li { position: relative; padding-left: var(--dk-space-5); font-size: 15px; line-height: 1.45; overflow-wrap: anywhere; }
+.gc-det li::before { content: ""; position: absolute; left: 2px; top: .55em; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.gc-foot { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--dk-space-2) var(--dk-space-6); margin-top: var(--dk-space-3); }
+.gc-foot .manual { flex: 1 1 320px; min-width: 0; }
+.gc-foot .manual summary { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; font-size: 15px; font-weight: 400; color: var(--muted); }
+.gc-foot .manual summary::-webkit-details-marker { display: none; }
+.gc-foot .manual summary .ic { transition: transform .18s ease; }
+.gc-foot .manual[open] summary .ic { transform: rotate(180deg); }
+.gc-foot .link-btn { min-height: 44px; font-size: 15px; font-weight: 400; color: var(--muted); }
+.gc-foot .link-btn:hover { color: var(--accent); }
+.gc-foot .manual .field { max-width: none; margin-bottom: var(--dk-space-3); }
+.manual textarea { min-height: 120px; font-size: 15px; line-height: 1.45; }
+/* karta Gotowe: panelem jest .ai-card (bez ramki w ramce), węższy układ */
+.ai-card .gc { max-width: none; }
+.ai-card .gc-card { background: none; padding: 0; }
+.ai-card .gc-title { font-size: 30px; }
+.ai-card .gc-text { font-size: 16px; }
+.ai-card .gc-actions { margin-top: var(--dk-space-5); }
+.ai-card .gc-actions .btn-primary { width: 100%; min-width: 0; }
+.ai-card .gc[data-view="e"] .gc-title { font-size: 20px; }
+.ai-card .gc-foot { margin-top: var(--dk-space-2); }
+.ai-card .gc-foot .manual { flex-basis: 100%; }
+.ai-card .gc-x { margin-top: var(--dk-space-4); }
+.btn-primary.btn-brand.is-cta { background: var(--yellow); color: var(--ink); }
+.btn-primary.btn-brand.is-cta:hover:not([disabled]) { background: var(--yellow-hover); }
+/* co przeciągnąć do czatu: miniatury plansz (karta Gotowe) albo nazwy plików (krok Treść) */
+.attach { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); margin: 0; padding: 0; list-style: none; }
+.attach:empty { display: none; }
+.plansze li { display: grid; gap: 4px; width: 96px; font-size: 12px; line-height: 1.2; color: var(--muted); text-align: center; }
+.plansze img { display: block; width: 96px; height: auto; border: 1px solid var(--line-strong); border-radius: var(--dk-radius-sm); background: var(--l0); }
+.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 12px; background: var(--l2); border: 1px solid var(--line); border-radius: var(--dk-radius-pill); font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
+.chip .ic { width: 16px; height: 16px; flex: none; color: var(--icon); }
+.qa-hint { display: flex; align-items: flex-start; gap: var(--dk-space-2); margin-top: var(--dk-space-3); font-size: 15px; line-height: 1.45; color: var(--muted); }
+.qa-hint .ic { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--heading-accent); }
+@media (prefers-reduced-motion: no-preference) { .flow-n { transition: background-color .2s ease, border-color .2s ease; } }
 
 /* Pasek kroku (przyklejony): „Wstecz” z lewej, licznik i przycisk główny z prawej. Przycisk główny ma stałą
    szerokość, więc „Dalej” i „Stwórz prezentację” stoją dokładnie w tym samym miejscu. */
@@ -602,7 +661,8 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .strip.at-end { -webkit-mask-image: none; mask-image: none; }
 .strip li { flex: none; width: 152px; scroll-snap-align: start; position: relative; }
 .strip img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--dk-radius-sm); border: 1px solid var(--line); background: var(--l1); }
-.strip .num { position: absolute; left: 8px; bottom: 8px; min-width: 24px; height: 24px; padding: 0 7px; border-radius: var(--dk-radius-sm); background: var(--dk-color-brand); color: var(--dk-color-on-brand); font: 700 14px/24px var(--font-text); text-align: center; }
+/* numer slajdu pod miniaturą, nie na niej: plakietka w rogu zasłaniała tekst slajdu (np. tytuł na okładce) */
+.strip .num { display: block; margin-top: 6px; min-width: 24px; width: max-content; height: 24px; padding: 0 7px; border-radius: var(--dk-radius-sm); background: var(--dk-color-brand); color: var(--dk-color-on-brand); font: 700 14px/24px var(--font-text); text-align: center; }
 .strip::-webkit-scrollbar { height: 8px; }
 .strip::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 
@@ -627,6 +687,7 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .done-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--dk-space-6); }
 .done-head .link-btn { margin-top: var(--dk-space-3); flex: none; }
 .done-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: var(--dk-space-10); align-items: start; margin-top: var(--dk-space-8); }
+.done-grid.has-flow { grid-template-columns: minmax(0, 1fr) 400px; }
 .done-main { display: grid; gap: var(--dk-space-8); min-width: 0; }
 .done-sec { min-width: 0; }  /* bez tego pasek miniatur rozpychał kolumnę pod kartę AI */
 .done-sec > .eyebrow { margin-bottom: var(--dk-space-3); }
@@ -639,7 +700,7 @@ button.flav-media:focus-visible { outline: var(--dk-control-focus-width) solid v
 .ai-btns .btn:hover { background: var(--dk-color-brand-soft); }
 .ai-btns .btn .ic { color: var(--icon); }
 .ai-card .link-btn { margin-top: var(--dk-space-3); padding-left: 0; }
-@media (max-width: 900px) { .done-grid { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .done-grid, .done-grid.has-flow { grid-template-columns: 1fr; } }
 
 /* Instrukcja po skopiowaniu polecenia: trzy kroki pojawiają się po kolei, klawisze pulsują */
 .guide { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: var(--dk-space-6); background: color-mix(in srgb, var(--dk-color-surface-0) 80%, transparent); animation: guide-bg var(--dk-motion-slow) ease-out both; }

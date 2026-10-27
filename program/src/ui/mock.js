@@ -11,6 +11,10 @@
           ?wynik=bezpp          -> ekran Gotowe bez kontroli w PowerPoint (brak miniatur, tekst niesprawdzony)
           ?clip=0               -> schowek nigdy nie zwraca odpowiedzi czatu (zrzut pustego kroku Treść)
           ?cc=0                 -> Claude Code niedostępny na liście czatów
+          ?cowork=0             -> bez aplikacji Claude Desktop: na liście zwykły Claude, ChatGPT, Gemini (domyślnie „Claude (sam przeczyta pliki)” jest pierwszy)
+          ?przyklad=1           -> pierwsza odpowiedź czatu to PRZEPISANY PRZYKŁAD („Baton Przykład”): „Zbuduj” kończy się błędem jednym zdaniem i przyciskiem
+                                   „Poproś czat o poprawkę” (fix_ai); po poprawce czat oddaje dobry scenariusz
+          ?wynik=ostrzezenia    -> (pakiet) ekran Gotowe z przepełnieniem pola na slajdzie 7 i uwagą z oka: sprawdzenie po ludzku
    Pakiet plików (1.3): App.analyzeMany(['a.docx', 'zrzut.png', 'b.pdf']) albo „Wybierz pliki” -> Folder -> Treść. Odpowiedź czatu pojawia się
    w schowku po kliknięciu „Otwórz …” / „Popraw w …” (po 2 pustych sprawdzeniach). Nazwa pliku ze słowem "bezm" -> dysk M: niedostępny,
    "istnieje" -> folder prezentacji już jest (bez kroku Folder, ze scenariuszem v2; dodatkowo "zly" = scenariusz z błędami); ?ostatni=chatgpt -> zapamiętany czat; odpowiedź ze słowem BLAD -> save_scenario odmawia, ze słowem UWAGA -> uwagi.
@@ -333,7 +337,8 @@
           czas_s: 31,
           miniatury: wynik === 'bezpp' ? [] : thumbs(slides),
           qa: wynik === 'bezpp' ? { problemy: null, szczegoly: [], wykonano: false }
-            : (wynik === 'ostrzezenia' ? { problemy: 2, szczegoly: ['s07 SIEROTA: „kosmetyczne” samo w ostatniej linii', 's12 KOLIZJA: tekst nachodzi na grafikę'], wykonano: true }
+            : (wynik === 'ostrzezenia' ? { problemy: 2, szczegoly: ["s7 SIEROTA (1 slowo w ostatniej linii): 'kosmetyczne'", "s12 TEKST NA GRAFICE (18%): 'Kulki z kreatyną' x Obraz 4"],
+              opisy: ['Slajd 7: w ostatniej linii zostało jedno słowo („kosmetyczne”) - skróć tekst albo przeredaguj.', 'Slajd 12: tekst „Kulki z kreatyną” zachodzi na obraz „Obraz 4” (18% tekstu) - skróć tekst albo przesuń obraz.'], wykonano: true }
               : { problemy: 0, szczegoly: [], wykonano: true }),
           uwagi: pp ? uwagiPptx(opts) : [
             'Sprawdź nazwę smaku „Mango i marakuja” na slajdzie ze smakami: brakowało zdjęcia opakowania.',
@@ -392,15 +397,43 @@
     '## Plan wdrożeń 2027\n| Kwartał | Premiera |\n| --- | --- |\n| Q1 | Kulki z kreatyną |\n| Q2 | Baton wanilia |\n\n' +
     '> Smak i skład idą u nas w parze - Dział R&D\n';
   var SCEN2 = SCEN.replace('Strategia produktowa 2027\npodtytuł: Priorytety', 'Strategia produktowa 2027 (wersja po uwagach)\npodtytuł: Priorytety') + '\n## Następne kroki\nTrzy decyzje na najbliższy miesiąc.\n- Zatwierdzić budżet premier\n- Wybrać kanały\n';
-  var CZATY = { claude: 'Claude', chatgpt: 'ChatGPT', gemini: 'Gemini', claude_code: 'Claude Code' };
+  var SCEN_ZLY = '# SCENARIUSZ DK\ntytuł: Baton Przykład – oferta dla handlu\npodtytuł: Trzy smaki, krótki skład i miejsce na półce\n\n## Prosty skład, bez dodatku cukru\nPięć składników, które każdy przeczyta w kilka sekund.\n\n## Tak wygląda na półce\n![Baton Przykład w trzech smakach](Źródła/baton-przyklad.jpg)\n';
+  var przyklad = q.get('przyklad') === '1', naprawione = false;
+  var CZATY = { claude: 'Claude', claude_cowork: 'Claude Cowork', chatgpt: 'ChatGPT', gemini: 'Gemini', claude_code: 'Claude Code' };
+  var AGENCI = { claude_cowork: 1, claude_code: 1 };
+  var ZALACZNIKI = ['Zrzut ekranu 2026-10-20 123456.png', 'Badanie konsumenckie Q3.pdf'];
+  /* plansza dla czatu (6 slajdów na obrazie, szare tło, zielone numery) jako data URI - miniatura w karcie „Dopracuj z AI” */
+  function planszaUri(a, b) {
+    var cells = '', i, n = b - a + 1;
+    for (i = 0; i < n; i++) {
+      var x = 8 + (i % 2) * 124, y = 8 + Math.floor(i / 2) * 74;
+      cells += '<rect x="' + x + '" y="' + y + '" width="116" height="66" fill="#fff"/><rect x="' + x + '" y="' + y + '" width="' + (i % 3 === 0 ? 46 : 116) + '" height="66" fill="' + (i % 3 === 0 ? '#007936' : '#f3efe9') + '"/>' +
+        '<rect x="' + (x + 10) + '" y="' + (y + 12) + '" width="60" height="6" fill="#3b2a20"/><rect x="' + (x + 10) + '" y="' + (y + 24) + '" width="84" height="4" fill="#9a9a9a"/><rect x="' + (x + 10) + '" y="' + (y + 32) + '" width="70" height="4" fill="#9a9a9a"/>' +
+        '<rect x="' + x + '" y="' + y + '" width="20" height="16" rx="3" fill="#007936"/><text x="' + (x + 10) + '" y="' + (y + 12) + '" font-family="Arial" font-weight="700" font-size="11" fill="#fff" text-anchor="middle">' + (a + i) + '</text>';
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 ' + (8 + Math.ceil(n / 2) * 74) + '" width="248"><rect width="248" height="100%" fill="#3a3a3a"/>' + cells + '</svg>';
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  function planszeInfo() {
+    return [[1, 6], [7, 11]].map(function (r) {
+      return { plik: 'wynik_' + ('0' + r[0]).slice(-2) + '-' + ('0' + r[1]).slice(-2) + '.png', opis: 'Slajdy ' + r[0] + '-' + r[1], miniatura: planszaUri(r[0], r[1]) };
+    });
+  }
   function pakietDone(opts) {
     var v = ++pakiet.ver, noai = !!(opts && opts.bez_ai);
     var sl = noai ? Math.min((opts.slajdy || 12) + 2, 12) : (v > 1 ? 11 : 10);
     var name = pakiet.tytul + (v > 1 ? ' v' + v : '') + '.pptx';
     return {
       ok: true, tryb: noai ? 'dokument' : 'pakiet', wejscie: 'pakiet', pptx: pakiet.folder + '\\' + name, nazwa: name, slajdy: sl, ukryte: 0, nowe: [], sprawdz: [], wizualizacje: [],
-      wiernosc: { usterki: [] }, czas_s: 28, miniatury: thumbs(sl), qa: { problemy: 0, szczegoly: [], wykonano: true },
-      uwagi: [], bledy_okno: [], folder_pokaz: pakiet.folder, plansze_folder: pakiet.folder + '\\plansze',
+      wiernosc: { usterki: [] }, czas_s: 28, miniatury: thumbs(sl),
+      qa: wynik === 'ostrzezenia' ? {
+        problemy: 2, wykonano: true,
+        szczegoly: ["s7 PRZEPELNIENIE pola +5pt: 'Badanie wykonała Chilli insi'", "s9 SIEROTA (1 slowo w ostatniej linii): 'wody'"],
+        opisy: ['Slajd 7: tekst „Badanie wykonała Chilli insi…” nie mieści się w polu (wystaje o 5 pt) - skróć go.', 'Slajd 9: w ostatniej linii zostało jedno słowo („wody”) - skróć tekst albo przeredaguj.']
+      } : { problemy: 0, szczegoly: [], wykonano: true },
+      uwagi: wynik === 'ostrzezenia' ? ['Treść: 100% akapitów w wyniku', 'Sprawdź najpierw: slajd 4 - 38% wysokości slajdu pod treścią jest puste'] : [],
+      uwagi_top: wynik === 'ostrzezenia' ? [{ typ: 'warn', tekst: 'Sprawdź najpierw: slajd 4 - 38% wysokości slajdu pod treścią jest puste' }] : null,
+      bledy_okno: [], folder_pokaz: pakiet.folder, plansze_folder: pakiet.folder + '\\plansze',
       prompt_agent: 'Przeczytaj POLECENIE.md w folderze „' + pakiet.folder + '” i popraw scenariusz.',
       prompt_ai: 'Mam prezentację PowerPoint „' + name + '” zrobioną z dokumentów (bez AI). Pomóż mi ją dopracować: skróć teksty, popraw literówki.'
     };
@@ -438,21 +471,41 @@
     },
     ai_targets: function () {
       return sleep(100).then(function () {
-        var last = q.get('ostatni') || 'claude';
-        return [{ id: 'claude', nazwa: 'Claude', dostepny: true }, { id: 'chatgpt', nazwa: 'ChatGPT', dostepny: true },
-          { id: 'gemini', nazwa: 'Gemini', dostepny: true }, { id: 'claude_code', nazwa: 'Claude Code', dostepny: q.get('cc') !== '0' }]
-          .map(function (t) { return Object.assign(t, { ostatni: t.id === last }); });
+        var cw = q.get('cowork') !== '0', last = q.get('ostatni') || (cw ? 'claude_cowork' : 'claude');
+        var L = [];
+        if (cw) L.push({ id: 'claude_cowork', nazwa: 'Claude (sam przeczyta pliki)', krotka: 'Claude', opis: 'Claude sam przeczyta pliki z folderu - nic nie przeciągasz.', dostepny: true });
+        L.push({ id: 'claude', nazwa: cw ? 'Claude (zwykły czat)' : 'Claude', krotka: 'Claude', dostepny: true }, { id: 'chatgpt', nazwa: 'ChatGPT', dostepny: true },
+          { id: 'gemini', nazwa: 'Gemini', dostepny: true },
+          { id: 'claude_code', nazwa: 'Claude Code', opis: 'Claude Code w oknie terminala, w folderze prezentacji.', dostepny: q.get('cc') !== '0' });
+        return L.map(function (t) { return Object.assign(t, { ostatni: t.id === last }); });
       });
     },
     prepare_ai: function (ktory, o) {
       log('prepare_ai', ktory, JSON.stringify(o));
-      clipN = 0; clipText = SCEN;
-      return sleep(300).then(function () { return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '' }; });
+      clipN = 0; clipText = przyklad && !naprawione ? SCEN_ZLY : SCEN;
+      var ag = !!AGENCI[ktory], folder = (pakiet && pakiet.folder) || 'M:\\Prezentacja';
+      return sleep(300).then(function () {
+        return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '', agent: ag, poprawka: false, plansze_info: [],
+          zalaczniki: ag ? [] : ZALACZNIKI, katalog: folder + '\\Źródła', slajdy: (o && o.slajdy) || 12 };
+      });
     },
     improve_ai: function (ktory) {
       log('improve_ai', ktory);
-      clipN = 0; clipText = SCEN2;
-      return sleep(300).then(function () { return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '' }; });
+      clipN = 0; clipText = przyklad && !naprawione ? SCEN_ZLY : SCEN2;
+      var ag = !!AGENCI[ktory], folder = (pakiet && pakiet.folder) || 'M:\\Prezentacja';
+      return sleep(300).then(function () {
+        return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '', agent: ag, poprawka: true,
+          plansze_info: ag ? [] : planszeInfo(), zalaczniki: ag ? [] : planszeInfo().map(function (x) { return x.plik; }), katalog: folder + '\\plansze', slajdy: 11 };
+      });
+    },
+    fix_ai: function (ktory, tekst, bledy) {
+      log('fix_ai', ktory, String(tekst).length + ' znaków', JSON.stringify(bledy));
+      naprawione = true; clipN = 0; clipText = (pakiet && pakiet.ver > 0) ? SCEN2 : SCEN;
+      var ag = !!AGENCI[ktory], folder = (pakiet && pakiet.folder) || 'M:\\Prezentacja';
+      return sleep(300).then(function () {
+        return { ok: true, nazwa: CZATY[ktory] || ktory, gdzie: 'aplikacja', skopiowano: true, blad: '', agent: ag, poprawka: true, naprawa: true,
+          plansze_info: [], zalaczniki: [], katalog: folder + '\\Źródła', slajdy: 12, folder: ag };
+      });
     },
     peek_clipboard: function () {
       var on = clipN >= 0 && q.get('clip') !== '0';
@@ -462,7 +515,11 @@
     save_scenario: function (text) {
       log('save_scenario', String(text).length + ' znaków');
       return sleep(400).then(function () {
-        if (/BLAD/.test(text)) return { ok: false, plik: '', slajdy: 0, blad: 'W odpowiedzi brakuje nagłówka „# SCENARIUSZ DK” w pierwszej linii.', uwagi: ['Slajd 3: pusta linia „##” - brak hasła slajdu.'] };
+        if (/Baton Przykład/.test(text)) return { ok: false, plik: '', slajdy: 0, uwagi: [], blad_krotko: 'Czat przepisał przykład zamiast Twoich materiałów.',
+          bledy: ['Czat przepisał przykład zamiast Twoich materiałów (np. „Baton Przykład”).', 'Slajd „Tak wygląda na półce”: nie znalazłem obrazu „Źródła/baton-przyklad.jpg”. Użyj nazwy pliku dokładnie tak, jak jest w folderze Źródła.'],
+          blad: 'Scenariusza nie da się zbudować: Czat przepisał przykład zamiast Twoich materiałów (np. „Baton Przykład”). Slajd „Tak wygląda na półce”: nie znalazłem obrazu „Źródła/baton-przyklad.jpg”. Popraw odpowiedź w czacie i wklej ją jeszcze raz.' };
+        if (/BLAD/.test(text)) return { ok: false, plik: '', slajdy: 0, blad: 'W odpowiedzi brakuje nagłówka „# SCENARIUSZ DK” w pierwszej linii.', blad_krotko: 'To nie wygląda na scenariusz - brakuje pierwszej linii „# SCENARIUSZ DK”.',
+          bledy: ['Nie widzę linii „# SCENARIUSZ DK” - scenariusz musi się od niej zaczynać.'], uwagi: ['Slajd 3: pusta linia „##” - brak hasła slajdu.'] };
         return { ok: true, plik: ((pakiet && pakiet.folder) || '') + '\\scenariusz.md', slajdy: 8, blad: '',
           uwagi: /UWAGA/.test(text) ? ['Slajd 4 miał 6 punktów - zostawiłem pierwsze 4.'] : [] };
       });

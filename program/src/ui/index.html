@@ -322,46 +322,65 @@
           <header class="pane-head">
             <p class="eyebrow pane-ctx"></p>
             <h1 class="display h-pane" id="h-tresc" tabindex="-1" data-focus>Najpierw niech czat ułoży treść</h1>
-            <p class="pane-lead">Program skopiuje polecenie i&nbsp;otworzy czat oraz folder ze źródłami. Przeciągnij do czatu zdjęcia i&nbsp;PDF-y, wklej polecenie (Ctrl+V). Gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj” - wstawię ją tutaj sam.</p>
           </header>
-          <div class="sc-cols">
-            <div class="sc-left">
-              <div class="slider" id="sl-sc">
-                <div class="slider-head">
-                  <label class="slider-name" for="in-sc-slajdy">Ile slajdów (najwyżej)</label>
-                  <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
+          <!-- Prowadzenie: jeden krok naraz (app.js: gcRender). Zrobione kroki to jedna szara linia, błąd to jedno zdanie i jeden przycisk. -->
+          <div class="gc" id="gc-sc" data-view="0">
+            <p class="gc-done" hidden>
+              <span class="gd gd1"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="gd-t">Czat otwarty</span></span>
+              <span class="gd gd2"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="gd-t">Polecenie wysłane</span></span>
+              <button type="button" class="link-btn" id="btn-sc-reopen">Otwórz jeszcze raz</button>
+            </p>
+            <section class="gc-card" aria-live="polite">
+              <div class="gc-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+              <p class="gc-eb"></p>
+              <h2 class="gc-title"></h2>
+              <p class="gc-text"></p>
+              <div class="gc-x" data-on="0">
+                <div class="slider" id="sl-sc">
+                  <div class="slider-head">
+                    <label class="slider-name" for="in-sc-slajdy">Ile slajdów (najwyżej)</label>
+                    <p class="slider-value" aria-hidden="true"><strong></strong> <span></span></p>
+                  </div>
+                  <div class="slider-body">
+                    <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:100%"></i></div>
+                    <input type="range" id="in-sc-slajdy" name="sc_slajdy" min="5" max="30" step="1" value="12">
+                  </div>
+                  <div class="stops free" aria-hidden="true"><button type="button" tabindex="-1" data-k="min">Krótko</button><button type="button" tabindex="-1" data-k="max">Szczegółowo</button></div>
                 </div>
-                <div class="slider-body">
-                  <div class="rail" aria-hidden="true"><i class="fill"></i><i class="dot" style="left:0"></i><i class="dot" style="left:100%"></i></div>
-                  <input type="range" id="in-sc-slajdy" name="sc_slajdy" min="5" max="30" step="1" value="12">
-                </div>
-                <div class="stops free" aria-hidden="true"><button type="button" tabindex="-1" data-k="min">Krótko</button><button type="button" tabindex="-1" data-k="max">Szczegółowo</button></div>
-                <p class="slider-effect" id="sc-slajdy-effect">Czat dostanie ten limit. Okładkę i zakończenie dołożę sam.</p>
               </div>
-              <div class="sc-open">
-                <button type="button" class="btn btn-primary" id="btn-sc-open"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Otwórz <span id="open-name">Claude</span></span></button>
-                <details class="pick-ai" id="pick-ai-sc">
-                  <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Użyj innego czatu</summary>
-                  <div class="pills" id="pills-sc" role="radiogroup" aria-label="Który czat otworzyć"></div>
+              <div class="gc-x" data-on="1">
+                <ul class="attach" id="sc-attach"></ul>
+                <button type="button" class="link-btn" id="btn-sc-folder" hidden><svg class="ic" aria-hidden="true"><use href="#i-folder-open"/></svg>Pokaż pliki w folderze</button>
+              </div>
+              <p class="gc-x gc-wait" data-on="2"><span class="spin" aria-hidden="true"></span>Czekam na odpowiedź…</p>
+              <div class="gc-x" data-on="e">
+                <details class="gc-det" id="sc-err-det">
+                  <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Szczegóły</summary>
+                  <ul id="sc-err-list"></ul>
                 </details>
               </div>
-              <p class="sc-msg" id="sc-open-msg" role="status" aria-live="polite" hidden></p>
-            </div>
-            <div class="sc-right">
-              <div class="field">
-                <label for="in-sc">Wklej tutaj odpowiedź czatu</label>
-                <textarea id="in-sc" name="scenariusz" aria-describedby="sc-hint" rows="9" spellcheck="false" placeholder="Tu pojawi się odpowiedź czatu. Zaczyna się od „# SCENARIUSZ DK”."></textarea>
+              <div class="gc-actions">
+                <button type="button" class="btn btn-primary" id="btn-sc-open" data-on="0"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Otwórz <span id="open-name">Claude</span></span></button>
+                <button type="button" class="btn btn-primary" id="btn-sc-sent" data-on="1">Wysłałem</button>
+                <button type="button" class="btn btn-primary" id="btn-sc-fix" data-on="e">Poproś czat o poprawkę</button>
+                
               </div>
-              <div class="notes" id="sc-notes" hidden>
-                <p class="eyebrow">Tej odpowiedzi jeszcze nie zbuduję</p>
-                <ul id="sc-notes-list"></ul>
-              </div>
-              <p class="field-hint hint-line" id="sc-hint" aria-live="polite"></p>
+              <details class="pick-ai" id="pick-ai-sc" data-on="0">
+                <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Użyj innego czatu</summary>
+                <div class="pills" id="pills-sc" role="radiogroup" aria-label="Który czat otworzyć"></div>
+                
+              </details>
+            </section>
+            <div class="gc-foot">
+              <details class="manual" id="manual-sc">
+                <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Albo wklej odpowiedź ręcznie</summary>
+                <div class="field">
+                  <label class="sr-only" for="in-sc">Odpowiedź czatu</label>
+                  <textarea id="in-sc" name="scenariusz" rows="6" spellcheck="false" placeholder="Zaczyna się od „# SCENARIUSZ DK”."></textarea>
+                </div>
+              </details>
+              <span class="sc-noai" id="sc-noai"><button type="button" class="link-btn" id="btn-sc-noai" title="Bez czatu program ułoży slajdy tylko z dokumentów. Zdjęcia i zrzuty ekranu pominie - czyta je wyłącznie czat."><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>Zrób bez AI</button></span>
             </div>
-          </div>
-          <div class="sc-noai" id="sc-noai">
-            <button type="button" class="link-btn" id="btn-sc-noai"><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg>Zrób bez AI</button>
-            <span id="sc-noai-note">Bez czatu program ułoży slajdy tylko z dokumentów. Zdjęcia i zrzuty ekranu pominie - czyta je wyłącznie czat.</span>
           </div>
         </section>
 
@@ -450,6 +469,7 @@
           <section class="done-sec" aria-labelledby="l-spr">
             <p class="eyebrow" id="l-spr">Sprawdzenie</p>
             <ul class="checks" id="res-checks"></ul>
+            <p class="qa-hint" id="res-qa-hint" hidden><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span></span></p>
             <details class="todo" id="res-todo" hidden>
               <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg><span id="res-todo-label">Wszystkie uwagi</span></summary>
               <ul id="res-todo-list"></ul>
@@ -473,25 +493,51 @@
           </div>
           <!-- Pakiet plików (1.3): „Popraw z AI” - polecenie z bieżącym scenariuszem, po kliknięciu pole wklejania i nasłuch schowka -->
           <div id="ai-pakiet" hidden>
-            <p class="ai-text">Program skopiuje polecenie ze scenariuszem i&nbsp;uwagami oraz otworzy czat. Wklej je (Ctrl+V), a&nbsp;gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj”.<span id="imp-plansze"> Przeciągnij też obrazy z&nbsp;folderu „plansze” (przycisk „Pokaż folder”) - czat oceni wygląd.</span></p>
-            <div class="ai-btns">
-              <button type="button" class="btn btn-secondary" id="btn-improve"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Popraw w <span id="improve-name">Claude</span></span></button>
-            </div>
-            <details class="pick-ai" id="pick-ai-imp">
-              <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Użyj innego czatu</summary>
-              <div class="pills" id="pills-imp" role="radiogroup" aria-label="Który czat otworzyć"></div>
-            </details>
-            <div class="imp-paste" id="imp-paste" hidden>
-              <div class="field">
-                <label for="in-imp">Wklej tutaj odpowiedź czatu</label>
-                <textarea id="in-imp" name="poprawka" aria-describedby="imp-hint" rows="6" spellcheck="false" placeholder="Zaczyna się od „# SCENARIUSZ DK”."></textarea>
+            <div class="gc" id="gc-imp" data-view="0">
+              <p class="gc-done" hidden>
+                <span class="gd gd1"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="gd-t">Czat otwarty</span></span>
+                <span class="gd gd2"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="gd-t">Polecenie wysłane</span></span>
+                <button type="button" class="link-btn" id="btn-imp-reopen">Otwórz jeszcze raz</button>
+              </p>
+              <section class="gc-card" aria-live="polite">
+                <div class="gc-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+                <p class="gc-eb"></p>
+                <h2 class="gc-title"></h2>
+                <p class="gc-text"></p>
+                
+                <div class="gc-x" data-on="1">
+                  <ul class="attach plansze" id="imp-attach"></ul>
+                  <button type="button" class="link-btn" id="btn-imp-folder" hidden><svg class="ic" aria-hidden="true"><use href="#i-folder-open"/></svg>Pokaż obrazy w folderze</button>
+                </div>
+                <p class="gc-x gc-wait" data-on="2"><span class="spin" aria-hidden="true"></span>Czekam na odpowiedź…</p>
+                <div class="gc-x" data-on="e">
+                  <details class="gc-det" id="imp-err-det">
+                    <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Szczegóły</summary>
+                    <ul id="imp-err-list"></ul>
+                  </details>
+                </div>
+                <div class="gc-actions">
+                  <button type="button" class="btn btn-primary" id="btn-improve" data-on="0"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Dopracuj w <span id="improve-name">Claude</span></span></button>
+                  <button type="button" class="btn btn-primary" id="btn-imp-sent" data-on="1">Wysłałem</button>
+                  <button type="button" class="btn btn-primary" id="btn-imp-fix" data-on="e">Poproś czat o poprawkę</button>
+                  <button type="button" class="btn btn-primary" id="btn-imp-build" data-on="3" hidden disabled><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg>Zbuduj poprawioną wersję</button>
+                </div>
+                <details class="pick-ai" id="pick-ai-imp" data-on="0">
+                  <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Użyj innego czatu</summary>
+                  <div class="pills" id="pills-imp" role="radiogroup" aria-label="Który czat otworzyć"></div>
+                  <button type="button" class="link-btn js-copy-agent" id="btn-copy-agent-pk" title="Dla agenta z plikami (Claude w trybie Cowork albo Code, Codex, Gemini CLI, Cursor): sam otworzy pliki, poprawi prezentację i zgłosi, co zostawił do decyzji."><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Skopiuj polecenie dla agenta z plikami</button>
+                </details>
+              </section>
+              <div class="gc-foot">
+                <details class="manual" id="manual-imp">
+                  <summary><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>Albo wklej odpowiedź ręcznie</summary>
+                  <div class="field">
+                    <label class="sr-only" for="in-imp">Odpowiedź czatu</label>
+                    <textarea id="in-imp" name="poprawka" rows="6" spellcheck="false" placeholder="Zaczyna się od „# SCENARIUSZ DK”."></textarea>
+                  </div>
+                </details>
+                
               </div>
-              <div class="notes" id="imp-notes" hidden>
-                <p class="eyebrow">Tej odpowiedzi jeszcze nie zbuduję</p>
-                <ul id="imp-notes-list"></ul>
-              </div>
-              <p class="field-hint hint-line" id="imp-hint" aria-live="polite"></p>
-              <button type="button" class="btn btn-primary btn-brand" id="btn-imp-build" disabled>Zbuduj ponownie</button>
             </div>
           </div>
           <button type="button" class="link-btn" id="btn-copy-agent" title="Dla agenta z dostępem do plików (Claude w trybie Cowork albo Code, Codex, Gemini CLI, Cursor): sam otworzy pliki, poprawi prezentację i zgłosi, co zostawił do decyzji.">

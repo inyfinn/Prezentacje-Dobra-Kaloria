@@ -63,6 +63,61 @@ def wzor():
         return f.read().replace("\r\n", "\n")
 
 
+# Szkielet pokazuje WYŁĄCZNIE format: nawiasy <…> to miejsca na treść z materiałów. Nie zawiera żadnej treści, którą dałoby się przepisać
+# (27.10.2026: czat przepisał do prezentacji przykład „Baton Przykład” z poprzedniego polecenia zamiast materiałów użytkownika).
+SZKIELET = (
+    "# SCENARIUSZ DK\n"
+    "tytuł: <tytuł z materiałów>\n"
+    "podtytuł: <jedno zdanie z materiałów, opcjonalnie>\n"
+    "\n"
+    "## Rozdział: <nazwa rozdziału>\n"
+    "\n"
+    "## <hasło slajdu>\n"
+    "<jedno zdanie dopisku>\n"
+    "\n"
+    "## <hasło slajdu>\n"
+    "- <punkt>\n"
+    "- <punkt>\n"
+    "\n"
+    "## <hasło slajdu>\n"
+    "**<liczba z materiałów>** <krótki opis liczby>\n"
+    "\n"
+    "## <hasło slajdu>\n"
+    "| <kolumna> | <kolumna> |\n"
+    "|---|---|\n"
+    "| <komórka> | <komórka> |\n"
+    "\n"
+    "## <hasło slajdu>\n"
+    "![<podpis>](Źródła/<nazwa pliku z listy>)\n"
+    "\n"
+    "## <hasło slajdu>\n"
+    "> <cytat z materiałów> — <autor>\n")
+SZKIELET_OPIS = ("SZKIELET (to tylko FORMAT, nie przykład: nawiasy <…> zastąp treścią Z MATERIAŁÓW; nie przepisuj żadnego słowa z tego szkieletu, "
+                 "a nawiasów <…> nie zostawiaj):")
+_ZNAKI_AWARYJNE = ("baton przykład", "baton-przyklad", "anna przykładowa")    # gdy nie da się przeczytać wzoru
+_RX_PUSTE = re.compile(r"<\s*(?:tytuł|podtytuł|nazwa rozdziału|hasło|jedno zdanie|punkt|liczba|krótki opis|kolumna|komórka|podpis|nazwa pliku|cytat|autor)"
+                       r"[^>\n]*>", re.I)
+BLAD_PRZYKLAD = "Czat przepisał przykład zamiast Twoich materiałów – poproś go o scenariusz z plików w folderze Źródła."
+BLAD_SZKIELET = "Czat zostawił puste miejsca ze szkieletu zamiast treści z Twoich materiałów – poproś go o scenariusz z plików w folderze Źródła."
+
+
+def znaki_przykladu():
+    """Nazwy własne z `wzor()` (małe litery): tytuł (cały i część przed pierwszą półpauzą), nazwy plików obrazów bez rozszerzenia, autor cytatu.
+    Brane z aktualnego wzoru, więc po jego zmianie wykrywanie przepisanego przykładu idzie za nim. Krótsze niż 6 znaków pomijam."""
+    try:
+        w = wzor()
+    except OSError:
+        return _ZNAKI_AWARYJNE
+    z = set()
+    m = re.search(r"^\s*tytu[łl]\s*:\s*(.+)$", w, re.I | re.M)
+    if m:
+        t = m.group(1).strip()
+        z |= {t, re.split(r"\s[–—-]\s", t)[0]}
+    z |= {os.path.splitext(os.path.basename(urllib.parse.unquote(p)))[0] for p in re.findall(r"!\[[^\]]*\]\(\s*<?([^)>]+?)>?\s*\)", w)}
+    z |= set(re.findall(r"^>.*\s[—–-]\s+([^,\n]+)", w, re.M))
+    z = {x.strip().lower() for x in z}
+    return tuple(sorted(x for x in z if len(x) >= 6)) or _ZNAKI_AWARYJNE
+
 _RX_MARKER = re.compile(r"^\s*#\s*SCENARIUSZ\s+DK\s*$", re.I)
 _RX_PLOTEK = re.compile(r"^\s*```")
 
@@ -208,7 +263,7 @@ def model(md, folder=None):
     d = _dok()
     tekst = wyciagnij(md)
     if tekst is None:
-        raise ValueError("Nie widzę linii „%s” - scenariusz musi się od niej zaczynać." % MARKER)
+        raise ValueError("To nie wygląda na scenariusz – brakuje pierwszej linii „%s” — scenariusz musi się od niej zaczynać." % MARKER)
     pola, naglowki, cur = {}, [], None
     for l in tekst.split("\n")[1:]:
         s = l.strip()
@@ -265,11 +320,13 @@ def model(md, folder=None):
 # =====================================================================================================================
 # 3. LINT
 # =====================================================================================================================
-def sprawdz(md, folder=None, limit=None):
+def sprawdz(md, folder=None, limit=None, przyklad_ok=False):
     """Kontrola scenariusza przed budową -> {"ok", "slajdy" (z treścią), "rozdzialy", "tytul", "uwagi", "bledy"}. Błąd = nie da się
     zbudować slajdu 1:1; uwaga = da się, ale warto poprawić (hasło dłuższe niż 10 słów, dopisek ponad 30, więcej niż 4 punkty,
     samo hasło, za dużo slajdów względem `limit`). `folder` = baza ścieżek obrazów (`Źródła/x.jpg`); bez niego brak pliku obrazu
-    sprawdzamy tylko dla ścieżek bezwzględnych."""
+    sprawdzamy tylko dla ścieżek bezwzględnych. Błąd „Czat przepisał przykład…”: scenariusz zawiera nazwy ze starego wzoru (Baton Przykład,
+    baton-przyklad.jpg; lista z `znaki_przykladu()`, czyli z aktualnego wzoru) albo puste miejsca ze szkieletu (<hasło slajdu>); `przyklad_ok=True`
+    wyłącza to wykrywanie (testy z wzorem). Każdy błąd to „jedno zdanie — szczegóły”: okno pokazuje samo zdanie, resztę zwija."""
     wyn = {"ok": False, "slajdy": 0, "rozdzialy": 0, "tytul": "", "uwagi": [], "bledy": []}
     try:
         m = model(md, folder)
@@ -281,11 +338,11 @@ def sprawdz(md, folder=None, limit=None):
     roz = [s for s in m["slajdy"] if s["typ"] == "rozdzial"]
     wyn.update(slajdy=len(tresc), rozdzialy=len(roz), tytul=m["tytul"])
     if not m["tytul"]:
-        bl.append("Brakuje tytułu prezentacji: pod linią „%s” dodaj wiersz „tytuł: …”." % MARKER)
+        bl.append("W scenariuszu brakuje tytułu prezentacji — pod linią „%s” dodaj wiersz „tytuł: …”." % MARKER)
     if not tresc:
-        bl.append("Scenariusz nie ma żadnego slajdu: każdy slajd zaczyna się od linii „## Hasło slajdu”.")
+        bl.append("W scenariuszu nie ma żadnego slajdu — każdy slajd zaczyna się od linii „## Hasło slajdu”.")
     if len(m["slajdy"]) > SLAJDOW_MAX:
-        bl.append("Scenariusz ma %d slajdów, a program buduje najwyżej %d. Podziel go na dwie prezentacje." % (len(m["slajdy"]), SLAJDOW_MAX))
+        bl.append("Scenariusz ma za dużo slajdów — ma %d, a program buduje najwyżej %d. Podziel go na dwie prezentacje." % (len(m["slajdy"]), SLAJDOW_MAX))
     if _slow(m["podtytul"]) > PODTYTUL_SLOW:
         uw.append("Podtytuł ma %d słów - na okładce mieści się jedna, najwyżej dwie linie (do %d słów). Skróć go." % (_slow(m["podtytul"]), PODTYTUL_SLOW))
     if len(m["tytul"]) > COVER_DLUGI:
@@ -293,9 +350,9 @@ def sprawdz(md, folder=None, limit=None):
     for nr, s in enumerate(m["slajdy"], 1):
         if s["typ"] == "rozdzial":
             if not s["haslo"]:
-                bl.append("Przekładka nr %d („## Rozdział:”) nie ma nazwy." % nr)
+                bl.append("Przekładka nr %d nie ma nazwy — wpisz ją po „## Rozdział:”." % nr)
             if s["el"]:
-                bl.append("Pod przekładką „%s” stoi tekst - przekładka pokazuje tylko nazwę rozdziału. Przenieś ten tekst na osobny slajd (##)." % s["haslo"])
+                bl.append("Pod przekładką „%s” stoi tekst — przekładka pokazuje tylko nazwę rozdziału. Przenieś ten tekst na osobny slajd (##)." % s["haslo"])
             nast = m["slajdy"][nr] if nr < len(m["slajdy"]) else None
             if nast is None or nast["typ"] == "rozdzial":
                 uw.append("Rozdział „%s” nie ma po sobie żadnego slajdu z treścią." % s["haslo"])
@@ -303,15 +360,27 @@ def sprawdz(md, folder=None, limit=None):
         _slajd(s, nr, folder, bl, uw)
     if limit and len(tresc) > int(limit):
         uw.append("Scenariusz ma %d slajdów z treścią, a limit to %d. Poproś o skrócenie albo zostaw, jak jest." % (len(tresc), int(limit)))
+    if not przyklad_ok:
+        low = md.lower()
+        if any(z in low for z in znaki_przykladu()):
+            bl.insert(0, BLAD_PRZYKLAD)
+        elif _RX_PUSTE.search(md):
+            bl.insert(0, BLAD_SZKIELET)
     wyn["ok"] = not bl
     return wyn
+
+
+def blad_krotko(bledy):
+    """Lista błędów z `sprawdz` -> JEDNO krótkie zdanie dla człowieka: pierwszy błąd bez części po „ — ” (szczegóły zostają w liście błędów)."""
+    zd = str((bledy or [""])[0]).split(" — ", 1)[0].strip()
+    return (zd if zd[-1:] in ".!?" else zd + ".") if zd else "Z tego scenariusza nie da się zbudować slajdów."
 
 
 def _slajd(s, nr, folder, bl, uw):
     """Kontrola jednego slajdu treści (bledy i uwagi dopisywane do list)."""
     nazwa = "Slajd „%s”" % s["haslo"] if s["haslo"] else "Slajd nr %d" % nr
     if not s["haslo"]:
-        bl.append("%s nie ma hasła (pusty nagłówek ##) - hasło to tytuł slajdu." % nazwa)
+        bl.append("%s nie ma hasła — nagłówek ## jest pusty, a hasło to tytuł slajdu." % nazwa)
     elif _slow(s["haslo"]) > HASLO_SLOW:
         uw.append("%s: hasło ma %d słów (zalecane do 8) - krótsze lepiej wygląda." % (nazwa, _slow(s["haslo"])))
     el = s["el"]
@@ -328,36 +397,37 @@ def _slajd(s, nr, folder, bl, uw):
     for e in el:
         if e["k"] == "li":
             if len(e["poz"]) > PUNKTY_MAX:
-                bl.append("%s: ma %d punktów, na jednym slajdzie mieści się najwyżej %d. Skróć listę albo przenieś część na inny slajd (##)." % (
+                bl.append("%s ma za dużo punktów (%d) — na jednym slajdzie mieści się najwyżej %d. Skróć listę albo przenieś część na inny slajd (##)." % (
                     nazwa, len(e["poz"]), PUNKTY_MAX))
             elif len(e["poz"]) > PUNKTY_ZALECANE:
                 uw.append("%s: ma %d punktów (zalecane do %d) - mniej punktów czyta się lepiej." % (nazwa, len(e["poz"]), PUNKTY_ZALECANE))
         elif e["k"] == "tab":
             w = e["wiersze"]
             if len(w) < 2:
-                bl.append("%s: tabela nie ma wierszy z danymi (potrzebny nagłówek i co najmniej jeden wiersz)." % nazwa)
+                bl.append("%s: tabela jest pusta — potrzebny nagłówek i co najmniej jeden wiersz z danymi." % nazwa)
             elif len(w) - 1 > TABELA_WIERSZE or len(w[0]) > TABELA_KOLUMNY:
-                bl.append("%s: tabela ma %d wierszy i %d kolumn, na slajdzie mieści się najwyżej %d wierszy i %d kolumn. Skróć ją albo "
+                bl.append("%s: tabela jest za duża — ma %d wierszy i %d kolumn, a na slajdzie mieści się najwyżej %d wierszy i %d kolumn. Skróć ją albo "
                           "podziel na dwa slajdy (##)." % (nazwa, len(w) - 1, len(w[0]), TABELA_WIERSZE, TABELA_KOLUMNY))
             elif _tabela_dluga(w):
                 uw.append("%s: w tabeli są komórki dłuższe niż jedna linia - skróć je, bo tabela ma jedną linię pisma w wierszu." % nazwa)
         elif e["k"] == "obr":
             if folder or os.path.isabs(e["src"]):
                 if not os.path.isfile(_sciezka_obrazu(e["src"], folder)):
-                    bl.append("%s: nie znalazłem obrazu „%s”. Użyj nazwy pliku dokładnie tak, jak jest w folderze Źródła." % (nazwa, e["src"]))
+                    bl.append("%s: obrazu „%s” nie ma w Twoich plikach — użyj nazwy dokładnie tak, jak jest w folderze Źródła." % (nazwa, e["src"]))
     if rodz.count("tab") > 1:
-        bl.append("%s: ma %d tabele - na slajdzie może stać jedna." % (nazwa, rodz.count("tab")))
+        bl.append("%s ma %d tabele — na jednym slajdzie może stać jedna." % (nazwa, rodz.count("tab")))
     if "tab" in rodz and [k for k in rodz if k not in ("tab", "dop")]:
-        bl.append("%s: tabela zajmuje cały slajd - nie może stać razem z punktami, liczbą, obrazem ani cytatem. Przenieś je na osobny slajd (##)." % nazwa)
+        bl.append("%s: tabela stoi razem z innymi elementami — zajmuje cały slajd i nie może stać z punktami, liczbą, obrazem ani cytatem. "
+                  "Przenieś je na osobny slajd (##)." % nazwa)
     elif "tab" in rodz and dop and len(" ".join(e["t"] for e in dop)) > SOURCE_ZNAKI:
-        bl.append("%s: dopisek przy tabeli ma %d znaków - przy tabeli mieści się jedna krótka linia (do %d znaków)." % (
+        bl.append("%s: dopisek przy tabeli jest za długi — ma %d znaków, a przy tabeli mieści się jedna krótka linia (do %d znaków)." % (
             nazwa, len(" ".join(e["t"] for e in dop)), SOURCE_ZNAKI))
     if rodz.count("liczba") > LICZBY_MAX:
-        bl.append("%s: ma %d liczb-bohaterów, na slajdzie mieści się najwyżej %d." % (nazwa, rodz.count("liczba"), LICZBY_MAX))
+        bl.append("%s ma za dużo liczb-bohaterów (%d) — na slajdzie mieści się najwyżej %d." % (nazwa, rodz.count("liczba"), LICZBY_MAX))
     if rodz.count("obr") > OBRAZY_MAX:
-        bl.append("%s: ma %d obrazów, na slajdzie mieści się najwyżej %d." % (nazwa, rodz.count("obr"), OBRAZY_MAX))
+        bl.append("%s ma za dużo obrazów (%d) — na slajdzie mieści się najwyżej %d." % (nazwa, rodz.count("obr"), OBRAZY_MAX))
     if rodz.count("cyt") > 1:
-        bl.append("%s: ma %d cytaty - na slajdzie może stać jeden." % (nazwa, rodz.count("cyt")))
+        bl.append("%s ma %d cytaty — na slajdzie może stać jeden." % (nazwa, rodz.count("cyt")))
 
 
 # =====================================================================================================================
@@ -583,7 +653,7 @@ def _slajd_tresci(ctx, s):
         bl = [{"k": "li", "t": x} if e["k"] == "li" else {"k": "p", "t": e["t"]} for e in el for x in (e["poz"] if e["k"] == "li" else [None])]
         ctx.uwagi.append("Slajd „%s” ma za dużo tekstu na plakat - stoi jako tekst do czytania, bez haseł. Skróć dopisek albo punkty." % haslo)
         return {"type": "flow", "title": haslo, "blocks": bl}, [], None, ("akapit-do-czytania", "t15", "tekst do czytania")
-    raise ValueError("Slajd „%s” nie mieści się na jednym slajdzie (za dużo elementów). Skróć jego treść albo przenieś część na inny slajd (##)." % haslo)
+    raise ValueError("Slajd „%s” ma za dużo treści — nie mieści się na jednym slajdzie. Skróć jego treść albo przenieś część na inny slajd (##)." % haslo)
 
 
 def zloz(md, ustawienia=None):
@@ -593,7 +663,7 @@ def zloz(md, ustawienia=None):
     ValueError po polsku, gdy `sprawdz` zgłasza błędy albo slajd nie mieści się na jednym slajdzie."""
     ust = ustawienia or {}
     folder = ust.get("folder")
-    kontrola = sprawdz(md, folder, ust.get("limit"))
+    kontrola = sprawdz(md, folder, ust.get("limit"), bool(ust.get("przyklad_ok")))
     if not kontrola["ok"]:
         raise ValueError("Scenariusza nie da się zbudować:\n- " + "\n- ".join(kontrola["bledy"]))
     import build_dk
@@ -673,6 +743,43 @@ FORMAT = (
     "- Pisz po polsku, z polską typografią: cudzysłowy „…”, półpauza –. Bez emoji.")
 
 
+_RX_SCEN = re.compile(r"^scenariusz(?:-(\d+))?\.md$", re.I)
+
+
+def _kolejny_scenariusz(folder):
+    """(ścieżka KOLEJNEGO pliku scenariusza, ścieżka najnowszego istniejącego albo None). Numeracja jak w programie: scenariusz.md = wersja 1,
+    potem scenariusz-2.md, scenariusz-3.md… Agent zapisuje wynik jako kolejny plik i nigdy nie nadpisuje poprzedniego."""
+    nr, ostatni = 0, None
+    try:
+        for n in os.listdir(folder):
+            m = _RX_SCEN.match(n)
+            if m and os.path.isfile(os.path.join(folder, n)) and int(m.group(1) or 1) > nr:
+                nr, ostatni = int(m.group(1) or 1), os.path.join(folder, n)
+    except OSError:
+        pass
+    return os.path.join(folder, "scenariusz.md" if nr == 0 else "scenariusz-%d.md" % (nr + 1)), ostatni
+
+
+def _oddaj_czat(poprawiony=False, dodatek=""):
+    """Końcowy blok każdego polecenia dla czatu: jednoznacznie, CO oddać (sam scenariusz w jednym bloku kodu, bez komentarzy)."""
+    return ("CO MASZ ODDAĆ\nOdpowiedz WYŁĄCZNIE pełnym%s scenariuszem w jednym bloku kodu (```markdown), od linii # SCENARIUSZ DK; bez komentarzy "
+            "przed blokiem i po nim%s." % (", poprawionym" if poprawiony else "", ", bez opisu zmian" if poprawiony else "")) + dodatek
+
+
+def _oddaj_agent(plik, dodatek=""):
+    """Końcowy blok każdego polecenia dla agenta z plikami (Cowork / Code): kolejny plik w folderze i jedno zdanie na koniec."""
+    return ("## CO MASZ ODDAĆ\nZapisz CAŁY scenariusz (od linii # SCENARIUSZ DK, bez bloku kodu wokół) jako kolejny plik %s w folderze prezentacji "
+            "(scenariusz-N.md; nie nadpisuj poprzednich wersji) i napisz jedno zdanie: „Gotowe – wróć do programu Stwórz prezentację.”" % plik) + dodatek
+
+
+def _limit_slajdow(slajdy):
+    try:
+        n = int(slajdy or 0)
+    except (TypeError, ValueError):
+        n = 0
+    return ("Najwyżej %d slajdów z treścią (okładka, zakończenie i przekładki się nie liczą). " % n) if n > 0 else ""
+
+
 def _blok_kodu(tekst):
     return "```markdown\n" + tekst.strip("\n") + "\n```"
 
@@ -710,9 +817,10 @@ def polecenie_przygotowania(zrodla, obrazy, slajdy, tytul="", folder=""):
         "czego tam nie ma, pomijasz. Liczby i nazwy przepisujesz dokładnie.\n"
         "2. Slajd to plakat, nie kartka: hasło (tytuł slajdu, do 8 słów, jedna myśl) i krótki dopisek (do 25 słów). Nie wklejaj akapitów.\n"
         "3. Kolejność myśli jak w materiałach. Powtórzeń i ogólników („wysoka jakość”, „innowacyjne rozwiązanie”) unikaj.\n"
-        "4. Tabelę, liczbę-bohatera i cytat użyj tylko wtedy, gdy materiały je mają.",
+        "4. Tabelę, liczbę-bohatera i cytat użyj tylko wtedy, gdy materiały je mają.\n"
+        "5. Szkielet poniżej pokazuje sam FORMAT. Nie przepisuj z niego żadnych słów i nie zostawiaj nawiasów <…>.",
         FORMAT,
-        "WZÓR (pokazuje wyłącznie FORMAT; Baton Przykład, liczby i cytat są zmyślone - nie przenoś niczego z jego treści):\n" + _blok_kodu(wzor()),
+        SZKIELET_OPIS + "\n" + _blok_kodu(SZKIELET),
         "MATERIAŁY (tekst dokumentów)\n" + (_przytnij_zrodla(zrodla, folder) or "(brak dokumentów tekstowych - treść jest w załączonych obrazach)"),
     ]
     if obrazy:
@@ -720,31 +828,114 @@ def polecenie_przygotowania(zrodla, obrazy, slajdy, tytul="", folder=""):
                   "Odczytaj z nich treść (tekst, liczby, tabele) i użyj jej tak samo jak tekstu dokumentów. Obraz wstaw na slajd "
                   "(![podpis](Źródła/nazwa-pliku)) tylko wtedy, gdy ma tam stać jako zdjęcie lub zrzut; nazwa dokładnie jak na liście. "
                   "Gdy zrzut zawiera dane, zapisz je jako tabelę albo liczbę-bohatera.")
-    cz.append("Odpowiedz WYŁĄCZNIE scenariuszem w bloku kodu, zaczynając od linii # SCENARIUSZ DK. Bez wstępu i komentarza.")
+    cz.append(_oddaj_czat(False, " Nie pytaj o nic, zrób scenariusz z tego, co masz." + (
+        " Jeśli nie widzisz załączonych obrazów, odpowiedz jednym zdaniem: „Nie widzę obrazów - przeciągnij je do czatu i wyślij "
+        "polecenie jeszcze raz.”" if obrazy else "")))
     return "\n\n".join(cz)
 
 
-def polecenie_poprawki(md, uwagi, plansze, slajdy, folder=""):
+OCENA_PLANSZY = (
+    "Dla KAŻDEJ planszy i KAŻDEGO slajdu na niej oceń po kolei: czy hasło jest krótkie i mieści się w jednej-dwóch liniach, czy dopisek lub "
+    "punkty nie są ścianą tekstu, czy slajd nie ma dużej pustej przestrzeni, czy tabela, liczba-bohater i obrazy są czytelne, czy rodzaj "
+    "treści pasuje do tego, co jest na slajdzie. Ocen nie wypisuj: widać je tylko w poprawkach scenariusza.")
+
+
+def _lista_problemow(uwagi, problemy):
+    """Dwie listy do polecenia poprawki: „PROBLEMY NA SLAJDACH” (z kontroli PowerPointa, po ludzku, z numerem slajdu) i „UWAGI PROGRAMU”."""
+    cz = []
+    if problemy:
+        cz.append("PROBLEMY NA SLAJDACH (kontrola w PowerPoint; napraw każdy: skróć tekst albo zmień rodzaj treści)\n" +
+                  "\n".join("- %s" % u for u in problemy))
+    cz.append("UWAGI PROGRAMU\n" + ("\n".join("- %s" % u for u in uwagi) if uwagi else "(brak uwag - oceń same plansze)"))
+    return cz
+
+
+def polecenie_poprawki(md, uwagi, plansze, slajdy, folder="", problemy=None):
     """Polecenie dla czatu: popraw scenariusz po budowie. md = obecny scenariusz, uwagi = uwagi programu, plansze = nazwy plików PNG
-    (zrzuty slajdów) do przeciągnięcia do czatu, slajdy = limit slajdów z treścią."""
+    (zrzuty slajdów) do przeciągnięcia do czatu, slajdy = limit slajdów z treścią, problemy = problemy z kontroli PowerPointa
+    po ludzku („Slajd 7: tekst … nie mieści się w polu”)."""
     cz = [
         "ROLA\nJesteś redaktorem prezentacji marki Dobra Kaloria. Program „Stwórz prezentację” zbudował slajdy z poniższego scenariusza. "
         "Popraw scenariusz tak, żeby prezentacja wyglądała i brzmiała lepiej.",
         "CO ROBISZ\n"
-        "1. Obejrzyj załączone plansze (zrzuty slajdów) i uwagi programu.\n"
-        "2. Popraw w scenariuszu to, co widać na planszach: za długie hasła i dopiski, slajdy z pustym miejscem albo zbyt gęste, tabele z długimi "
-        "komórkami, źle dobrany rodzaj treści (np. punkty zamiast liczby-bohatera).\n"
-        "3. Nie zmieniaj faktów: liczby, nazwy i cytaty zostają jak w scenariuszu. Niczego nie dopisujesz od siebie.\n"
-        "4. Najwyżej %d slajdów z treścią (okładka, zakończenie i przekładki się nie liczą). Jeden nagłówek ## = jeden slajd." % int(slajdy),
+        "1. Obejrzyj załączone plansze (zrzuty slajdów), listę problemów i uwagi programu.\n"
+        "2. " + OCENA_PLANSZY + "\n"
+        "3. Popraw w scenariuszu to, co widać na planszach i co jest na liście problemów: za długie hasła i dopiski, slajdy z pustym miejscem "
+        "albo zbyt gęste, tabele z długimi komórkami, źle dobrany rodzaj treści (np. punkty zamiast liczby-bohatera).\n"
+        "4. Nie zmieniaj faktów: liczby, nazwy i cytaty zostają jak w scenariuszu. Niczego nie dopisujesz od siebie.\n"
+        "5. Najwyżej %d slajdów z treścią (okładka, zakończenie i przekładki się nie liczą). Jeden nagłówek ## = jeden slajd." % int(slajdy),
         FORMAT,
         "OBECNY SCENARIUSZ\n" + _blok_kodu(md),
-        "UWAGI PROGRAMU\n" + ("\n".join("- %s" % u for u in uwagi) if uwagi else "(brak uwag - oceń same plansze)"),
-    ]
+    ] + _lista_problemow(uwagi, problemy)
     if plansze:
         cz.append("PLANSZE (przeciągnij do tego czatu)\n" + "\n".join("- %s" % p for p in plansze) +
                   ("\nPliki leżą w folderze: %s" % folder if folder else ""))
-    cz.append("Odpowiedz WYŁĄCZNIE pełnym, poprawionym scenariuszem w bloku kodu, w tym samym formacie, zaczynając od linii "
-              "# SCENARIUSZ DK. Bez wstępu i komentarza.")
+    cz.append(_oddaj_czat(True, (" Jeśli nie widzisz załączonych plansz, odpowiedz jednym zdaniem: „Nie widzę plansz - przeciągnij obrazy z folderu do czatu "
+                                 "i wyślij polecenie jeszcze raz.”" if plansze else "")))
+    return "\n\n".join(cz)
+
+
+def polecenie_poprawki_agenta(folder, scenariusz, zapisz_jako, uwagi, plansze, slajdy, plansze_folder="", problemy=None):
+    """Treść POLECENIE-POPRAWKA.md dla agenta z plikami (Claude Cowork / Code): przeczytaj scenariusz i plansze, popraw, zapisz jako kolejny
+    plik scenariusz-N.md (`zapisz_jako`, pełna ścieżka) i napisz „Gotowe, wróć do programu”. Prezentację buduje program, nie agent."""
+    cz = [
+        "# Polecenie: popraw scenariusz prezentacji Dobra Kaloria po obejrzeniu slajdów",
+        "Folder prezentacji: %s\nObecny scenariusz: %s\nPlansze (zrzuty slajdów, PNG): %s\nZapisz poprawiony scenariusz jako NOWY plik: %s" % (
+            folder, scenariusz, plansze_folder or "(brak plansz - oceń sam scenariusz)", zapisz_jako),
+        "## Krok 1. Przeczytaj\nPrzeczytaj obecny scenariusz oraz listę problemów i uwag programu poniżej.",
+    ] + _lista_problemow(uwagi, problemy)
+    cz.append("## Krok 2. Obejrzyj plansze\n" + (
+        "Otwórz KAŻDĄ planszę z folderu %s jako obraz (%s). " % (plansze_folder, ", ".join(plansze[:12]) + ("…" if len(plansze) > 12 else ""))
+        if plansze else "Plansz nie ma - oceń scenariusz bez nich. ") + OCENA_PLANSZY)
+    cz.append("## Krok 3. Popraw scenariusz\nNie zmieniaj faktów: liczby, nazwy i cytaty zostają jak w scenariuszu, niczego nie dopisujesz od siebie. "
+              "Najwyżej %d slajdów z treścią (okładka, zakończenie i przekładki się nie liczą). Jeden nagłówek ## = jeden slajd.\n\n%s" % (int(slajdy), FORMAT))
+    cz.append(_oddaj_agent(zapisz_jako, " Nie buduj prezentacji: zrobi to program „Stwórz prezentację” po kliknięciu użytkownika."))
+    return "\n\n".join(cz)
+
+
+def polecenie_naprawy(md, bledy, folder="", agent=False, slajdy=None):
+    """KRÓTKIE polecenie po odrzuceniu odpowiedzi: „popraw te błędy i oddaj pełny scenariusz”. Czat ma jeszcze w rozmowie materiały i format
+    z pierwszego polecenia, więc nie powtarzam ani szkieletu, ani formatu; dołączam powody (po polsku) i poprzednią odpowiedź do poprawy.
+    agent=True: wersja dla agenta z plikami (Cowork / Code) w `folder`: czyta pliki ze Źródeł i zapisuje wynik jako kolejny scenariusz-N.md.
+    slajdy = limit slajdów z treścią (None: bez limitu w poleceniu)."""
+    bl = [str(b) for b in (bledy or [])] or ["(brak opisu)"]
+    if agent:
+        return polecenie_naprawy_agenta(folder, bl, _kolejny_scenariusz(folder)[0], slajdy, md)
+    zly = (md or "").strip()
+    if len(zly) > 20000:
+        zly = zly[:20000].rsplit("\n", 1)[0] + "\n[…odpowiedź przycięta]"
+    cz = [
+        "POPRAWKA\nTwoja poprzednia odpowiedź nie nadaje się do zbudowania slajdów. Powody:\n" + "\n".join("- %s" % b for b in bl),
+        "CO ROBISZ\n"
+        "1. Popraw scenariusz tylko pod kątem powyższych powodów. Format zostaje taki sam jak w pierwszym poleceniu (# SCENARIUSZ DK, „tytuł: …”, "
+        "jeden nagłówek ## = jeden slajd).\n"
+        "2. Całą treść bierz WYŁĄCZNIE z materiałów, które dostałeś na początku tej rozmowy (pliki z folderu Źródła). Nie z przykładu ani ze szkieletu: "
+        "nie przepisuj ich słów i nie zostawiaj nawiasów <…>.\n"
+        "3. " + (_limit_slajdow(slajdy).strip() or "Liczbę slajdów zostaw jak w poprzedniej odpowiedzi.") +"\n"
+        "Jeśli nie widzisz tych materiałów (to nowa rozmowa), odpowiedz jednym zdaniem: „Nie widzę materiałów - wklej pierwsze polecenie jeszcze raz.”",
+    ]
+    if zly:
+        cz.append("TWOJA POPRZEDNIA ODPOWIEDŹ (do poprawy; jeśli powodem jest przepisany przykład, nie przepisuj jej, tylko napisz od nowa z materiałów)\n"
+                  + _blok_kodu(zly))
+    cz.append(_oddaj_czat(True))
+    return "\n\n".join(cz)
+
+
+def polecenie_naprawy_agenta(folder, bledy, zapisz_jako, slajdy=None, md=""):
+    """Treść POLECENIE-POPRAWKA.md dla agenta z plikami po odrzuceniu scenariusza: przeczytaj pliki z Źródła, napraw, zapisz jako kolejny plik."""
+    zly = (md or "").strip()
+    cz = [
+        "# Polecenie: popraw scenariusz prezentacji Dobra Kaloria (nie da się z niego zbudować slajdów)",
+        "Folder prezentacji: %s\nŹródła: %s\nZapisz poprawiony scenariusz jako NOWY plik: %s" % (folder, os.path.join(folder, "Źródła"), zapisz_jako),
+        "## Powody odrzucenia\n" + "\n".join("- %s" % b for b in (bledy or ["(brak opisu)"])),
+        "## Krok 1. Przeczytaj materiały\nPrzeczytaj KAŻDY plik z folderu Źródła%s (obrazy i zrzuty ekranu OBEJRZYJ), zanim cokolwiek napiszesz. "
+        "Cała treść slajdów ma pochodzić z tych plików: nie z przykładu, nie ze szkieletu, nie wymyślona." % _nazwy_zrodel(folder),
+        "## Krok 2. Napisz scenariusz od nowa albo popraw obecny\n%sJeden nagłówek ## = jeden slajd.\n\n%s\n\n%s\n\n%s" % (
+            _limit_slajdow(slajdy), FORMAT, SZKIELET_OPIS, _blok_kodu(SZKIELET)),
+    ]
+    if zly:
+        cz.append("## Odrzucona wersja (nie przepisuj jej, jeśli powód to przepisany przykład)\n" + _blok_kodu(zly[:20000]))
+    cz.append(_oddaj_agent(zapisz_jako, " Nie buduj prezentacji: zrobi to program po kliknięciu użytkownika."))
     return "\n\n".join(cz)
 
 
@@ -762,31 +953,41 @@ def _cli_agenta():
     return "stworz-cli.exe", gdzie, "stworz-cli.exe", "Claude Cowork, Mac, brak programu"
 
 
+def _nazwy_zrodel(folder):
+    """„: a.docx, b.png” (nazwy plików w <folder>\\Źródła) albo pusty tekst; polecenie dla agenta wymienia je z nazwy."""
+    try:
+        n = sorted(x for x in os.listdir(os.path.join(folder, "Źródła")) if os.path.isfile(os.path.join(folder, "Źródła", x)))
+    except OSError:
+        return ""
+    return (": " + ", ".join(n)) if n else ""
+
+
 def polecenie_agenta(folder):
-    """Treść POLECENIE.md dla Claude Code / agenta z dostępem do plików: źródła -> scenariusz.md -> budowa -> ocena plansz."""
-    scen = os.path.join(folder, "scenariusz.md")
+    """Treść POLECENIE.md dla Claude Code / agenta z dostępem do plików: źródła (wymienione z nazwy) -> scenariusz w kolejnym pliku -> budowa -> plansze."""
+    nowy, ostatni = _kolejny_scenariusz(folder)
     cli, gdzie, nazwa, kiedy = _cli_agenta()
     return "\n\n".join([
         "# Polecenie: prezentacja Dobra Kaloria ze scenariusza",
-        "Folder prezentacji: %s\nŹródła (docx, pdf, txt, obrazy, zrzuty ekranu): %s\nScenariusz: %s" % (folder, os.path.join(folder, "Źródła"), scen),
+        "Folder prezentacji: %s\nŹródła (docx, pdf, txt, obrazy, zrzuty ekranu): %s\nScenariusz do napisania (nowy plik): %s%s" % (
+            folder, os.path.join(folder, "Źródła"), nowy, ("\nPoprzedni scenariusz (zostaje bez zmian): %s" % ostatni) if ostatni else ""),
         "Pracujesz samodzielnie, aż prezentacja przejdzie kontrolę. Pytasz tylko wtedy, gdy w folderze Źródła nie ma materiałów.",
-        "## Krok 1. Przeczytaj źródła\nPrzeczytaj wszystkie pliki z folderu Źródła. Dokumenty czytasz jako tekst, a obrazy i zrzuty "
-        "ekranu OBEJRZYJ narzędziem do odczytu obrazów (są w nich dane, których nie ma w tekście). Niczego nie wymyślasz: liczby, nazwy, "
-        "daty, składniki i cytaty tylko ze źródeł.",
-        "## Krok 2. Napisz scenariusz\nZapisz %s według formatu poniżej (jeśli plik już jest, popraw go, a nie pisz od zera). "
-        "Slajd to plakat: hasło do 8 słów i dopisek do 25 słów. Wzór: skill\\assets\\scenariusz-wzor.md, a w programie plik "
-        "app\\skill\\assets\\scenariusz-wzor.md.\n\n%s\n\nWZÓR (tylko format; treść zmyślona):\n\n%s" % (scen, FORMAT, _blok_kodu(wzor())),
+        "## Krok 1. Przeczytaj źródła\nPrzeczytaj KAŻDY plik z folderu Źródła%s. Czytasz je wszystkie PRZED napisaniem pierwszej linii scenariusza. "
+        "Dokumenty czytasz jako tekst, a obrazy i zrzuty ekranu OBEJRZYJ narzędziem do odczytu obrazów (są w nich dane, których nie ma w tekście). "
+        "Niczego nie wymyślasz: liczby, nazwy, daty, składniki i cytaty tylko ze źródeł. Cała treść slajdów ma pochodzić z tych plików, nie z przykładu "
+        "ani ze szkieletu." % _nazwy_zrodel(folder),
+        "## Krok 2. Napisz scenariusz\nZapisz %s według formatu poniżej%s. Slajd to plakat: hasło do 8 słów i dopisek do 25 słów.\n\n%s\n\n%s\n\n%s" % (
+            nowy, (" (zacznij od poprzedniego scenariusza i popraw go, ale zapisz jako nowy plik)" if ostatni else ""), FORMAT, SZKIELET_OPIS,
+            _blok_kodu(SZKIELET)),
         "## Krok 3. Zbuduj prezentację\n```\n%s \"%s\" --scenariusz \"%s\" --wyjscie \"%s\"\n```\n"
         "(%s.) Program najpierw sprawdza scenariusz: linie „BŁĄD” to rzeczy, "
-        "które musisz poprawić w scenariusz.md (potem uruchom budowę jeszcze raz), „uwagi” to wskazówki. Po budowie wypisuje ścieżkę "
+        "które musisz poprawić w scenariuszu (potem uruchom budowę jeszcze raz), „uwagi” to wskazówki. Po budowie wypisuje ścieżkę "
         "pliku .pptx i folder z planszami PNG (zrzuty slajdów, 6 na planszę).\n\n"
-        "Nie możesz uruchomić %s (np. %s)? Skończ na Kroku 2: zapisz scenariusz.md w folderze "
-        "prezentacji i napisz użytkownikowi, żeby wrócił do okna programu „Stwórz prezentację” – program sam znajdzie nowy scenariusz, "
-        "sprawdzi go i zbuduje prezentację. Krok 4 zrobisz po budowie na planszach z folderu `plansze`." % (cli, folder, scen, folder, gdzie, nazwa, kiedy),
+        "Nie możesz uruchomić %s (np. %s)? Pomiń Kroki 3 i 4 i przejdź do CO MASZ ODDAĆ: program sam znajdzie nowy scenariusz, "
+        "sprawdzi go i zbuduje prezentację." % (cli, folder, nowy, folder, gdzie, nazwa, kiedy),
         "## Krok 4. Oceń plansze\nObejrzyj KAŻDĄ planszę jako obraz. Dla każdego slajdu zapytaj: czy hasło jest krótkie i czytelne, czy dopisek "
-        "mieści się bez gęstego tekstu, czy nie ma dużej pustej przestrzeni, czy tabela i obrazy są czytelne. Poprawki wpisuj do scenariusz.md "
+        "mieści się bez gęstego tekstu, czy nie ma dużej pustej przestrzeni, czy tabela i obrazy są czytelne. Poprawki wpisuj do scenariusza "
         "(nie do pliku .pptx), zmieniając tylko to, co widać na planszach, i buduj ponownie. Najwyżej 3 rundy. Poprzednie wersje pliku "
         "zostają w folderze (kolejne mają dopisek „v2”, „v3”).",
-        "## Raport\nPo polsku, krótko: ścieżka pliku .pptx, liczba slajdów, co zmieniłeś w scenariuszu po planszach, co zostało do decyzji "
-        "człowieka. Nie pisz, że gotowe, jeśli nie obejrzałeś plansz po ostatniej zmianie.",
+        _oddaj_agent(nowy, " Jeśli zbudowałeś też prezentację (Kroki 3 i 4), dopisz krótko po polsku: ścieżkę pliku .pptx, liczbę slajdów, co zmieniłeś "
+                           "po planszach i co zostało do decyzji człowieka. Nie pisz, że gotowe, jeśli nie obejrzałeś plansz po ostatniej zmianie."),
     ])

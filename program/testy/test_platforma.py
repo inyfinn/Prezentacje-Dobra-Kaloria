@@ -239,7 +239,7 @@ def test_ai_cele_na_macu(mac, dom, tmp, monkeypatch):
     monkeypatch.setattr(folder_prez, "ustawienia", lambda: {})
     assert [c["id"] for c in engine.ai_cele()] == ["claude", "chatgpt", "gemini"]
     os.makedirs(os.path.join(dom, "Applications", "Claude.app"))
-    assert [c["id"] for c in engine.ai_cele()] == ["claude", "claude_cowork", "chatgpt", "gemini", "claude_code"]
+    assert [c["id"] for c in engine.ai_cele()] == ["claude_cowork", "claude", "chatgpt", "gemini", "claude_code"]
 
 
 # --- ścieżki i baza folderu prezentacji --------------------------------------------------------------------------------------------
@@ -335,10 +335,10 @@ def test_budowa_ze_scenariusza_na_macu(bez_windowsa):
     os.makedirs(os.path.dirname(zr))
     open(zr, "w", encoding="utf-8").write("Opis produktu. " * 20)
     from PIL import Image
-    jpg = os.path.join(bez_windowsa, "pobrane", "baton-przyklad.jpg")      # obraz, do którego odwołuje się wzór scenariusza
+    jpg = os.path.join(bez_windowsa, "pobrane", "baton-testowy.jpg")      # obraz, do którego odwołuje się wzór scenariusza
     Image.new("RGB", (900, 600), (40, 140, 70)).save(jpg)
     folder, _ = folder_prez.utworz_folder(baza, "2026-10-27 - Test na Macu", [zr, jpg])
-    folder_prez.nowa_wersja_scenariusza(folder, open(WZOR, encoding="utf-8-sig").read())
+    folder_prez.nowa_wersja_scenariusza(folder, open(WZOR, encoding="utf-8-sig").read().replace("Baton Przykład", "Baton Testowy").replace("baton-przyklad", "baton-testowy").replace("Anna Przykładowa", "Anna Testowa"))
     res = engine.safe_build(folder, {})
     _opis(res)
     assert res["tryb"] == "scenariusz" and os.path.dirname(res["pptx"]) == folder

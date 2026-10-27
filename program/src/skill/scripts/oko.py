@@ -353,7 +353,7 @@ def _usterki(m):
     pg = m.get("pas_gora")
     if not luzny and karty and pg is not None and pg >= PLYWA_GORA and dol >= PLYWA_DOL and m["wys_tresci"] <= PLYWA_WYS:
         u.append({"kod": "PLYWAJACA_TRESC",
-                  "opis": "treść pływa: %d%% wysokości pusto pod tytułem i %d%% pod treścią, sama treść zajmuje %d%%" % (
+                  "opis": "treść pływa w pustym miejscu (%d%% pusto nad nią, %d%% pod nią, sama zajmuje %d%%) - dopisz treść albo dopracuj slajd w czacie" % (
                       round(pg * 100), round(dol * 100), round(m["wys_tresci"] * 100)),
                   "waga": 2})
     elif not luzny and karty and m.get("wypelnienie", 1) < MALO_TRESCI:

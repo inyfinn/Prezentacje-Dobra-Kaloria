@@ -323,9 +323,6 @@
     var f = $('#foot-info');
     f.replaceChildren();
     f.appendChild(h('span', { text: 'Wersja ' + (i.wersja || '—') }));
-    var names = { nowy: 'nowy styl', stary: 'stary styl' };
-    var list = (i.szablony && i.szablony.length ? i.szablony : ['nowy', 'stary']).map(function (k) { return names[k] || k; });
-    f.appendChild(h('span', { text: 'Szablon: ' + list.join(' / ') }));
     if (i.powerpoint === false) {
       f.appendChild(h('span', { class: 'warn', text: i.system === 'mac' ? 'Na Macu nie sprawdzam slajdów — zrobię prezentację, a Ty otwórz ją i przejrzyj.' : 'Nie widzę programu PowerPoint — zrobię prezentację, ale jej nie sprawdzę.' }));
     }
@@ -1385,8 +1382,15 @@
     }
     if (!checked) row('warn', 'alert', 'Tekst na slajdach:', 'nie sprawdzono w PowerPoint. Otwórz prezentację i przejrzyj slajdy.', 'res-qa');
     else check('res-qa', !n, 'Tekst na slajdach: ' + num(n, 'problem', 'problemy', 'problemów'));
-    var det = (qa.szczegoly || []).map(txt);   /* które slajdy i co: od razu pod swoim wierszem */
+    /* które slajdy i co: od razu pod swoim wierszem, po ludzku (qa.opisy z silnika: „Slajd 7: tekst … nie mieści się w polu - skróć go.”);
+       surowe linie kontroli (qa.szczegoly) zostają tylko pod „Pokaż wszystkie” */
+    var raw = (qa.szczegoly || []).map(txt), humanQa = (qa.opisy || []).length === raw.length && raw.length > 0;
+    var det = (humanQa ? qa.opisy : raw).map(txt);
     if (checked && n && det.length) $('#res-qa > span').appendChild(h('ul', { class: 'qa-details' }, det.map(function (d) { return h('li', { text: d }); })));
+    if (checked && n && humanQa) todo = todo.concat(raw.map(function (r) { return 'Kontrola PowerPoint (surowo): ' + r; }));
+    var qh = $('#res-qa-hint');
+    qh.hidden = !(checked && n && det.length);
+    $('span', qh).textContent = 'Skróć te teksty sam albo zleć to AI w karcie „' + $('#l-ai').textContent + '”.';
     if (covTxt) check('res-cov', covOk, covTxt);
     if (ukTxt) check('res-uklad', ukOk, ukTxt);
 
@@ -1510,14 +1514,14 @@
         showGuide({ nazwa: 'czat', klucz: 'inny', gdzie: 'inny' });
       }).catch(function (e) { onError(errMsg(e)); });
     });
-    $('#btn-copy-agent').addEventListener('click', function () {
+    $$('#btn-copy-agent, #btn-copy-agent-pk').forEach(function (btn) { btn.addEventListener('click', function () {
       var t = state.done && state.done.prompt_agent;
       if (!t) { onError('Nie mam czego skopiować.'); return; }
       call('copy_text', t).then(function (ok) {
         if (ok === false) { toast('Nie udało się skopiować polecenia (schowek zajęty). Spróbuj jeszcze raz za chwilę.', 'error', 12000); return; }
         showGuide({ nazwa: 'agent', klucz: 'agent', gdzie: 'inny' });
       }).catch(function (e) { onError(errMsg(e)); });
-    });
+    }); });
     Array.prototype.forEach.call(document.querySelectorAll('[data-ai]'), function (b) {
       b.addEventListener('click', function () {
         var t = state.done && state.done.prompt_ai;
@@ -1566,7 +1570,7 @@
      ręcznie albo ze schowka (peek_clipboard co 1,5 s, tylko gdy jedno z dwóch pól jest na ekranie). Budowa startuje dopiero po kliknięciu. */
   var SC = { min: 5, max: 30, dom: 12 };   /* zakres suwaka „Ile slajdów (najwyżej)”: z analyze_many (suwaki.slajdy), a bez niego te wartości */
   var boxes = null;               /* pola odpowiedzi czatu: sc = krok Treść, imp = karta „Popraw z AI” na ekranie Gotowe */
-  var improveOpen = false;        /* karta „Popraw z AI”: pole wklejania otwarte (nasłuch schowka tylko wtedy) */
+  var improveOpen = false;        /* karta „Dopracuj z AI”: czat otwarty (nasłuch schowka tylko wtedy) */
   var MAX_ROWS = 6;               /* wierszy listy plików na kroku Folder; reszta jako „i jeszcze N”, żeby krok mieścił się w oknie */
   var TYP_IC = { dokument: 'doc', obraz: 'image', pptx: 'present' };
   var TYP_NAME = { dokument: 'Dokument', obraz: 'Obraz', pptx: 'Prezentacja' };
@@ -1625,7 +1629,6 @@
     fillNotes($('#pk-notes'), $('#pk-notes-list'), r.uwagi || []);
     $$('.pane-ctx').forEach(function (e) { e.textContent = r.tytul || ''; });
     ['sc', 'imp'].forEach(function (k) { boxReset(boxes[k]); });
-    $('#sc-open-msg').hidden = true;
   }
 
   function showPakiet(res) {
@@ -1681,20 +1684,17 @@
 
   /* ---- krok Treść ---- */
   function prepareTresc() {
-    var pk = state.pk;
+    var pk = state.pk, b = boxes.sc;
     $('#sc-noai').hidden = !pk.hasDoc;   /* same zdjęcia: „bez AI” nie ma z czego zrobić slajdów */
     syncScSlider();
     loadTargets();
-    boxReset(boxes.sc);
+    boxReset(b);
     if (pk.scen) {   /* otwarty istniejący folder prezentacji: scenariusz z folderu można zbudować od razu, bez wklejania */
-      if (pk.scen.ok) {
-        setHint(boxes.sc, 'W folderze jest już scenariusz' + (pk.scen.wersja ? ' (wersja ' + pk.scen.wersja + ')' : '') + '. Kliknij „Zbuduj prezentację”, żeby zbudować z niego'
-          + (pk.wyniki ? ' (poprzednie prezentacje zostają obok)' : '') + ', albo wklej nową odpowiedź czatu.', true);
-        boxSync(boxes.sc);
-      } else {
-        showScNotes(boxes.sc, { blad: 'Scenariusz z tego folderu ma błędy, więc go nie zbuduję.', uwagi: pk.scen.bledy }, 'Scenariusz z folderu wymaga poprawy');
-      }
+      if (pk.scen.ok) b.note = 'W folderze jest już scenariusz' + (pk.scen.wersja ? ' (wersja ' + pk.scen.wersja + ')' : '') + '.' + (pk.wyniki ? ' Poprzednie prezentacje zostają obok.' : '');
+      else b.err = { zd: 'Scenariusz z tego folderu ma błędy.', bledy: (pk.scen.bledy || []).map(txt), blad: '', uwagi: [] };
+      b.errText = '';
     }
+    boxSync(b);
   }
 
   function syncScSlider() {
@@ -1715,10 +1715,16 @@
     if (state.mode === 'pakiet' && state.pane === 'tresc') paneBar('tresc');
   }
 
-  /* ---- wybór czatu (api.ai_targets): przycisk „Otwórz [ostatni]” + mała lista pod „Użyj innego czatu” ---- */
+  /* ---- wybór czatu (api.ai_targets): przycisk „Otwórz [ostatni]” + mała lista pod „Użyj innego czatu” ----
+     Silnik daje {id, nazwa, krotka?, opis?, dostepny, ostatni}: gdy jest Claude Desktop, pierwszy jest „Claude (sam przeczyta pliki)” (claude_cowork). */
+  function curTarget() { return state.ai.list.filter(function (x) { return x.id === state.ai.ktory; })[0] || null; }
   function chatName() {
-    var t = state.ai.list.filter(function (x) { return x.id === state.ai.ktory; })[0];
-    return t ? (t.nazwa || t.id) : 'czat';
+    var t = curTarget();
+    return t ? (t.krotka || t.nazwa || t.id) : 'czat';
+  }
+  function agentTarget() {   /* agent z dostępem do plików (Cowork, Code): czyta folder sam, nic nie przeciągasz */
+    var t = curTarget();
+    return t && (t.id === 'claude_cowork' || t.id === 'claude_code') ? t : null;
   }
   function useTargets(list, last) {
     state.ai.list = (list && list.length ? list : FALLBACK_AI).filter(function (x) { return x && x.id && x.dostepny !== false; });   /* Claude Code tylko, gdy dostępny */
@@ -1737,9 +1743,8 @@
     }).catch(function () { useTargets(null, ''); });
   }
   function renderTargets() {
-    var cur = chatName();
-    $('#open-name').textContent = cur;
-    $('#improve-name').textContent = cur;
+    function names() { $('#open-name').textContent = chatName(); $('#improve-name').textContent = chatName(); if (boxes) { boxSync(boxes.sc); boxSync(boxes.imp); } }
+    names();
     ['sc', 'imp'].forEach(function (k) {
       var host = $('#pills-' + k);
       host.replaceChildren();
@@ -1749,19 +1754,81 @@
         inp.addEventListener('change', function () {
           if (!inp.checked) return;
           state.ai.ktory = t.id;
-          var n = chatName();
-          $('#open-name').textContent = n;
-          $('#improve-name').textContent = n;
+          names();
           $$('.pills input').forEach(function (i) { i.checked = i.value === t.id; });   /* oba zestawy (krok Treść i karta Gotowe) pokazują ten sam wybór */
         });
-        host.appendChild(h('label', { class: 'pill' }, inp, h('span', { text: t.nazwa || t.id })));
+        host.appendChild(h('label', { class: 'pill', title: t.opis || null }, inp, h('span', { text: t.nazwa || t.id })));
       });
     });
   }
 
-  /* „Otwórz czat” (krok Treść) i „Popraw w czacie” (Gotowe): program kopiuje polecenie do schowka i otwiera czat; reszta dzieje się w czacie */
+  /* ---- prowadzenie: jeden krok naraz (krok Treść i karta „Dopracuj z AI”) ----
+     Widok karty (b.view): '0' otwórz czat | '1' wklej i wyślij | '2' czekaj na odpowiedź | '3' mam odpowiedź | 'e' odpowiedź odrzucona (błąd jednym zdaniem
+     i jeden przycisk „Poproś czat o poprawkę”). Karta pokazuje tylko bieżący krok (numer „Krok N z 3”, jedno zdanie, jeden przycisk główny - żółty);
+     zrobione kroki to jedna szara linia z ptaszkami. Elementy z data-on="…" są widoczne tylko w wymienionych widokach. */
+  function slajdowIn(text) { return (String(text || '').match(/^##\s+(?!Rozdzia)/gim) || []).length; }
+  /* teksty karty zależą od widoku i od wybranego czatu: agent z plikami (Claude Cowork / Code) czyta folder sam, zwykły czat dostaje polecenie do wklejenia */
+  function gcCopy(b) {
+    var imp = b.key === 'imp', ag = agentTarget(), code = !!ag && ag.id === 'claude_code', v = b.view, n = slajdowIn(b.ta.value);
+    if (v === 'e') return { eb: 'Do poprawki', t: b.err.zd, x: '' };
+    if (v === '0') return { eb: 'Krok 1 z 3', t: ag ? 'Otwórz Claude' : 'Otwórz czat', x: b.note ? b.note + ' Zbuduj z niego prezentację albo poproś czat o nową wersję.'
+      : (ag ? 'Claude sam przeczyta pliki z folderu.' : 'Skopiuję polecenie do schowka i otworzę czat.') };
+    if (v === '1') {
+      if (ag) return { eb: 'Krok 2 z 3', t: code ? 'Zatwierdź w oknie Claude Code' : 'Zatwierdź dostęp do folderu',
+        x: code ? 'Zgódź się, gdy Claude Code o to zapyta.' : 'W Claude zgódź się na dostęp do folderu i wyślij wiadomość.' };
+      return { eb: 'Krok 2 z 3', t: b.fix ? 'Wklej poprawkę i wyślij' : 'Wklej polecenie i wyślij',
+        x: 'W czacie wciśnij Ctrl+V, potem Enter.' + (b.attach ? (imp ? ' Przeciągnij tam też te obrazy:' : ' Przeciągnij tam też te pliki:') : '') };
+    }
+    if (v === '2') return { eb: 'Krok 3 z 3', t: ag ? 'Poczekaj na Claude' : 'Poczekaj na odpowiedź',
+      x: ag ? 'Claude zapisze scenariusz w folderze. Gdy skończy, zobaczysz to tutaj.' : 'Gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj”. Resztę zrobię sam.' };
+    return { eb: 'Gotowe do budowy', t: imp ? 'Mam poprawioną wersję' : 'Mam odpowiedź',
+      x: (n ? num(n, 'slajd', 'slajdy', 'slajdów') + '. ' : '') + (imp ? 'Kliknij „Zbuduj poprawioną wersję”.' : 'Kliknij „Zbuduj prezentację” na dole.') };
+  }
+  function gcRender(b) {
+    var el = $('#gc-' + b.key), v = b.view = b.err ? 'e' : (b.ta.value.trim() ? '3' : String(b.step | 0)), c = gcCopy(b), ag = agentTarget();
+    el.setAttribute('data-view', v);
+    el.toggleAttribute('data-quiet', !!b.note && v === '0');   /* w folderze już jest scenariusz: żółty jest „Zbuduj”, nie „Otwórz czat” */
+    $$('[data-on]', el).forEach(function (x) { x.hidden = x.getAttribute('data-on').split(' ').indexOf(v) < 0; });
+    $('.gc-eb', el).textContent = c.eb;
+    $('.gc-title', el).textContent = c.t;
+    var tx = $('.gc-text', el);
+    tx.textContent = c.x;
+    tx.hidden = !c.x;
+    $$('.gc-bar i', el).forEach(function (seg, i) { seg.className = v === 'e' ? '' : (i <= (v === '3' ? 2 : +v) ? 'on' : ''); });
+    if (b.key === 'imp' && b.lastView && b.lastView !== v) $('.ai-card').scrollIntoView({ block: 'nearest', behavior: 'smooth' });   /* nowy krok ma być widać w oknie */
+    b.lastView = v;
+    var dn = $('.gc-done', el), st = b.step | 0;
+    dn.hidden = st < 1;
+    $('.gd1 .gd-t', el).textContent = ag ? 'Claude uruchomiony' : 'Czat otwarty';
+    $('.gd2 .gd-t', el).textContent = ag ? 'Zgoda i wiadomość wysłane' : 'Polecenie wysłane';
+    $('.gd2', el).hidden = st < 2;
+    if (b.err) {   /* pełna treść błędu zwinięta w „Szczegóły”: powody (bez powtórzenia zdania) i uwagi programu */
+      var det = (b.err.bledy || []).concat(b.err.uwagi || []).filter(function (x, i, a) { return x && x !== b.err.zd && a.indexOf(x) === i; });
+      var ul = $('#' + b.key + '-err-list');
+      ul.replaceChildren();
+      det.forEach(function (x) { ul.appendChild(h('li', { text: x })); });
+      $('#' + b.key + '-err-det').hidden = !det.length;
+    }
+  }
+  /* czat otwarty (albo poprawka zamówiona): krok 2 dostaje to, co trzeba przeciągnąć (miniatury plansz / nazwy plików) i przycisk „Pokaż … w folderze” */
+  function gcOpened(b, r, fix) {
+    var k = b.key, imp = k === 'imp', items = imp ? (r.plansze_info || []) : (r.zalaczniki || []), ul = $('#' + k + '-attach'), fb = $('#btn-' + k + '-folder');
+    b.opened = true; b.fix = !!fix; b.step = 1; b.katalog = r.katalog || '';
+    b.attach = !r.agent && !fix && items.length > 0 && !!r.katalog;
+    ul.replaceChildren();
+    if (b.attach) items.forEach(function (x) {
+      ul.appendChild(imp ? h('li', null, h('img', { src: x.miniatura, alt: x.opis, draggable: 'false' }), h('span', { text: x.opis }))
+        : h('li', { class: 'chip' }, icon('file'), h('span', { text: x })));
+    });
+    fb.hidden = !b.attach;
+    if (imp) improveOpen = true;
+    boxSync(b);
+    watchSync();
+  }
+
+  /* „Otwórz czat” (krok Treść) i „Dopracuj w czacie” (Gotowe): program kopiuje polecenie do schowka i otwiera czat (albo agenta z folderem) */
   function openChat(improve) {
-    var btn = $(improve ? '#btn-improve' : '#btn-sc-open');
+    var k = improve ? 'imp' : 'sc', btn = $(improve ? '#btn-improve' : '#btn-sc-open'), b = boxes[k];
     if (btn.disabled || !state.ai.ktory) return;
     btn.disabled = true;
     var req = improve ? call('improve_ai', state.ai.ktory) : call('prepare_ai', state.ai.ktory, { slajdy: scSlajdy() });
@@ -1769,59 +1836,63 @@
       btn.disabled = false;
       if (!r || !r.ok) { toast(errMsg((r && r.blad) || 'Nie udało się otworzyć czatu.'), 'error', 12000); return; }
       var nm = r.nazwa || chatName();
-      if (!r.skopiowano) { toast('Otwieram ' + nm + ', ale nie udało się skopiować polecenia (schowek zajęty). Kliknij jeszcze raz za chwilę.', 'error', 12000); return; }
-      var t = 'Otworzyłem ' + nm + (improve ? '' : ' i folder ze źródłami') + '. Polecenie jest w schowku: kliknij w pole wiadomości, wciśnij Ctrl+V, potem Enter.';
-      if (improve) { $('#imp-paste').hidden = false; improveOpen = true; setHint(boxes.imp, t); boxSync(boxes.imp); watchSync(); }
-      else { var m = $('#sc-open-msg'); m.textContent = t; m.hidden = false; }
+      if (!r.skopiowano && !r.agent) { toast('Otwieram ' + nm + ', ale nie udało się skopiować polecenia (schowek zajęty). Kliknij jeszcze raz za chwilę.', 'error', 12000); return; }
+      gcOpened(b, r, false);
+    }).catch(function (e) { btn.disabled = false; onError(errMsg(e)); });
+  }
+  /* „Poproś czat o poprawkę” (odpowiedź odrzucona): program kopiuje polecenie poprawki z błędem do schowka i otwiera ten sam czat (agent: nowa sesja z folderem) */
+  function fixChat(b) {
+    var btn = $('#btn-' + b.key + '-fix');
+    if (btn.disabled || !b.err || !state.ai.ktory) return;
+    btn.disabled = true;
+    call('fix_ai', state.ai.ktory, b.errText || '', b.err.bledy || [b.err.zd]).then(function (r) {
+      btn.disabled = false;
+      if (!r || !r.ok) { toast(errMsg((r && r.blad) || 'Nie udało się otworzyć czatu.'), 'error', 12000); return; }
+      if (!r.skopiowano && !r.agent) { toast('Nie udało się skopiować polecenia (schowek zajęty). Kliknij jeszcze raz za chwilę.', 'error', 12000); return; }
+      b.err = null; b.ta.value = ''; b.clip = ''; b.fromClip = false;
+      gcOpened(b, r, true);
     }).catch(function (e) { btn.disabled = false; onError(errMsg(e)); });
   }
 
   /* ---- pole odpowiedzi czatu (wspólne dla kroku Treść i karty Gotowe) ---- */
   function boxReset(b) {
-    b.ta.value = ''; b.clip = ''; b.fromClip = false; b.busy = false;
-    b.notes.hidden = true;
-    setHint(b, b.idle);
+    b.ta.value = ''; b.clip = ''; b.fromClip = false; b.busy = false; b.opened = false; b.fix = false; b.attach = false; b.step = 0; b.katalog = '';
+    b.err = null; b.errText = ''; b.note = ''; b.view = '';
+    $('#' + b.key + '-attach').replaceChildren();
+    $('#btn-' + b.key + '-folder').hidden = true;
     boxSync(b);
   }
-  /* przycisk jest aktywny, gdy w polu jest odpowiedź; w otwartym folderze prezentacji także wtedy, gdy leży w nim poprawny scenariusz */
+  /* przycisk budowy: aktywny, gdy w polu jest odpowiedź; w otwartym folderze prezentacji także wtedy, gdy leży w nim poprawny scenariusz;
+     przy odrzuconej odpowiedzi nieaktywny i NIE żółty (żółty jest „Poproś czat o poprawkę”) */
   function hasFolderScen(b) { return b === boxes.sc && !!(state.pk && state.pk.scen && state.pk.scen.ok); }
-  function boxSync(b) { b.btn.disabled = (!b.ta.value.trim() && !hasFolderScen(b)) || b.busy; }
-  function setHint(b, text, ok) {
-    b.hint.classList.toggle('ok', !!ok);
-    b.hint.replaceChildren();
-    if (ok) b.hint.appendChild(icon('check'));
-    b.hint.appendChild(document.createTextNode(text));
+  function boxSync(b) {
+    var ready = (!!b.ta.value.trim() || hasFolderScen(b)) && !b.err;
+    b.btn.disabled = !ready || b.busy;
+    if (b.key === 'sc') $('#btn-build').classList.toggle('is-cta', ready);
+    gcRender(b);
   }
-  /* odpowiedź ze schowka: wstawiam do pola, ale niczego nie buduję - to robi dopiero kliknięcie (komunikat to mówi) */
+  /* odpowiedź ze schowka (albo plik zapisany przez agenta): wstawiam do pola, ale niczego nie buduję - to robi dopiero kliknięcie */
   function clipFill(b, text) {
-    b.ta.value = text; b.clip = text; b.fromClip = true;
-    b.notes.hidden = true;
-    setHint(b, b === boxes.sc
-      ? 'Mam odpowiedź czatu ze schowka. Niczego jeszcze nie budowałem: sprawdź ją i kliknij „Zbuduj prezentację”.'
-      : 'Mam odpowiedź czatu ze schowka. Niczego jeszcze nie zmieniłem: kliknij „Zbuduj ponownie”, nowy plik powstanie obok poprzedniego.', true);
+    b.ta.value = text; b.clip = text; b.fromClip = true; b.err = null;
     boxSync(b);
   }
-  /* błąd albo uwagi z save_scenario: czytelnie pod polem, z podpowiedzią, co powiedzieć czatowi */
-  function showScNotes(b, r, title) {
-    $('.eyebrow', b.notes).textContent = title || 'Tej odpowiedzi jeszcze nie zbuduję';
-    var items = [{ typ: 'warn', tekst: errMsg((r && r.blad) || 'Nie udało się zapisać odpowiedzi czatu. Spróbuj jeszcze raz.') }];
-    ((r && r.uwagi) || []).forEach(function (u) { items.push(u); });
-    items.push({ typ: 'info', tekst: 'Wróć do czatu i napisz: „Popraw według wzoru scenariusza i wyślij całość jeszcze raz”. Potem kliknij pod odpowiedzią „Kopiuj”.' });
-    fillNotes(b.notes, b.list, items);
-    setHint(b, '');
-    b.notes.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  /* błąd z save_scenario: jedno zdanie (blad_krotko) + powody w „Szczegółach” */
+  function gcErr(r) {
+    var bl = ((r && r.bledy) || []).map(txt).filter(Boolean), full = errMsg((r && r.blad) || 'Nie udało się zapisać odpowiedzi czatu. Spróbuj jeszcze raz.');
+    return { zd: (r && r.blad_krotko) || 'Z tej odpowiedzi nie da się zbudować slajdów.', bledy: bl.length ? bl : [full], blad: full,
+      uwagi: ((r && r.uwagi) || []).map(txt).filter(Boolean) };
   }
   /* zapis scenariusza, a gdy jest ok - budowa. Uwagi bez błędu: toast + wiersze w szczegółach tworzenia */
   function buildScenario(b) {
     if (b.busy || state.building) return;
     var text = b.ta.value.trim();
     if (!text && hasFolderScen(b)) { startBuild(); return; }   /* scenariusz już leży w folderze: build({scenariusz: true}) bierze najnowszy */
-    if (!text) { setHint(b, 'Najpierw wklej odpowiedź czatu.'); b.ta.focus(); return; }
+    if (!text || b.err) { $('#manual-' + b.key).open = true; b.ta.focus(); return; }
     b.busy = true; boxSync(b);
-    b.notes.hidden = true;
     call('save_scenario', text).then(function (r) {
-      b.busy = false; boxSync(b);
-      if (!r || r.ok === false) { showScNotes(b, r); return; }
+      b.busy = false;
+      if (!r || r.ok === false) { b.err = gcErr(r); b.errText = text; boxSync(b); return; }
+      boxSync(b);
       var uw = (r.uwagi || []).map(txt).filter(Boolean);
       if (uw.length) toast('Przyjąłem scenariusz' + (r.slajdy ? ' (' + num(r.slajdy | 0, 'slajd', 'slajdy', 'slajdów') + ')' : '') + '. Uwagi: ' + uw[0] + (uw.length > 1 ? ' (i ' + (uw.length - 1) + ' kolejnych w szczegółach)' : ''), 'info', 14000);
       startBuild();
@@ -1865,12 +1936,12 @@
     var pk = state.mode === 'pakiet' && res.tryb !== 'dokument';
     $('#ai-old').hidden = pk;
     $('#ai-pakiet').hidden = !pk;
-    $('#btn-copy-agent').hidden = pk && !res.prompt_agent;
+    $('.done-grid').classList.toggle('has-flow', pk);   /* karta z trzema krokami jest szersza */
+    $('#btn-copy-agent').hidden = pk;   /* w karcie pakietu to samo jest pod „Użyj innego czatu” */
+    $('#btn-copy-agent-pk').hidden = !(pk && res.prompt_agent);
     improveOpen = false;
     if (pk) {
-      $('#l-ai').textContent = 'Popraw z AI';
-      $('#imp-plansze').hidden = !res.plansze_folder;
-      $('#imp-paste').hidden = true;
+      $('#l-ai').textContent = 'Dopracuj z AI';
       boxReset(boxes.imp);
       loadTargets();
     }
@@ -1878,20 +1949,19 @@
   }
 
   function initPakiet() {
-    function box(key, o) { o.key = key; o.ta = $(o.ta); o.hint = $(o.hint); o.notes = $(o.notes); o.list = $(o.list); o.btn = $(o.btn); return o; }
+    function box(key, o) { o.key = key; o.ta = $(o.ta); o.btn = $(o.btn); return o; }
     boxes = {
-      sc: box('sc', { ta: '#in-sc', hint: '#sc-hint', notes: '#sc-notes', list: '#sc-notes-list', btn: '#btn-build',
-        idle: 'Wstawię odpowiedź sam, gdy kliknisz pod nią „Kopiuj” w czacie. Możesz też wkleić ją ręcznie (Ctrl+V).' }),
-      imp: box('imp', { ta: '#in-imp', hint: '#imp-hint', notes: '#imp-notes', list: '#imp-notes-list', btn: '#btn-imp-build',
-        idle: 'Gdy czat odpowie, kliknij pod odpowiedzią „Kopiuj”.' })
+      sc: box('sc', { ta: '#in-sc', btn: '#btn-build' }),
+      imp: box('imp', { ta: '#in-imp', btn: '#btn-imp-build' })
     };
     Object.keys(boxes).forEach(function (k) {
       var b = boxes[k];
-      b.ta.addEventListener('input', function () {
-        b.fromClip = false;
-        b.notes.hidden = true;
-        setHint(b, b.ta.value.trim() ? (k === 'sc' ? 'Gotowe? Kliknij „Zbuduj prezentację”.' : 'Gotowe? Kliknij „Zbuduj ponownie”.') : b.idle);
-        boxSync(b);
+      b.ta.addEventListener('input', function () { b.fromClip = false; b.err = null; boxSync(b); });
+      $('#btn-' + k + '-sent').addEventListener('click', function () { b.step = 2; boxSync(b); });          /* „Wysłałem”: krok 3, czekam na odpowiedź */
+      $('#btn-' + k + '-reopen').addEventListener('click', function () { b.step = 0; boxSync(b); });         /* „Otwórz jeszcze raz”: wracam do kroku 1 */
+      $('#btn-' + k + '-fix').addEventListener('click', function () { fixChat(b); });
+      $('#btn-' + k + '-folder').addEventListener('click', function () {   /* ten sam folder, który program otworzył przy czacie */
+        if (b.katalog) call('open_folder', b.katalog).then(openResult).catch(function (e) { onError(errMsg(e)); });
       });
       boxReset(b);
     });

@@ -21,13 +21,34 @@ import platforma  # noqa: E402
 
 
 
+def bez_czatu():
+    """Tryb testowy (DK_TEST_BEZ_CZATU=1, logs/e2e_pakiet.py): nic nie otwiera czatów, aplikacji ani Eksploratora i nie rusza schowka."""
+    return os.environ.get("DK_TEST_BEZ_CZATU") == "1"
+
+
+_ATRAPA_SCHOWKA = [None]    # schowek w trybie testowym: prawdziwy schowek użytkownika zostaje nietknięty
+
+
+def uruchom(fn, *args):
+    """Otwarcie czegokolwiek poza programem (czat, aplikacja, Eksplorator, plik). W trybie testowym tylko log i True (jak „się udało”)."""
+    if bez_czatu():
+        engine._log_file("TEST (DK_TEST_BEZ_CZATU) - pomijam %s %s" % (getattr(fn, "__name__", fn), repr(args)[:400]))
+        return True
+    return fn(*args)
+
+
 def set_clipboard(text):
-    """Tekst do schowka (Windows: ctypes, macOS: pbcopy; patrz platforma.py). True/False."""
+    """Tekst do schowka (Windows: ctypes, macOS: pbcopy; patrz platforma.py). True/False. Tryb testowy: atrapa w pamięci."""
+    if bez_czatu():
+        _ATRAPA_SCHOWKA[0] = text
+        return True
     return platforma.schowek_ustaw(text)
 
 
 def get_clipboard():
-    """Tekst ze schowka albo None. Tylko odczyt: niczego nie zmienia ani nie czyści; tekst ponad 1 MB pomijamy."""
+    """Tekst ze schowka albo None. Tylko odczyt: niczego nie zmienia ani nie czyści; tekst ponad 1 MB pomijamy. Tryb testowy: atrapa."""
+    if bez_czatu():
+        return _ATRAPA_SCHOWKA[0]
     return platforma.schowek_pobierz()
 
 
@@ -37,6 +58,21 @@ def _korzen_dysku(d):
     return os.path.dirname(d) == d
 
 
+def _polecenie_naprawy(folder, tekst, bledy, slajdy, agent):
+    """Polecenie „Poproś czat o poprawkę” z engine.polecenie_naprawy_ai; gdy tej wersji silnika brakuje funkcji - zapas ze skilla
+    (scenariusz.polecenie_naprawy, bez wersji agenta), a gdy i jej nie ma - zdanie po ludzku (ValueError trafia do okna)."""
+    f = getattr(engine, "polecenie_naprawy_ai", None)
+    if f:
+        return f(folder, tekst, bledy, slajdy, agent)
+    S = engine.scenariusz_modul()
+    pol = getattr(S, "polecenie_naprawy", None)
+    if pol is None:
+        raise ValueError("Ta wersja programu nie umie jeszcze poprosić czatu o poprawkę. Zaktualizuj program.")
+    n = int(slajdy or 12)
+    return {"tekst": pol(S.wyciagnij(tekst) or tekst or "", [str(b) for b in (bledy or [])][:6], n), "do_zalaczenia": [], "uwagi": [],
+            "katalog": os.path.join(folder, folder_prez.ZRODLA), "slajdy": n, "poprawka": True, "naprawa": True, "zapisz_jako": "", "plansze_info": []}
+
+
 class Api:
     def __init__(self):
         self._window = None
@@ -44,6 +80,7 @@ class Api:
         self._pliki = []        # pełne ścieżki plików z ostatniej analizy pakietu (kopiowane do Źródeł w create_folder)
         self._limit = None      # limit slajdów z ostatniego polecenia dla AI (suwak) - do kontroli scenariusza
         self._cancel = threading.Event()
+        self._wynik = None      # wynik ostatniej udanej budowy (plansze() bierze z niego plansze); nowa analiza go zeruje
 
     # --- wywołania z JS ---------------------------------------------------------------------------------------
     def get_info(self):
@@ -85,6 +122,7 @@ class Api:
 
     def analyze(self, path):
         try:
+            self._wynik = None
             t = time.time()
             res = engine.analyze(path)
             engine._log_file("analiza: %.1f s (%s)" % (time.time() - t, res.get("plik") or res["folder"]))
@@ -99,6 +137,7 @@ class Api:
         """Analiza listy ścieżek (upuszczonych albo wybranych): jeden folder produktu / .pptx / folder prezentacji = jak `analyze` (+ "tryb");
         inne pliki = "tryb": "pakiet" z propozycją folderu prezentacji (folder powstaje dopiero w create_folder)."""
         try:
+            self._wynik = None
             t = time.time()
             res = engine.analyze_many(paths)
             engine._log_file("analiza (%d): %.1f s (%s)" % (len(paths or []), time.time() - t, res.get("tryb")))
@@ -153,6 +192,7 @@ class Api:
             res = engine.safe_build(self.folder, opts, progress=self._progress, log=lambda t: self._js("App.onLog", t),
                                     cancel=self._cancel)
             if res.get("ok"):
+                self._wynik = res     # plansze() oddaje jego plansze do miniatur
                 self._js("App.onDone", res)
             else:
                 if res.get("traceback"):   # szczegóły techniczne tylko w „Pokaż szczegóły” i w logu, nie w komunikacie
@@ -172,7 +212,7 @@ class Api:
         p = str(p or "")
         if os.path.exists(p):
             try:
-                platforma.otworz(p)
+                uruchom(platforma.otworz, p)
                 return {"ok": True, "komunikat": ""}
             except OSError:
                 engine._log_file(traceback.format_exc())
@@ -184,10 +224,10 @@ class Api:
         p = str(p or "")
         try:
             if os.path.isfile(p):
-                platforma.pokaz_w_folderze(p)
+                uruchom(platforma.pokaz_w_folderze, p)
                 return {"ok": True, "komunikat": ""}
             if os.path.isdir(p):
-                platforma.otworz(p)
+                uruchom(platforma.otworz, p)
                 return {"ok": True, "komunikat": ""}
         except OSError:
             engine._log_file(traceback.format_exc())
@@ -200,7 +240,7 @@ class Api:
         d = os.path.dirname(p.rstrip(chr(92) + "/"))
         if d and os.path.isdir(d) and not _korzen_dysku(d):
             try:
-                platforma.otworz(d)
+                uruchom(platforma.otworz, d)
                 return {"ok": True, "komunikat": "Nie znajduję %s - został przeniesiony albo usunięty. Otwieram folder, w którym był." % co}
             except OSError:
                 engine._log_file(traceback.format_exc())
@@ -248,9 +288,9 @@ class Api:
         appid = engine.find_app(app)
         try:
             if appid:  # aplikacja na komputerze ma dostęp do plików, przeglądarka nie
-                platforma.uruchom_aplikacje(appid)
+                uruchom(platforma.uruchom_aplikacje, appid)
             else:
-                platforma.otworz(engine.adres_czatu(ktory, url, t))
+                uruchom(platforma.otworz, engine.adres_czatu(ktory, url, t))
         except OSError:
             engine._log_file(traceback.format_exc())
             return {"ok": False, "blad": "Nie udało się otworzyć czatu %s. Otwórz go ręcznie%s." % (
@@ -273,7 +313,42 @@ class Api:
         """Jak prepare_ai, ale polecenie poprawki scenariusza po budowie (uwagi i plansze z ostatniego raportu); bez scenariusza - jak prepare_ai."""
         return self._ai(ktory, opts, True)
 
-    def _ai(self, ktory, opts, poprawka):
+    def fix_ai(self, ktory, tekst, bledy, opts=None):
+        """„Poproś czat o poprawkę”: odrzucona odpowiedź + powody -> gotowe polecenie poprawki do schowka i otwarcie tego samego czatu (agent z plikami:
+        POLECENIE-POPRAWKA.md i nowa sesja z folderem). tekst = odrzucona odpowiedź, bledy = powody (z save_scenario). Wynik jak prepare_ai."""
+        return self._ai(ktory, opts, True, {"tekst": tekst or "", "bledy": bledy or []})
+
+    def plansze(self, szer=240):
+        """Plansze ostatniej budowy (obrazy do dołączenia w czacie) do miniatur w oknie: {"ok", "folder", "plansze": [{"plik", "sciezka", "opis",
+        "miniatura"}]}. "miniatura" = data URI JPEG, tak samo jak miniatury slajdów w wyniku budowy (wprost do <img src>). Źródło: ostatnia
+        budowa z tego okna, a bez niej raport.json folderu prezentacji. Brak plansz = pusta lista."""
+        try:
+            res = self._wynik or {}
+            pliki, folder = res.get("plansze") or [], res.get("plansze_folder") or ""
+            if not pliki and self.folder and os.path.isdir(self.folder):
+                with open(os.path.join(self.folder, "_robocze", "raport.json"), encoding="utf8") as f:
+                    r = json.load(f)
+                pliki, folder = r.get("plansze") or [], r.get("plansze_folder") or ""
+            pliki = [p for p in pliki if os.path.isfile(p)]
+            info = engine.plansze_info(pliki, int(szer))
+            for i, x in enumerate(info):
+                x["sciezka"] = next((p for p in pliki if os.path.basename(p) == x["plik"]), "")
+            return {"ok": True, "folder": folder, "plansze": info}
+        except (OSError, ValueError):
+            return {"ok": True, "folder": "", "plansze": []}     # brak raportu = jeszcze nie było budowy
+        except Exception as e:
+            engine._log_file(traceback.format_exc())
+            return {"ok": False, "folder": "", "plansze": [], "blad": engine.komunikat_bledu(e, engine.BLAD_TWORZENIA)}
+
+    def test_schowek(self, ustaw=None):
+        """TYLKO tryb testowy (DK_TEST_BEZ_CZATU=1): odczyt (a z `ustaw` - zapis) atrapy schowka. Poza trybem testowym zwraca None i niczego nie robi."""
+        if not bez_czatu():
+            return None
+        if ustaw is not None:
+            _ATRAPA_SCHOWKA[0] = ustaw
+        return _ATRAPA_SCHOWKA[0]
+
+    def _ai(self, ktory, opts, poprawka, naprawa=None):
         try:
             opts = opts or {}
             folder = self.folder
@@ -282,26 +357,35 @@ class Api:
             cele = {c["id"]: c for c in engine.ai_cele()}
             if ktory not in cele:
                 return {"ok": False, "blad": "Nieznany czat."}
-            p = (engine.polecenie_poprawki_ai(folder, opts.get("slajdy")) if poprawka else None) or \
-                engine.polecenie_przygotowania_ai(folder, opts.get("slajdy"))
+            agent = ktory in ("claude_cowork", "claude_code")     # agent z dostępem do plików: czyta folder sam, zapisuje wynik w folderze
+            if naprawa is not None:
+                p = _polecenie_naprawy(folder, naprawa["tekst"], naprawa["bledy"], opts.get("slajdy") or getattr(self, "_limit", None), agent)
+            else:
+                p = (poprawka and engine.polecenie_poprawki_ai(folder, opts.get("slajdy"), agent)) or engine.polecenie_przygotowania_ai(folder, opts.get("slajdy"))
+            poprawka = bool(p.get("poprawka"))     # bez scenariusza „popraw” = zwykłe przygotowanie
             self._limit = p["slajdy"]
-            folder_prez.zapisz_ustawienie("ostatni_ai", ktory)
+            folder_prez.zapisz_ustawienie("ostatni_czat", ktory)
             engine.zapisz_polecenie(folder)    # POLECENIE.md w folderze: Claude Code i inni agenci czytają je z dysku
+            krotkie = engine.POLECENIE_CLAUDE_CODE
+            if agent and poprawka:
+                engine.zapisz_polecenie_poprawki(folder, p["tekst"])
+                krotkie = engine.POLECENIE_POPRAWKA
             self._prep_t = time.time()   # od tej chwili nowy scenariusz zapisany w folderze przez agenta = odpowiedź (peek_clipboard)
-            if ktory in ("claude_cowork", "claude_code") and not (ktory == "claude_code" and engine.uruchom_claude_code(folder)):
+            self._det = None
+            if agent and not (ktory == "claude_code" and uruchom(engine.uruchom_claude_code, folder, krotkie)):
                 # aplikacja Claude Desktop: nowa sesja Cowork / Code z krótkim poleceniem i folderem; pełne polecenie zostaje w schowku
                 skopiowano = bool(set_clipboard(p["tekst"]))
                 rodzaj = "cowork" if ktory == "claude_cowork" else "code"
                 try:
-                    platforma.otworz(engine.adres_claude(rodzaj, engine.POLECENIE_CLAUDE_CODE, folder))
+                    uruchom(platforma.otworz, engine.adres_claude(rodzaj, krotkie, folder))
                 except OSError:
                     engine._log_file(traceback.format_exc())
                     return {"ok": False, "blad": "Nie udało się otworzyć aplikacji Claude. Otwórz ją ręcznie%s." % (
                         " - polecenie jest w schowku, wystarczy wkleić" if skopiowano else "")}
                 res = {"ok": True, "nazwa": "Claude " + ("Cowork" if rodzaj == "cowork" else "Code"), "klucz": ktory,
                        "skopiowano": skopiowano, "gdzie": "aplikacja"}
-                engine.zapisz_polecenie(folder)
-                return dict(res, blad="", zalaczniki=[], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"], folder=True)
+                return dict(res, blad="", zalaczniki=[], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"], folder=True, agent=True,
+                            poprawka=poprawka, naprawa=bool(naprawa), plansze_info=[])
             if ktory == "claude_code":
                 res = {"ok": True, "nazwa": "Claude Code", "klucz": ktory, "skopiowano": False, "gdzie": "terminal"}
             else:
@@ -310,10 +394,11 @@ class Api:
                     return res
             if p["do_zalaczenia"] and os.path.isdir(p["katalog"]):    # obrazy, zrzuty i PDF-y czat dostaje od użytkownika
                 try:
-                    platforma.otworz(p["katalog"])
+                    uruchom(platforma.otworz, p["katalog"])
                 except OSError:
                     engine._log_file(traceback.format_exc())
-            res.update(blad="", zalaczniki=p["do_zalaczenia"], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"])
+            res.update(blad="", zalaczniki=p["do_zalaczenia"], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"],
+                       agent=agent, poprawka=poprawka, naprawa=bool(naprawa), plansze_info=p.get("plansze_info") or [])
             return res
         except Exception as e:
             engine._log_file(traceback.format_exc())
@@ -326,15 +411,16 @@ class Api:
             t = get_clipboard()
             if folder_prez.wyglada_na_scenariusz(t):
                 return engine.scenariusz_modul().wyciagnij(t)
-            # agent z dostępem do folderu (Claude Cowork / Code) zapisał scenariusz sam: plik nowszy niż otwarcie czatu, nie ruszany od 3 s
+            # agent z dostępem do folderu (Claude Cowork / Code) zapisał scenariusz sam (też poprawkę: nowy scenariusz-N.md): plik nowszy niż
+            # otwarcie czatu, nie ruszany od 3 s. Ten sam plik (ta sama data zapisu) zgłaszam raz; gdy agent go przepisze, zgłaszam znowu.
             od = getattr(self, "_prep_t", None)
             if od and self.folder and os.path.isdir(self.folder):
                 sc, _nr = folder_prez.najnowszy_scenariusz(self.folder)
-                if sc and od < os.path.getmtime(sc) < time.time() - 3:
+                if sc and od < os.path.getmtime(sc) < time.time() - 3 and (sc, os.path.getmtime(sc)) != getattr(self, "_det", None):
                     with open(sc, encoding="utf-8-sig") as f:
                         md = engine.scenariusz_modul().wyciagnij(f.read())
                     if md:
-                        self._prep_t = None    # raz; kolejny zapis agenta wykryje się po kolejnym otwarciu czatu
+                        self._det = (sc, os.path.getmtime(sc))
                         return md
             return None
         except Exception:
