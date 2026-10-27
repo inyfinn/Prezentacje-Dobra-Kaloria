@@ -54,7 +54,10 @@ HIDDEN = ["openpyxl", "tifffile", "webview.platforms.cocoa", "webview.dom", "PIL
 
 a = Analysis([os.path.join(SRC, "app", "main_gui.py")], pathex=[os.path.join(SRC, "app"), os.path.join(SRC, "skill", "scripts")],
              binaries=[], datas=datas, hiddenimports=HIDDEN, hookspath=[], runtime_hooks=[], excludes=EXCLUDES,
-             noarchive=False)
+             noarchive=False,
+             # python-pptx otwiera szablony ścieżką pptx/oxml/../templates: na macOS folder pptx/oxml musi istnieć na dysku
+             # (Windows skraca „..” bez sprawdzania folderu) - moduły pptx także jako pliki .py obok archiwum
+             module_collection_mode={"pptx": "pyz+py"})
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="stworz-prezentacje", debug=False, bootloader_ignore_signals=False,
           strip=False, upx=False, console=False, argv_emulation=False, target_arch=None, codesign_identity=None,
