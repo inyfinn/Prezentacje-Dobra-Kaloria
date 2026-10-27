@@ -11,6 +11,7 @@ import shutil
 import time
 
 import paths
+import platforma
 
 M_BAZA = r"M:\- POLSKA\02 - FIRMOWE MATERIAŁY\PREZENTACJE"
 ZRODLA = "Źródła"
@@ -54,8 +55,9 @@ def zapisz_ustawienie(klucz, wartosc):
 
 # --- baza i nazwa folderu --------------------------------------------------------------------------------------------
 def baza_m():
-    """Folder prezentacji firmy na dysku M:. DK_PREZ_BAZA podmienia go (testy, inny dysk)."""
-    return os.environ.get("DK_PREZ_BAZA") or M_BAZA
+    """Folder prezentacji firmy na dysku M:. DK_PREZ_BAZA podmienia go (testy, inny dysk). Na Macu nie ma dysku M: - pusta baza,
+    więc domyślnie wybierane są Dokumenty."""
+    return os.environ.get("DK_PREZ_BAZA") or ("" if platforma.mac() else M_BAZA)
 
 
 def zapisywalny(d):

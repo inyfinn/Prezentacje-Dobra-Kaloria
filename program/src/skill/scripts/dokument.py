@@ -629,6 +629,9 @@ def _przez_word(plik, rob):
     """Plik doc / rtf / odt / pdf -> kopia .docx w katalogu roboczym (Word w OSOBNEJ instancji, bez okna; Word użytkownika zostaje
     nietknięty). Brak Worda albo błąd = ValueError po polsku."""
     wyj = os.path.join(rob, _nazwa_pliku(plik) + " (z Worda).docx")
+    if sys.platform != "win32":    # Word przez COM jest tylko na Windows
+        raise ValueError("Plików %s program nie czyta na Macu. Otwórz plik w jakimkolwiek edytorze, zapisz jako .docx (albo .txt, "
+                         "albo PDF) i spróbuj ponownie." % os.path.splitext(plik)[1].lower())
     ps1 = os.path.join(rob, "_word.ps1")
     with open(ps1, "w", encoding="utf-8-sig") as f:
         f.write(_PS_WORD)
@@ -2917,6 +2920,9 @@ def _ps(skrypt, *arg):
 def _qa(spec, out, rob, spec_path):
     """Kontrole z PowerPointem + pętla poprawek: zrzuty (`<robocze>\\zrzuty`), pomiar zrzutów (oko.py), kontrola tekstu (verify.ps1);
     przy usterkach do 2 rund zamiany wariantu układu (`petla_poprawek`). Wypisuje wynik ostatniej kontroli."""
+    if sys.platform != "win32":    # zrzuty i kontrola tekstu to PowerPoint (COM)
+        print("Na Macu bez podglądu slajdów: otwórz plik i sprawdź.")
+        return
     png = os.path.join(rob, "zrzuty")
     ost = {"verify": ""}
 

@@ -476,6 +476,9 @@ def build_and_qa(spec_path, rob):
         return None
     pptx = m.group(1)
     name = os.path.splitext(os.path.basename(pptx))[0]
+    if sys.platform != "win32":    # render.ps1 i verify.ps1 wymagają PowerPointa (Windows)
+        print("Na Macu bez podglądu slajdów: otwórz plik i sprawdź.")
+        return pptx
     png = os.path.join(rob, "qa", name)
     ps = lambda script, *a: subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",  # noqa: E731
                                             os.path.join(HERE, script), *a], capture_output=True, text=True,

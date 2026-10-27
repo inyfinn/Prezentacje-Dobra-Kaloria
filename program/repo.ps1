@@ -23,9 +23,16 @@ foreach ($f in "build.ps1", "wydaj.ps1", "repo.ps1", "zip_release.py", "ikona.py
     Copy-Item -LiteralPath (Join-Path $W $f) -Destination (Join-Path $Repo "program\$f") -Force
 }
 New-Item -ItemType Directory -Force (Join-Path $Repo "program\testy") | Out-Null
-foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1", "test_u_innych.ps1", "test_prompty.py", "test_update.py", "miniatury_typow.py") {
+foreach ($f in "e2e_gui.py", "start_test.ps1", "launcher_test.ps1", "test_u_innych.ps1", "test_prompty.py", "test_update.py", "test_platforma.py", "miniatury_typow.py") {
     $p = Join-Path $W "logs\$f"
     if (Test-Path -LiteralPath $p) { Copy-Item -LiteralPath $p -Destination (Join-Path $Repo "program\testy\$f") -Force }
+}
+# macOS: budowa .app i obrazu .dmg w GitHub Actions (workflow uruchamiany ręcznie; wynik = artefakt, NIE Release). Tylko dokłada.
+$mac = Join-Path $W "mac"
+if (Test-Path -LiteralPath $mac) {
+    Mirror $mac (Join-Path $Repo "program\mac") @("_wynik", "__pycache__") @("*.pyc", "*.icns")
+    New-Item -ItemType Directory -Force (Join-Path $Repo ".github\workflows") | Out-Null
+    Copy-Item -LiteralPath (Join-Path $mac "github-workflow-mac.yml") -Destination (Join-Path $Repo ".github\workflows\mac.yml") -Force
 }
 $ds = Join-Path $HOME ".claude\skills\ds-dobra-kaloria"
 if (Test-Path -LiteralPath $ds) { Mirror $ds (Join-Path $Repo "design-system") @("__pycache__", ".playwright-cli") @("*.pyc") }

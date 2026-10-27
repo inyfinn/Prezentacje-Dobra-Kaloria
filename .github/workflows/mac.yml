@@ -1,0 +1,50 @@
+# Budowa programu "Stwórz prezentację" dla macOS (Apple Silicon). Uruchamiana RĘCZNIE: Actions -> "Mac" -> Run workflow.
+# Wynik: artefakt "Prezentacje-na-Maca" z obrazem "Prezentacje na Maca.dmg". To NIE jest GitHub Release - wydania (Release)
+# dotyczą Windows i uruchamiają aktualizację u użytkowników Windows, więc tutaj ich nie tworzymy.
+# Plik leży w repozytorium jako .github/workflows/mac.yml (kopiuje go WORK/repo.ps1 z WORK/mac/github-workflow-mac.yml).
+name: Mac
+
+on:
+  workflow_dispatch:
+
+env:
+  PROG: program        # folder programu w repozytorium (src, mac, wersja.txt)
+
+jobs:
+  mac:
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: ${{ env.PROG }}/mac/requirements-mac.txt
+
+      - name: Pakiety
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r "$PROG/mac/requirements-mac.txt"
+
+      - name: Test logiki macOS (bez prawdziwych skrótów systemu)
+        continue-on-error: true      # informacyjnie: nie blokuje budowy
+        run: |
+          pip install pytest
+          python -m pytest -q -p no:cacheprovider "$PROG/testy/test_platforma.py"
+
+      - name: Budowa .app i obrazu DMG
+        run: bash "$PROG/mac/buduj-mac.sh"
+
+      - name: Wersja
+        id: wersja
+        run: echo "wersja=$(tr -d '[:space:]' < "$PROG/wersja.txt")" >> "$GITHUB_OUTPUT"
+
+      - name: Artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: Prezentacje-na-Maca-${{ steps.wersja.outputs.wersja }}
+          path: ${{ env.PROG }}/mac/_wynik/Prezentacje na Maca.dmg
+          if-no-files-found: error
+          retention-days: 30

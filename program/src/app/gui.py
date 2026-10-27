@@ -3,7 +3,7 @@
 import ctypes
 import json
 import os
-import subprocess
+import subprocess  # noqa: F401 - testy podmieniają gui.subprocess.Popen
 import threading
 import time
 import traceback
@@ -16,84 +16,19 @@ import engine  # noqa: E402
 import folder_prez  # noqa: E402
 import update  # noqa: E402
 import paths  # noqa: E402
+import platforma  # noqa: E402
 
 
 
 
 def set_clipboard(text):
-    CF_UNICODETEXT, GMEM_MOVEABLE = 13, 0x0002
-    k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
-    # Typy muszą być podane jawnie: bez nich ctypes obcina 64-bitowy uchwyt do 32 bitów
-    # ("access violation writing 0x0" przy dłuższym tekście - błąd z 29.09.2026)
-    k32.GlobalAlloc.restype = ctypes.c_void_p
-    k32.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
-    k32.GlobalLock.restype = ctypes.c_void_p
-    k32.GlobalLock.argtypes = [ctypes.c_void_p]
-    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
-    k32.GlobalFree.argtypes = [ctypes.c_void_p]
-    u32.OpenClipboard.argtypes = [ctypes.c_void_p]
-    u32.SetClipboardData.restype = ctypes.c_void_p
-    u32.SetClipboardData.argtypes = [ctypes.c_uint, ctypes.c_void_p]
-    data = text.encode("utf-16-le") + b"\x00\x00"
-    for _ in range(10):  # schowek bywa chwilowo zajęty przez inny program
-        if u32.OpenClipboard(None):
-            break
-        time.sleep(0.05)
-    else:
-        return False
-    try:
-        u32.EmptyClipboard()
-        h = k32.GlobalAlloc(GMEM_MOVEABLE, len(data))
-        if not h:
-            return False
-        p = k32.GlobalLock(h)
-        if not p:
-            k32.GlobalFree(h)
-            return False
-        ctypes.memmove(p, data, len(data))
-        k32.GlobalUnlock(h)
-        if not u32.SetClipboardData(CF_UNICODETEXT, h):
-            k32.GlobalFree(h)
-            return False
-        return True
-    finally:
-        u32.CloseClipboard()
+    """Tekst do schowka (Windows: ctypes, macOS: pbcopy; patrz platforma.py). True/False."""
+    return platforma.schowek_ustaw(text)
 
 
 def get_clipboard():
-    """Tekst ze schowka (CF_UNICODETEXT) albo None. Tylko odczyt: niczego nie zmienia ani nie czyści. Gdy schowek jest chwilowo
-    zajęty przez inny program - None (okno zapyta za sekundę); tekst ponad 1 MB pomijamy."""
-    CF_UNICODETEXT = 13
-    k32, u32 = ctypes.windll.kernel32, ctypes.windll.user32
-    k32.GlobalLock.restype = ctypes.c_void_p
-    k32.GlobalLock.argtypes = [ctypes.c_void_p]
-    k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
-    k32.GlobalSize.restype = ctypes.c_size_t
-    k32.GlobalSize.argtypes = [ctypes.c_void_p]
-    u32.OpenClipboard.argtypes = [ctypes.c_void_p]
-    u32.GetClipboardData.restype = ctypes.c_void_p
-    u32.GetClipboardData.argtypes = [ctypes.c_uint]
-    if not u32.IsClipboardFormatAvailable(CF_UNICODETEXT):   # bez otwierania schowka: zwykle nie ma tekstu
-        return None
-    for _ in range(3):
-        if u32.OpenClipboard(None):
-            break
-        time.sleep(0.03)
-    else:
-        return None
-    try:
-        h = u32.GetClipboardData(CF_UNICODETEXT)
-        if not h or k32.GlobalSize(h) > (1 << 20):
-            return None
-        p = k32.GlobalLock(h)
-        if not p:
-            return None
-        try:
-            return ctypes.wstring_at(p)
-        finally:
-            k32.GlobalUnlock(h)
-    finally:
-        u32.CloseClipboard()
+    """Tekst ze schowka albo None. Tylko odczyt: niczego nie zmienia ani nie czyści; tekst ponad 1 MB pomijamy."""
+    return platforma.schowek_pobierz()
 
 
 def _korzen_dysku(d):
@@ -114,7 +49,7 @@ class Api:
     def get_info(self):
         engine._log_file("most JS<->Python gotowy po %.1f s od startu" % (time.time() - T0))
         return {"wersja": paths.version(), "powerpoint": engine.powerpoint_available(), "szablony": ["nowy", "stary"],
-                "root": paths.ROOT}
+                "root": paths.ROOT, "system": "mac" if platforma.mac() else "windows"}
 
     def _start_dir(self):
         """Katalog startowy okien wyboru: ostatni folder (przy konwersji - folder pliku .pptx)."""
@@ -139,7 +74,7 @@ class Api:
         """Wybór JEDNEGO ALBO WIELU plików do nowej prezentacji: dokumenty, prezentacje, obrazy i zrzuty. Lista ścieżek albo None."""
         wzorce = ["*.pptx", "*.ppsx"] + ["*" + e for e in engine.dok_ext()] + ["*" + e for e in folder_prez.OBRAZ_EXT]
         r = self._window.create_file_dialog(webview.FileDialog.OPEN, directory=self._start_dir(), allow_multiple=True,
-                                            file_types=("Dokumenty, prezentacje i obrazy (%s)" % ";".join(wzorce), "Wszystkie pliki (*.*)"))
+                                            file_types=("Dokumenty i obrazy (%s)" % ";".join(wzorce), "Wszystkie pliki (*.*)"))
         return list(r) if r else None
 
     def pick_parent(self):
@@ -237,7 +172,7 @@ class Api:
         p = str(p or "")
         if os.path.exists(p):
             try:
-                os.startfile(p)
+                platforma.otworz(p)
                 return {"ok": True, "komunikat": ""}
             except OSError:
                 engine._log_file(traceback.format_exc())
@@ -249,14 +184,14 @@ class Api:
         p = str(p or "")
         try:
             if os.path.isfile(p):
-                subprocess.Popen(["explorer", "/select,", p])
+                platforma.pokaz_w_folderze(p)
                 return {"ok": True, "komunikat": ""}
             if os.path.isdir(p):
-                os.startfile(p)
+                platforma.otworz(p)
                 return {"ok": True, "komunikat": ""}
         except OSError:
             engine._log_file(traceback.format_exc())
-            return {"ok": False, "komunikat": "Nie mogę otworzyć folderu. Otwórz go ręcznie w Eksploratorze."}
+            return {"ok": False, "komunikat": "Nie mogę otworzyć folderu. Otwórz go ręcznie w %s." % ("Finderze" if platforma.mac() else "Eksploratorze")}
         return self._brak_pliku(p, "pliku prezentacji" if p.lower().endswith((".pptx", ".ppsx", ".potx", ".pptm")) else "folderu z prezentacją")
 
     def _brak_pliku(self, p, co):
@@ -265,7 +200,7 @@ class Api:
         d = os.path.dirname(p.rstrip(chr(92) + "/"))
         if d and os.path.isdir(d) and not _korzen_dysku(d):
             try:
-                os.startfile(d)
+                platforma.otworz(d)
                 return {"ok": True, "komunikat": "Nie znajduję %s - został przeniesiony albo usunięty. Otwieram folder, w którym był." % co}
             except OSError:
                 engine._log_file(traceback.format_exc())
@@ -275,7 +210,7 @@ class Api:
         r = update.check()
         engine._log_file("aktualizacja: %s" % {k: v for k, v in r.items() if k != "url"})
         self._upd = r if r.get("jest") else None
-        return {k: v for k, v in r.items() if k in ("jest", "wersja", "obecna", "sam", "powod", "strona")}
+        return {k: v for k, v in r.items() if k in ("jest", "wersja", "obecna", "sam", "powod", "strona", "mac")}
 
     def apply_update(self):
         info = getattr(self, "_upd", None)
@@ -313,9 +248,9 @@ class Api:
         appid = engine.find_app(app)
         try:
             if appid:  # aplikacja na komputerze ma dostęp do plików, przeglądarka nie
-                subprocess.Popen(["explorer.exe", "shell:AppsFolder\\" + appid])
+                platforma.uruchom_aplikacje(appid)
             else:
-                os.startfile(engine.adres_czatu(ktory, url, t))
+                platforma.otworz(engine.adres_czatu(ktory, url, t))
         except OSError:
             engine._log_file(traceback.format_exc())
             return {"ok": False, "blad": "Nie udało się otworzyć czatu %s. Otwórz go ręcznie%s." % (
@@ -358,7 +293,7 @@ class Api:
                 skopiowano = bool(set_clipboard(p["tekst"]))
                 rodzaj = "cowork" if ktory == "claude_cowork" else "code"
                 try:
-                    os.startfile(engine.adres_claude(rodzaj, engine.POLECENIE_CLAUDE_CODE, folder))
+                    platforma.otworz(engine.adres_claude(rodzaj, engine.POLECENIE_CLAUDE_CODE, folder))
                 except OSError:
                     engine._log_file(traceback.format_exc())
                     return {"ok": False, "blad": "Nie udało się otworzyć aplikacji Claude. Otwórz ją ręcznie%s." % (
@@ -375,7 +310,7 @@ class Api:
                     return res
             if p["do_zalaczenia"] and os.path.isdir(p["katalog"]):    # obrazy, zrzuty i PDF-y czat dostaje od użytkownika
                 try:
-                    os.startfile(p["katalog"])
+                    platforma.otworz(p["katalog"])
                 except OSError:
                     engine._log_file(traceback.format_exc())
             res.update(blad="", zalaczniki=p["do_zalaczenia"], uwagi=p["uwagi"], slajdy=p["slajdy"], katalog=p["katalog"])
@@ -471,6 +406,8 @@ def _work_area():
 def _window_geometry():
     """(x, y, szer, wys, min_szer, min_wys) w pikselach logicznych: nigdy większe niż obszar roboczy, wyśrodkowane.
     DK_TEST_WORKAREA=1366x720 podmienia wymiary obszaru (test małych ekranów); błąd wykrycia = stare 1160x820."""
+    if not platforma.windows():     # obszar roboczy liczymy przez ctypes.windll; na Macu system sam mieści okno na ekranie
+        return None, None, WIN_W, WIN_H, MIN_W, MIN_H
     try:
         x, y, ww, wh, scale = _work_area()
         zrodlo = "wykryty"
@@ -514,7 +451,8 @@ def run():
     # Ekran powitalny zamykamy PRZED startem okna: trzymany dłużej (do 'loaded') blokował start WebView2 (29.09)
     engine._log_file("start: biblioteki wczytane po %.1f s, zamykam ekran powitalny i otwieram okno" % (time.time() - T0))
 
-    webview.start(after_start, window, gui="edgechromium")  # tryb prywatny: każdy start ma własny, tymczasowy profil WebView2
+    # Windows: WebView2 na sztywno, tryb prywatny (każdy start ma własny, tymczasowy profil). macOS: bez wymuszania (cocoa/WKWebView).
+    webview.start(after_start, window, gui="edgechromium" if platforma.windows() else None)
     # Okno zamknięte = koniec programu. Zamknięcie przed załadowaniem strony zostawiało proces w tle (wątek czekał
     # na 'loaded', 30.09) - taki proces blokuje aktualizację i kolejne uruchomienia.
     engine._log_file("okno zamknięte po %.1f s - koniec programu" % (time.time() - T0))

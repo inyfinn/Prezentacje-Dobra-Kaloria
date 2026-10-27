@@ -8,7 +8,6 @@ zamknięcie programu, kopiuje nowe pliki NA stare (bez kasowania czegokolwiek) i
 Program stojący na dysku sieciowym (wspólny folder, wielu użytkowników naraz) nie aktualizuje się sam -
 tam nową wersję wgrywa opiekun (WORK\\wydaj.ps1).
 """
-import ctypes
 import hashlib
 import json
 import os
@@ -18,11 +17,13 @@ import urllib.request
 import zipfile
 
 import paths
+import platforma
 
 REPO = "inyfinn/Prezentacje-Dobra-Kaloria"
 API = "https://api.github.com/repos/%s/releases/latest" % REPO
 HOSTS = ("https://github.com/", "https://api.github.com/", "https://objects.githubusercontent.com/",
          "https://release-assets.githubusercontent.com/")
+STRONA_MAC = "https://github.com/%s" % REPO     # macOS: nowa wersja z tej strony (program nie podmienia swoich plików)
 UPD_DIR = os.path.join(paths.USER_DIR, "aktualizacja")
 LAUNCHER = "Stwórz prezentację.exe"
 CREATE_NO_WINDOW = 0x08000000
@@ -43,11 +44,12 @@ def _get(url, timeout=8):
 
 
 def can_self_update():
-    """Tylko program spakowany, na dysku lokalnym, w folderze z prawem zapisu."""
+    """Tylko program spakowany, na dysku lokalnym, w folderze z prawem zapisu. macOS: nigdy (nowa wersja = pobranie ze strony)."""
+    if platforma.mac():
+        return False, "na Macu nową wersję pobierasz ręcznie ze strony %s" % STRONA_MAC
     if not paths.FROZEN:
         return False, "wersja deweloperska"
-    drive = os.path.splitdrive(paths.ROOT)[0] + "\\"
-    if ctypes.windll.kernel32.GetDriveTypeW(drive) != 3:  # 3 = dysk stały
+    if not platforma.dysk_lokalny(paths.ROOT):  # Windows: GetDriveTypeW == 3 (dysk stały)
         return False, "program stoi na dysku wspólnym"
     probe = os.path.join(paths.ROOT, "pliki programu", "~zapis.tmp")
     try:
@@ -67,6 +69,11 @@ def check():
         tag = rel.get("tag_name", "")
         zips = [a for a in rel.get("assets", []) if a.get("name", "").lower().endswith(".zip")
                 and "windows" in a.get("name", "").lower()]
+        if platforma.mac():     # wydanie na GitHubie ma tylko paczkę Windows: dla Maca liczy się sam numer wersji, nic się nie pobiera
+            if vtuple(tag) <= vtuple(out["obecna"]):
+                return out
+            out.update(jest=True, wersja=tag.lstrip("v"), sam=False, powod=can_self_update()[1], mac=True, strona=STRONA_MAC)
+            return out
         if not zips or vtuple(tag) <= vtuple(out["obecna"]):
             return out
         a = zips[0]

@@ -43,7 +43,7 @@ import sys
 
 def _attach_console():
     """Wersja okienkowa (.exe bez konsoli) uruchomiona z terminala: podłącz się do konsoli rodzica, żeby AI widziało wynik."""
-    if sys.stdout is not None:
+    if sys.stdout is not None or sys.platform != "win32":
         return
     try:
         if ctypes.windll.kernel32.AttachConsole(-1):

@@ -283,7 +283,7 @@
       $('#update-text').textContent = 'Jest nowa wersja ' + r.wersja + ' (masz ' + r.obecna + ').';
       var b = $('#btn-update');
       if (r.sam) { b.hidden = false; $('#update-note').textContent = 'Trwa ok. minuty. Program sam uruchomi się ponownie.'; }
-      else { b.hidden = true; $('#update-note').textContent = 'Tę kopię zaktualizuje opiekun programu (' + r.powod + ').'; }
+      else { b.hidden = true; $('#update-note').textContent = r.mac ? 'Na Macu pobierz nową wersję ze strony: ' + r.strona : 'Tę kopię zaktualizuje opiekun programu (' + r.powod + ').'; }
       box.hidden = false;
     }).catch(function () { /* brak sieci: program działa bez aktualizacji */ });
   }
@@ -327,7 +327,7 @@
     var list = (i.szablony && i.szablony.length ? i.szablony : ['nowy', 'stary']).map(function (k) { return names[k] || k; });
     f.appendChild(h('span', { text: 'Szablon: ' + list.join(' / ') }));
     if (i.powerpoint === false) {
-      f.appendChild(h('span', { class: 'warn', text: 'Nie widzę programu PowerPoint — zrobię prezentację, ale jej nie sprawdzę.' }));
+      f.appendChild(h('span', { class: 'warn', text: i.system === 'mac' ? 'Na Macu nie sprawdzam slajdów — zrobię prezentację, a Ty otwórz ją i przejrzyj.' : 'Nie widzę programu PowerPoint — zrobię prezentację, ale jej nie sprawdzę.' }));
     }
   }
 

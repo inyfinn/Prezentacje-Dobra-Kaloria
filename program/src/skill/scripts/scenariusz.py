@@ -748,9 +748,19 @@ def polecenie_poprawki(md, uwagi, plansze, slajdy, folder=""):
     return "\n\n".join(cz)
 
 
+def _cli_agenta():
+    """(polecenie, gdzie leży, jak nazwać program, kiedy go nie da się uruchomić). Windows: stworz-cli.exe w folderze programu.
+    Mac (pakiet .app): ten sam plik wykonywalny co okno, z argumentami."""
+    if sys.platform == "darwin" and getattr(sys, "frozen", False):
+        return ('"%s"' % sys.executable, "to plik wykonywalny programu „Stwórz prezentację”, ten sam co okno; z argumentami działa jak wiersz poleceń",
+                "programu", "Claude Cowork, brak programu")
+    return "stworz-cli.exe", "stworz-cli.exe leży w folderze programu „Stwórz prezentację”", "stworz-cli.exe", "Claude Cowork, Mac, brak programu"
+
+
 def polecenie_agenta(folder):
     """Treść POLECENIE.md dla Claude Code / agenta z dostępem do plików: źródła -> scenariusz.md -> budowa -> ocena plansz."""
     scen = os.path.join(folder, "scenariusz.md")
+    cli, gdzie, nazwa, kiedy = _cli_agenta()
     return "\n\n".join([
         "# Polecenie: prezentacja Dobra Kaloria ze scenariusza",
         "Folder prezentacji: %s\nŹródła (docx, pdf, txt, obrazy, zrzuty ekranu): %s\nScenariusz: %s" % (folder, os.path.join(folder, "Źródła"), scen),
@@ -761,13 +771,13 @@ def polecenie_agenta(folder):
         "## Krok 2. Napisz scenariusz\nZapisz %s według formatu poniżej (jeśli plik już jest, popraw go, a nie pisz od zera). "
         "Slajd to plakat: hasło do 8 słów i dopisek do 25 słów. Wzór: skill\\assets\\scenariusz-wzor.md, a w programie plik "
         "app\\skill\\assets\\scenariusz-wzor.md.\n\n%s\n\nWZÓR (tylko format; treść zmyślona):\n\n%s" % (scen, FORMAT, _blok_kodu(wzor())),
-        "## Krok 3. Zbuduj prezentację\n```\nstworz-cli.exe \"%s\" --scenariusz \"%s\" --wyjscie \"%s\"\n```\n"
-        "(stworz-cli.exe leży w folderze programu „Stwórz prezentację”.) Program najpierw sprawdza scenariusz: linie „BŁĄD” to rzeczy, "
+        "## Krok 3. Zbuduj prezentację\n```\n%s \"%s\" --scenariusz \"%s\" --wyjscie \"%s\"\n```\n"
+        "(%s.) Program najpierw sprawdza scenariusz: linie „BŁĄD” to rzeczy, "
         "które musisz poprawić w scenariusz.md (potem uruchom budowę jeszcze raz), „uwagi” to wskazówki. Po budowie wypisuje ścieżkę "
         "pliku .pptx i folder z planszami PNG (zrzuty slajdów, 6 na planszę).\n\n"
-        "Nie możesz uruchomić stworz-cli.exe (np. Claude Cowork, Mac, brak programu)? Skończ na Kroku 2: zapisz scenariusz.md w folderze "
+        "Nie możesz uruchomić %s (np. %s)? Skończ na Kroku 2: zapisz scenariusz.md w folderze "
         "prezentacji i napisz użytkownikowi, żeby wrócił do okna programu „Stwórz prezentację” – program sam znajdzie nowy scenariusz, "
-        "sprawdzi go i zbuduje prezentację. Krok 4 zrobisz po budowie na planszach z folderu `plansze`." % (folder, scen, folder),
+        "sprawdzi go i zbuduje prezentację. Krok 4 zrobisz po budowie na planszach z folderu `plansze`." % (cli, folder, scen, folder, gdzie, nazwa, kiedy),
         "## Krok 4. Oceń plansze\nObejrzyj KAŻDĄ planszę jako obraz. Dla każdego slajdu zapytaj: czy hasło jest krótkie i czytelne, czy dopisek "
         "mieści się bez gęstego tekstu, czy nie ma dużej pustej przestrzeni, czy tabela i obrazy są czytelne. Poprawki wpisuj do scenariusz.md "
         "(nie do pliku .pptx), zmieniając tylko to, co widać na planszach, i buduj ponownie. Najwyżej 3 rundy. Poprzednie wersje pliku "

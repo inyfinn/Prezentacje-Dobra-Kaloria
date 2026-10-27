@@ -25,6 +25,7 @@ import traceback
 
 import paths
 import folder_prez
+import platforma
 
 paths.ensure_user_dirs()
 os.environ.setdefault("DK_GUARD_CACHE", os.path.join(paths.USER_DIR, "wygenerowane.json"))
@@ -214,12 +215,8 @@ CZAS_PPTX = (20.0, 1.0)       # konwersja (na slajd wyniku): składanie + budowa
 
 
 def powerpoint_available():
-    try:
-        import winreg
-        winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"PowerPoint.Application\CurVer"))
-        return True
-    except OSError:
-        return False
+    """Windows: czy jest PowerPoint (zrzuty i kontrola tekstu przez COM). macOS: zawsze False - budowa idzie bez nich."""
+    return platforma.powerpoint_dostepny()
 
 
 def _log_file(text):
@@ -1574,17 +1571,8 @@ AI_CHATS = {"claude": ("Claude", "https://claude.ai/new", "Claude"),
 
 
 def find_app(name):
-    """AppID aplikacji z menu Start o dokładnie tej nazwie (np. Claude) albo None."""
-    if not name or not re.fullmatch(r"[A-Za-z0-9 ]+", name):
-        return None
-    try:
-        cmd = "(Get-StartApps | Where-Object { $_.Name -eq '%s' } | Select-Object -First 1).AppID" % name
-        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
-                           capture_output=True, text=True, timeout=15, creationflags=0x08000000)
-        app = (r.stdout or "").strip().splitlines()
-        return app[0].strip() if app and app[0].strip() else None
-    except Exception:
-        return None
+    """Windows: AppID aplikacji z menu Start o dokładnie tej nazwie (np. Claude). macOS: ścieżka do <Nazwa>.app. Albo None."""
+    return platforma.znajdz_aplikacje(name)
 _NOT_TEXT = re.compile(r"\.(png|jpe?g|tiff?|gif|webp|svg|mp4|pptx|xlsx|docx)$|^[A-Za-z]:[\\/]|^https?://|^[0-9A-Fa-f]{6}$|^[a-z0-9_-]+$", re.I)
 _SKIP_KEYS = {"type", "theme", "image", "images", "icon", "icons", "video", "thumb", "poster", "output", "layout",
               "variant", "color", "bg", "props", "pack", "scene"}
@@ -1619,7 +1607,7 @@ def ai_prompt_chat(nazwa, inv, spec, uwagi, qa=None, max_copy=7000, pptx=None, f
               "Plik prezentacji: %s" % pptx,
               "Folder produktu (karty, copy, grafiki): %s" % folder,
               "Instrukcja programu: %s" % paths.AGENTS_MD,
-              "Program w wersji dla AI: %s" % os.path.join(paths.ROOT, "pliki programu", "stworz-cli.exe"),
+              "Program w wersji dla AI: %s" % paths.CLI_EXE,
               "Jeśli masz dostęp do plików (Claude w trybie Cowork albo Code): przeczytaj instrukcję, otwórz folder "
               "i popraw prezentację bezpośrednio w pliku. Jeśli nie masz dostępu do plików: odpowiedz samymi "
               "tekstami według punktów poniżej.", ""]
@@ -1750,8 +1738,12 @@ def _render_i_kontrola(pptx, rob, opts, uwagi, emit, say, zakres=(0.0, 1.0), suf
     elif opts.get("bez_qa"):
         say("Pominięto PowerPoint (--bez-qa): bez osadzania czcionek i kontroli tekstu.")
     else:
-        say("PowerPoint niedostępny - pomijam osadzanie czcionek i kontrolę tekstu.")
-        uwagi.append("Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).")
+        if platforma.mac():
+            say("macOS: program nie robi podglądu slajdów - pomijam osadzanie czcionek i kontrolę tekstu.")
+            uwagi.append("Nie sprawdzono w PowerPoint: na Macu program nie robi podglądu slajdów. Otwórz plik i przejrzyj slajdy.")
+        else:
+            say("PowerPoint niedostępny - pomijam osadzanie czcionek i kontrolę tekstu.")
+            uwagi.append("Nie sprawdzono w PowerPoint (brak PowerPointa na tym komputerze).")
     return qa, thumbs
 
 
@@ -2653,7 +2645,7 @@ def analyze_pakiet(lista, uwagi=None):
     tytul = (modele[0].get("tytul") if modele else "") or os.path.splitext(pliki[0]["nazwa"])[0]
     tytul = " ".join(str(tytul).replace("_", " ").split())
     baza, m_ok = folder_prez.baza_domyslna()
-    if not m_ok and baza == folder_prez.dokumenty_baza():
+    if not m_ok and baza == folder_prez.dokumenty_baza() and not platforma.mac():   # na Macu nie ma dysku M: - nie ma o czym ostrzegać
         uwagi.append("Dysk M: z folderem prezentacji firmy jest teraz niedostępny - proponuję folder w Dokumentach.")
     folder = folder_prez.unikalna_sciezka(baza, folder_prez.nazwa_folderu(tytul))
     sw = _suwaki_pakietu(suwaki)
@@ -2855,7 +2847,7 @@ def ai_cele():
     cele = [{"id": k, "nazwa": v[0], "dostepny": True} for k, v in AI_CHATS.items()]
     if claude_protokol():   # aplikacja Claude Desktop: sesja Cowork z dostępem do folderu prezentacji
         cele.insert(1, {"id": "claude_cowork", "nazwa": "Claude Cowork (z folderem)", "dostepny": True})
-    if shutil.which("claude") or claude_protokol():
+    if platforma.znajdz_claude() or claude_protokol():
         cele.append({"id": "claude_code", "nazwa": "Claude Code", "dostepny": True})
     ost = folder_prez.ustawienia().get("ostatni_ai")
     ost = ost if ost in {c["id"] for c in cele} else cele[0]["id"]
@@ -2874,13 +2866,8 @@ def adres_czatu(ktory, url, tekst):
 
 
 def claude_protokol():
-    """True, gdy Windows zna schemat claude:// (zainstalowana aplikacja Claude Desktop)."""
-    try:
-        import winreg
-        winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "claude"))
-        return True
-    except OSError:
-        return False
+    """True, gdy system zna schemat claude:// (Windows: wpis w rejestrze; macOS: jest Claude.app) - zainstalowana aplikacja Claude Desktop."""
+    return platforma.schemat_claude()
 
 
 def adres_claude(rodzaj, polecenie, folder=None):
@@ -2895,17 +2882,9 @@ def adres_claude(rodzaj, polecenie, folder=None):
 
 
 def uruchom_claude_code(folder, polecenie=POLECENIE_CLAUDE_CODE):
-    """Nowe okno terminala w folderze prezentacji z `claude` i krótkim poleceniem. Windows Terminal (wt), a gdy go nie ma - zwykła
-    konsola. Lista argumentów, jedna powłoka, bez zagnieżdżonych cudzysłowów. False, gdy `claude` nie jest w PATH."""
-    claude = shutil.which("claude")
-    if not claude or not os.path.isdir(folder):
-        return False
-    wt = shutil.which("wt")
-    if wt:
-        subprocess.Popen([wt, "-d", folder, claude, polecenie])
-    else:
-        subprocess.Popen(["cmd.exe", "/k", "claude", polecenie], cwd=folder, creationflags=subprocess.CREATE_NEW_CONSOLE)
-    return True
+    """Nowe okno terminala w folderze prezentacji z `claude` i krótkim poleceniem (Windows: wt albo konsola, macOS: Terminal.app przez
+    osascript - szczegóły w platforma.py). False, gdy `claude` nie jest zainstalowany."""
+    return platforma.uruchom_claude_code(folder, polecenie)
 
 
 # --- budowa: folder prezentacji ---------------------------------------------------------------------------------------

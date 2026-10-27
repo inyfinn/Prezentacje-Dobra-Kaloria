@@ -1,0 +1,22 @@
+# Pakiety programu "Stwórz prezentację" na macOS (Python 3.12, Apple Silicon). Wersje z "==" jak na Windows (tam sprawdzone), reszta: minimum.
+#   pip install -r requirements-mac.txt
+# Okno: pywebview na macOS używa systemowego WKWebView przez pyobjc (pythonnet i clr to tylko Windows - tu ich nie ma).
+pywebview==6.2.1
+pyobjc-core>=9.0
+pyobjc-framework-Cocoa>=9.0
+pyobjc-framework-Quartz>=9.0
+pyobjc-framework-WebKit>=9.0
+pyobjc-framework-Security>=9.0
+pyobjc-framework-UniformTypeIdentifiers>=9.0
+# Silnik: prezentacje, obrazy, dokumenty
+python-pptx==1.0.2
+lxml>=6.0
+Pillow>=12.0
+numpy>=2.0
+openpyxl==3.1.5
+tifffile
+PyMuPDF>=1.26
+pypdf>=6.0
+# Budowa paczki .app
+pyinstaller==6.20.0
+pyinstaller-hooks-contrib

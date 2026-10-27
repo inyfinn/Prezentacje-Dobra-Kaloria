@@ -1070,6 +1070,9 @@ def online_videos(out):
     from pptx import Presentation as _P
     if not any(sh.name.startswith("ONLINE|") for sl in _P(out).slides for sh in sl.shapes):
         return 0
+    if sys.platform != "win32":    # film wstawia PowerPoint (COM) - poza Windows zostaje obraz z linkiem do filmu
+        print("Wideo online: pomijam (wstawia je PowerPoint na Windows) - w slajdzie zostaje obraz z linkiem do filmu.")
+        return 0
     ps = os.path.join(os.path.dirname(os.path.abspath(__file__)), "online_video.ps1")
     r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps, "-Src", out],
                        capture_output=True, text=True, encoding="cp852", errors="replace")  # konsola PS 5.1 = OEM
