@@ -18,9 +18,18 @@ WZOR="$PROG/src/skill/assets/scenariusz-wzor.md"
 
 D="$(mktemp -d "${TMPDIR:-/tmp}/dk-smoke.XXXXXX")"
 mkdir -p "$D/Źródła"
-cp "$WZOR" "$D/scenariusz.md"
-# wzór odwołuje się do obrazu Źródła/baton-przyklad.jpg - atrapa
-"$PY" -c 'import sys; from PIL import Image; Image.new("RGB", (900, 600), (40, 140, 70)).save(sys.argv[1])' "$D/Źródła/baton-przyklad.jpg"
+# wzór z podmienionymi nazwami własnymi: program (od 1.3.1) odrzuca scenariusz przepisany 1:1 z przykładu
+"$PY" - "$WZOR" "$D/scenariusz.md" <<'PYEOF'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8").read()
+for a, b in (("Baton Przykład", "Kulki Testowe"), ("baton-przyklad", "kulki-test"), ("Anna Przykładowa", "Jan Testowy")):
+    t = t.replace(a, b)
+t = re.sub(r"^(\s*tytu[łl]\s*:).*$", r"\1 Kulki Testowe dla sklepów", t, count=1, flags=re.M)
+open(sys.argv[2], "w", encoding="utf-8").write(t)
+PYEOF
+for f in $(grep -o 'Źródła/[^)]*' "$D/scenariusz.md" | sed 's#Źródła/##' | sort -u); do
+  "$PY" -c 'import sys; from PIL import Image; Image.new("RGB", (900, 600), (40, 140, 70)).save(sys.argv[1])' "$D/Źródła/$f"
+done
 echo "folder prezentacji: $D"
 
 # CLI: ten sam plik wykonywalny co okno, z argumentami (kod 0 = gotowe). Na Macu nie ma PowerPointa, więc bez zrzutów i kontroli tekstu.
